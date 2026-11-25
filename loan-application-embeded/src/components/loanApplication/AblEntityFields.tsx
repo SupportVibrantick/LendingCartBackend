@@ -31,7 +31,7 @@ const CurrencyInput = ({
       value={value}
       onChange={(e) => onChange(formatCurrencyInput(e.target.value))}
       placeholder="0"
-      className="w-full rounded-md border border-slate-300 py-1 pl-7 pr-4 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200"
+      className="w-full rounded-md border border-slate-300 py-1 pl-7 pr-4 text-sm outline-none focus:border-[#4C78F5]/50 focus:ring-2 focus:ring-[#4C78F5]/15 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200"
     />
   </div>
 );
@@ -85,7 +85,7 @@ export default function AblEntityFields({
             value={ebitdaWithNoi}
             onChange={(e) => onEbitdaChange(formatCurrency(e.target.value))}
             placeholder="0"
-            className="w-full rounded-md border border-slate-300 py-1 pl-7 pr-4 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200"
+            className="w-full rounded-md border border-slate-300 py-1 pl-7 pr-4 text-sm outline-none focus:border-[#4C78F5]/50 focus:ring-2 focus:ring-[#4C78F5]/15 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200"
           />
         </div>
       </div>

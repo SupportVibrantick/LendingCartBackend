@@ -183,7 +183,7 @@ export default function GetLoanPage() {
           <button
             type="button"
             onClick={() => setSubmitted(false)}
-            className="mt-6 rounded-lg bg-[#13538A] px-4 py-2.5 text-sm font-semibold text-white hover:bg-[#0E426E]"
+            className="mt-6 inline-flex h-10 items-center justify-center rounded-xl bg-[#4C78F5] px-5 text-sm font-semibold text-white transition hover:bg-[#3B66E0]"
           >
             Submit Another Application
           </button>
@@ -223,8 +223,19 @@ export default function GetLoanPage() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 px-4 py-6 sm:px-6">
+    <div className="min-h-screen bg-slate-50 px-3 py-5 font-[Inter,system-ui,sans-serif] sm:px-5 sm:py-6">
       <div className="mx-auto w-full max-w-6xl">
+        <div className="mb-4 rounded-2xl border border-slate-200 bg-white px-4 py-4 sm:px-5">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[#4C78F5]">
+            Loan application
+          </p>
+          <h1 className="mt-1 text-xl font-semibold tracking-tight text-slate-900">
+            Apply for financing
+          </h1>
+          <p className="mt-1 text-sm text-slate-500">
+            Complete each step below. Your progress is saved on this device.
+          </p>
+        </div>
         <LoanApplication
           embedded
           publicEmbed

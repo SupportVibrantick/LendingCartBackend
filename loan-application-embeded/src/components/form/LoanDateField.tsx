@@ -23,7 +23,7 @@ type LoanDateFieldProps = {
 };
 
 const BASE_INPUT_CLASS =
-  "w-full px-4 py-1 pr-10 rounded-md border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none text-sm";
+  "w-full px-4 py-1 pr-10 rounded-md border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200 focus:ring-2 focus:ring-[#4C78F5]/15 focus:border-[#4C78F5]/50 outline-none text-sm";
 
 const ERROR_INPUT_CLASS =
   "border-red-500 bg-red-50 ring-1 ring-red-200 focus:border-red-500 focus:ring-red-200";
@@ -90,7 +90,7 @@ export default function LoanDateField({
         const clearBtn = document.createElement("button");
         clearBtn.type = "button";
         clearBtn.textContent = "Clear";
-        clearBtn.className = "text-[#13538A] font-medium hover:underline";
+        clearBtn.className = "text-[#4C78F5] font-medium hover:underline";
         clearBtn.onclick = () => {
           instance.clear();
           onChangeRef.current("");
@@ -99,7 +99,7 @@ export default function LoanDateField({
         const todayBtn = document.createElement("button");
         todayBtn.type = "button";
         todayBtn.textContent = "Today";
-        todayBtn.className = "text-[#13538A] font-medium hover:underline";
+        todayBtn.className = "text-[#4C78F5] font-medium hover:underline";
         todayBtn.onclick = () => {
           instance.setDate(new Date(), true);
         };

@@ -1,4 +1,4 @@
-@import url("https://fonts.googleapis.com/css2?family=Outfit:wght@100..900&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap");
 @import "flatpickr/dist/flatpickr.css";
 
 @import "tailwindcss";
@@ -8,10 +8,14 @@
 @custom-variant dark (&:where(.dark, .dark *));
 
 :root {
-  --primary-color: #2c92d5;
+  --primary-color: #4c78f5;
+  --primary-hover: #3b66e0;
+  --primary-soft: rgba(76, 120, 245, 0.08);
   color-scheme: light;
 }
 
 body {
-  font-family: Outfit, system-ui, sans-serif;
+  font-family: Inter, system-ui, sans-serif;
+  background: #f8fafc;
+  color: #0f172a;
 }

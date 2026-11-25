@@ -1324,12 +1324,23 @@ const LoanApplication = ({
     };
   }, []);
 
-  const Stat = ({ label, value }: { label: string; value: string }) => (
-    <div>
-      <p className="text-xs text-slate-500 uppercase">{label}</p>
-      <p className="text-[14px] font-semibold text-[#13538A]">{value}</p>
-    </div>
-  );
+  const Stat = ({ label, value }: { label: string; value: string }) => {
+    const empty = value === "-" || value === "$0";
+    return (
+      <div className="rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-left">
+        <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-slate-500">
+          {label}
+        </p>
+        <p
+          className={`mt-0.5 truncate text-base font-bold tabular-nums leading-none ${
+            empty ? "text-slate-400" : "text-slate-900"
+          }`}
+        >
+          {value}
+        </p>
+      </div>
+    );
+  };
 
   const activeProduct = productsMeta.find(
     (p: any) => p.loanProductCode === selectedProduct,
@@ -2619,17 +2630,13 @@ const LoanApplication = ({
 
   const renderField = (field: any, hasError?: boolean) => {
     const commonClasses = `
-  w-full px-4 py-1 text-sm rounded-md border transition
+  h-10 w-full rounded-lg border bg-white px-3 text-sm text-slate-800 outline-none transition
+  focus:border-[#4C78F5]/50 focus:ring-2 focus:ring-[#4C78F5]/15
   ${
     hasError
-      ? "border-red-500 bg-red-50 dark:bg-red-900/20"
-      : "border-slate-300 dark:border-slate-600"
+      ? "border-rose-500 bg-rose-50"
+      : "border-slate-200"
   }
-  bg-white dark:bg-slate-900
-  text-slate-800 dark:text-slate-200
-  focus:ring-2 focus:ring-blue-500/20
-  focus:border-blue-500
-  outline-none
   `;
 
     switch (field.type) {
@@ -2753,11 +2760,11 @@ const LoanApplication = ({
         return (
           <div
             className={`
-      flex flex-wrap gap-6 mt-2 text-sm p-2 rounded-md border
+      flex flex-wrap gap-6 mt-2 text-sm p-2 rounded-lg border
       ${
         hasError
           ? "border-red-500 bg-red-50 dark:bg-red-900/20"
-          : "border-slate-300 dark:border-slate-600"
+          : "border-slate-200 dark:border-slate-600"
       }
       bg-white dark:bg-slate-900
       text-slate-800 dark:text-slate-200
@@ -2782,11 +2789,11 @@ const LoanApplication = ({
         return (
           <div
             className={`
-      flex flex-wrap gap-4 mt-2 text-sm p-2 rounded-md border
+      flex flex-wrap gap-4 mt-2 text-sm p-2 rounded-lg border
       ${
         hasError
           ? "border-red-500 bg-red-50 dark:bg-red-900/20"
-          : "border-slate-300 dark:border-slate-600"
+          : "border-slate-200 dark:border-slate-600"
       }
       bg-white dark:bg-slate-900
       text-slate-800 dark:text-slate-200
@@ -3628,8 +3635,8 @@ const LoanApplication = ({
       <div
         className={
           embedded
-            ? "bg-transparent"
-            : "min-h-screen bg-slate-50 px-6 py-4 dark:bg-slate-900"
+            ? "bg-transparent font-[Inter,system-ui,sans-serif]"
+            : "min-h-screen bg-slate-50 px-4 py-4 font-[Inter,system-ui,sans-serif] sm:px-6"
         }
       >
         {/* ===== FIXED HEADER SECTION ===== */}
@@ -3637,19 +3644,19 @@ const LoanApplication = ({
           className={
             embedded
               ? "w-full pb-2"
-              : "max-w-7xl mx-auto px-8 w-full sticky top-[1px] z-30 bg-slate-50 dark:bg-slate-900 pb-2"
+              : "sticky top-[1px] z-30 w-full border-b border-slate-200/80 bg-slate-50/95 pb-3 backdrop-blur-sm"
           }
         >
           {/* HEADER */}
-          <div className="mb-2">
+          <div className="mb-3">
             {/* BACK BUTTON */}
             {!embedded && (
               <button
                 type="button"
                 onClick={() => navigate(-1)}
-                className="mb-3 inline-flex items-center gap-2 rounded-lg border border-[#13538A]/25 bg-white px-3 py-2 text-sm font-semibold text-[#13538A] shadow-sm transition hover:border-[#13538A]/50 hover:bg-[#13538A]/5 hover:shadow dark:border-sky-500/30 dark:bg-slate-900 dark:text-sky-300 dark:hover:bg-sky-500/10"
+                className="mb-3 inline-flex h-9 items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 text-sm font-semibold text-[#4C78F5] transition hover:bg-[#4C78F5]/[0.06]"
               >
-                <IoArrowBack size={18} />
+                <IoArrowBack size={16} />
                 {portalConfig.backLabel}
               </button>
             )}
@@ -3657,13 +3664,16 @@ const LoanApplication = ({
             {/* TITLE */}
             {!embedded && (
               <div>
-                <h2 className="text-xl font-bold leading-tight text-[#13538A]">
+                <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[#4C78F5]">
+                  Application
+                </p>
+                <h2 className="mt-1 text-xl font-semibold tracking-tight text-slate-900">
                   {mode === "update"
                     ? "Update Loan Application"
                     : "New Loan Application"}
                 </h2>
 
-                <p className="mt-0.5 text-xs text-slate-500">
+                <p className="mt-1 text-sm text-slate-500">
                   {mode === "update"
                     ? "Review and update the submitted application details"
                     : "Complete all steps to submit your loan request for lender matching."}
@@ -3671,7 +3681,7 @@ const LoanApplication = ({
               </div>
             )}
             {draftEnabled ? (
-              <div className="mt-2 flex flex-col gap-2 rounded-md border border-sky-200 bg-sky-50 px-3 py-2 text-xs text-sky-950 sm:flex-row sm:items-center sm:justify-between dark:border-sky-800 dark:bg-sky-950/40 dark:text-sky-100">
+              <div className="mt-3 flex flex-col gap-2 rounded-xl border border-[#4C78F5]/20 bg-[#4C78F5]/[0.06] px-3 py-2.5 text-xs text-slate-700 sm:flex-row sm:items-center sm:justify-between">
                 <p>
                   {restoredDraftSavedAt
                     ? `Progress restored from ${formatDraftSavedAt(restoredDraftSavedAt)}. It is saved automatically on this device.`
@@ -3681,7 +3691,7 @@ const LoanApplication = ({
                 <button
                   type="button"
                   onClick={handleStartNewApplication}
-                  className="shrink-0 font-semibold text-[#13538A] underline underline-offset-2 hover:text-[#0e3d66] dark:text-sky-200"
+                  className="shrink-0 font-semibold text-[#4C78F5] underline underline-offset-2 hover:text-[#3B66E0]"
                 >
                   Start new application
                 </button>
@@ -3695,21 +3705,15 @@ const LoanApplication = ({
             onStepClick={handleStepClick}
           />
 
-          {/* STATS BOX */}
-          <div
-            className="
-bg-blue-50 dark:bg-slate-800
-border border-blue-200 dark:border-slate-700
-rounded-2xl p-6 shadow-sm
-"
-          >
+          {/* STATS */}
+          <div className="mt-3">
             {selectionBannerText && (
-              <div className="mb-4 rounded-lg bg-[#13538A] px-4 py-2.5 text-center text-sm font-semibold text-white">
+              <div className="mb-3 rounded-xl border border-[#4C78F5]/20 bg-[#4C78F5]/[0.06] px-3 py-2 text-center text-sm font-semibold text-[#4C78F5]">
                 {selectionBannerText}
               </div>
             )}
 
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-6 text-center">
+            <div className="grid grid-cols-2 gap-2.5 md:grid-cols-3 xl:grid-cols-6">
               <Stat label="Monthly Payment" value={monthlyPaymentDisplay} />
               <Stat label="LTV %" value={ltv !== "-" ? `${ltv}%` : "-"} />
               <Stat label="LTC %" value={ltc !== "-" ? `${ltc}%` : "-"} />
@@ -3721,13 +3725,18 @@ rounded-2xl p-6 shadow-sm
         </div>
 
         {/* Body */}
-        <div className={embedded ? "w-full" : "max-w-7xl mx-auto px-8 w-full"}>
+        <div className="w-full">
           {/* ================= STEP 0 ================= */}
           {currentStep === 0 && (
-            <div className="mt-6 relative z-10 border border-slate-200 dark:border-slate-700 rounded-2xl p-6 bg-white dark:bg-slate-800">
-              <h3 className="text-lg font-semibold mb-6 dark:text-white">
-                Step 1: Loan Request
-              </h3>
+            <div className="relative z-10 mt-4 overflow-hidden rounded-2xl border border-slate-200 bg-white p-4 shadow-none sm:p-5">
+              <div className="mb-5 border-b border-slate-100 pb-4">
+                <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[#4C78F5]">
+                  Step 1
+                </p>
+                <h3 className="mt-1 text-base font-semibold text-slate-900">
+                  Loan Request
+                </h3>
+              </div>
 
               {/* ================= LOAN CATEGORY ================= */}
               <div
@@ -3742,14 +3751,14 @@ rounded-2xl p-6 shadow-sm
                 }`}
                 data-field="category"
               >
-                <label className="block text-sm font-medium text-slate-600 dark:text-slate-300 mb-3">
-                  Select a Loan Category <span className="text-red-500">*</span>
+                <label className="mb-2.5 block text-sm font-semibold text-slate-700">
+                  Select a Loan Category <span className="text-rose-500">*</span>
                 </label>
                 {errors["category"] ? (
-                  <p className="mb-2 text-xs text-red-500">{errors["category"]}</p>
+                  <p className="mb-2 text-sm text-rose-500">{errors["category"]}</p>
                 ) : null}
 
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                <div className="grid grid-cols-2 gap-2.5 md:grid-cols-4">
                   {categories.map((category: LoanCategory) => {
                     const Icon = CATEGORY_ICONS[category] || Settings;
                     const locked = !isLoanCategoryAllowed(
@@ -3768,30 +3777,27 @@ rounded-2xl p-6 shadow-sm
                           if (locked) return;
                           setSelectedCategory(category);
                         }}
-                        className={`relative flex-shrink-0 flex flex-col items-center justify-center gap-1 
-        w-full min-h-[84px] rounded-xl border transition-all text-center px-2 py-2
-        disabled:cursor-not-allowed
-        
-        ${
-          locked
-            ? "bg-slate-50 dark:bg-slate-900/60 border-slate-200 dark:border-slate-700 text-slate-400 dark:text-slate-500 opacity-80"
-            : isSelected
-              ? "bg-[#13538A] text-white border-[#13538A] shadow-md"
-              : "bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:shadow-md"
-        }`}
+                        className={`relative flex w-full min-h-[88px] flex-col items-center justify-center gap-1.5 rounded-xl border px-2 py-2.5 text-center transition disabled:cursor-not-allowed ${
+                          locked
+                            ? "border-slate-200 bg-slate-50 text-slate-400 opacity-80"
+                            : isSelected
+                              ? "border-[#4C78F5] bg-[#4C78F5]/[0.06] text-[#4C78F5]"
+                              : "border-slate-200 bg-white text-slate-600 hover:border-[#4C78F5]/40"
+                        }`}
                       >
-                        <Icon
-                          size={20}
-                          className={
+                        <span
+                          className={`inline-flex h-9 w-9 items-center justify-center rounded-lg ${
                             locked
-                              ? "text-slate-400 dark:text-slate-500"
+                              ? "bg-slate-100 text-slate-400"
                               : isSelected
-                                ? "text-white"
-                                : "text-[#13538A]"
-                          }
-                        />
+                                ? "bg-[#4C78F5] text-white"
+                                : "bg-[#4C78F5]/10 text-[#4C78F5]"
+                          }`}
+                        >
+                          <Icon size={18} />
+                        </span>
 
-                        <span className="text-xs font-semibold leading-tight px-1">
+                        <span className="px-1 text-sm font-semibold leading-tight">
                           {CATEGORY_LABELS[category] || category}
                         </span>
                       </button>
@@ -3842,16 +3848,16 @@ rounded-2xl p-6 shadow-sm
                       setActiveSectionIndex(null);
                     }}
                     data-field="selectedProduct"
-                    className={`w-full px-4 py-1 rounded-md border
-border-slate-300 dark:border-slate-600
+                    className={`w-full px-4 py-1 rounded-lg border
+border-slate-200 dark:border-slate-600
 bg-white dark:bg-slate-900
 text-slate-800 dark:text-slate-200
-focus:ring-2 focus:ring-blue-500/20
-focus:border-blue-500 outline-none text-sm disabled:cursor-not-allowed disabled:opacity-60 disabled:bg-slate-100 dark:disabled:bg-slate-800 ${
-                      fieldErrorClass("selectedProduct") || "border-slate-300"
+focus:ring-2 focus:ring-[#4C78F5]/15
+focus:border-[#4C78F5]/50 outline-none text-sm disabled:cursor-not-allowed disabled:opacity-60 disabled:bg-slate-100 dark:disabled:bg-slate-800 ${
+                      fieldErrorClass("selectedProduct") || "border-slate-200"
                     }
-  bg-white focus:ring-2 focus:ring-blue-500/20 
-  focus:border-blue-500 outline-none transition text-sm`}
+  bg-white focus:ring-2 focus:ring-[#4C78F5]/15 
+  focus:border-[#4C78F5]/50 outline-none transition text-sm`}
                   >
                     <option value="">
                       {selectedCategory
@@ -3928,14 +3934,14 @@ focus:border-blue-500 outline-none text-sm disabled:cursor-not-allowed disabled:
                           }
                         }}
                         data-field="loanRequest.purpose"
-                        className={`w-full px-4 py-1 rounded-md border
-border-slate-300 dark:border-slate-600
+                        className={`w-full px-4 py-1 rounded-lg border
+border-slate-200 dark:border-slate-600
 bg-white dark:bg-slate-900
 text-slate-800 dark:text-slate-200
-focus:ring-2 focus:ring-blue-500/20
-focus:border-blue-500 outline-none text-sm ${
+focus:ring-2 focus:ring-[#4C78F5]/15
+focus:border-[#4C78F5]/50 outline-none text-sm ${
                           fieldErrorClass("loanRequest.purpose") ||
-                          "border-slate-300"
+                          "border-slate-200"
                         }`}
                       >
                         <option value="">Select purpose</option>
@@ -3971,15 +3977,15 @@ focus:border-blue-500 outline-none text-sm ${
                           onChange={(e) =>
                             updateLoanRequest("subPurpose", e.target.value)
                           }
-                          className={`w-full px-4 py-1 rounded-md border
-border-slate-300 dark:border-slate-600
+                          className={`w-full px-4 py-1 rounded-lg border
+border-slate-200 dark:border-slate-600
 bg-white dark:bg-slate-900
 text-slate-800 dark:text-slate-200
-focus:ring-2 focus:ring-blue-500/20
-focus:border-blue-500 outline-none text-sm ${
+focus:ring-2 focus:ring-[#4C78F5]/15
+focus:border-[#4C78F5]/50 outline-none text-sm ${
                             errors["loanRequest.subPurpose"]
                               ? "border-red-500 bg-red-50"
-                              : "border-slate-300"
+                              : "border-slate-200"
                           }`}
                         >
                           <option value="">Select sub-purpose</option>
@@ -4036,10 +4042,10 @@ focus:border-blue-500 outline-none text-sm ${
                                     option.value,
                                   )
                                 }
-                                className={`rounded-md border px-4 py-2 text-sm font-medium transition ${
+                                className={`rounded-lg border px-4 py-2 text-sm font-medium transition ${
                                   selected
-                                    ? "border-[#13538A] bg-[#13538A] text-white"
-                                    : "border-slate-300 bg-white text-slate-600 hover:bg-slate-50 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800"
+                                    ? "border-[#4C78F5] bg-[#4C78F5] text-white"
+                                    : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800"
                                 }`}
                               >
                                 {option.label}
@@ -4082,7 +4088,7 @@ focus:border-blue-500 outline-none text-sm ${
                           }}
                           className={`relative inline-flex h-6 w-11 shrink-0 rounded-full transition ${
                             formData.loanRequest.sellerFinancing === "yes"
-                              ? "bg-[#13538A]"
+                              ? "bg-[#4C78F5]"
                               : "bg-slate-200 dark:bg-slate-700"
                           }`}
                         >
@@ -4119,7 +4125,7 @@ focus:border-blue-500 outline-none text-sm ${
                                 );
                               }}
                               placeholder="0"
-                              className="w-full pl-7 pr-4 py-1 rounded-md border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 dark:text-slate-200 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none text-sm"
+                              className="w-full pl-7 pr-4 py-1 rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-900 dark:text-slate-200 focus:ring-2 focus:ring-[#4C78F5]/15 focus:border-[#4C78F5]/50 outline-none text-sm"
                             />
                           </div>
                         </div>
@@ -4145,10 +4151,10 @@ focus:border-blue-500 outline-none text-sm ${
                             updateLoanRequest("amount", formatted);
                           }}
                           placeholder="0"
-                          className={`w-full pl-7 pr-4 py-1 rounded-md border dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200 ${
+                          className={`w-full pl-7 pr-4 py-1 rounded-lg border dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200 ${
                             fieldErrorClass("loanRequest.amount") ||
-                            "border-slate-300"
-                          } focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none text-sm`}
+                            "border-slate-200"
+                          } focus:ring-2 focus:ring-[#4C78F5]/15 focus:border-[#4C78F5]/50 outline-none text-sm`}
                         />
                       </div>
                       {errors["loanRequest.amount"] && (
@@ -4198,11 +4204,11 @@ focus:border-blue-500 outline-none text-sm ${
                           updateLoanRequest("interestRate", e.target.value)
                         }
                         placeholder="e.g. 7.5"
-                        className={`w-full px-4 py-1 rounded-md border dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200 ${
+                        className={`w-full px-4 py-1 rounded-lg border dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200 ${
                           errors["loanRequest.brokerPoints"]
                             ? "border-red-500 bg-red-50"
-                            : "border-slate-300"
-                        } focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none text-sm`}
+                            : "border-slate-200"
+                        } focus:ring-2 focus:ring-[#4C78F5]/15 focus:border-[#4C78F5]/50 outline-none text-sm`}
                       />
                       {errors["loanRequest.interestRate"] && (
                         <p className="text-xs text-red-500 mt-1">
@@ -4220,7 +4226,7 @@ focus:border-blue-500 outline-none text-sm ${
                         onChange={(e) =>
                           updateLoanRequest("recourse", e.target.value)
                         }
-                        className="w-full px-4 py-1 rounded-md border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none text-sm"
+                        className="w-full px-4 py-1 rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200 focus:ring-2 focus:ring-[#4C78F5]/15 focus:border-[#4C78F5]/50 outline-none text-sm"
                       >
                         <option value="">Select</option>
                         <option value="FULL_RECOURSE">Full Recourse</option>
@@ -4243,11 +4249,11 @@ focus:border-blue-500 outline-none text-sm ${
                             updateLoanTermIncome("loanTerm", e.target.value)
                           }
                           placeholder="e.g. 12"
-                          className={`w-full px-4 py-1 rounded-md border dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200 ${
+                          className={`w-full px-4 py-1 rounded-lg border dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200 ${
                             errors["loanTermIncome.loanTerm"]
                               ? "border-red-500 bg-red-50"
-                              : "border-slate-300"
-                          } focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none text-sm`}
+                              : "border-slate-200"
+                          } focus:ring-2 focus:ring-[#4C78F5]/15 focus:border-[#4C78F5]/50 outline-none text-sm`}
                         />
                         {errors["loanTermIncome.loanTerm"] && (
                           <p className="text-xs text-red-500 mt-1">
@@ -4264,7 +4270,7 @@ focus:border-blue-500 outline-none text-sm ${
                           onChange={(e) =>
                             updateLoanRequest("rateType", e.target.value)
                           }
-                          className="w-full px-4 py-1 rounded-md border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none text-sm"
+                          className="w-full px-4 py-1 rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200 focus:ring-2 focus:ring-[#4C78F5]/15 focus:border-[#4C78F5]/50 outline-none text-sm"
                         >
                           <option value="INTEREST_ONLY">Interest Only</option>
                           <option value="FIXED">Fixed</option>
@@ -4287,11 +4293,11 @@ focus:border-blue-500 outline-none text-sm ${
                           updateLoanRequest("brokerPoints", e.target.value)
                         }
                         placeholder="e.g. 1.0"
-                        className={`w-full px-4 py-1 rounded-md border dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200 ${
+                        className={`w-full px-4 py-1 rounded-lg border dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200 ${
                           errors["loanRequest.brokerPoints"]
                             ? "border-red-500 bg-red-50"
-                            : "border-slate-300"
-                        } focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none text-sm`}
+                            : "border-slate-200"
+                        } focus:ring-2 focus:ring-[#4C78F5]/15 focus:border-[#4C78F5]/50 outline-none text-sm`}
                       />
                       {errors["loanRequest.brokerPoints"] && (
                         <p className="text-xs text-red-500 mt-1">
@@ -4334,7 +4340,7 @@ focus:border-blue-500 outline-none text-sm ${
                             updateLoanRequest("amortization", e.target.value)
                           }
                           placeholder="e.g. 30"
-                          className="w-full px-4 py-1 rounded-md border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 dark:text-slate-200 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none text-sm"
+                          className="w-full px-4 py-1 rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-900 dark:text-slate-200 focus:ring-2 focus:ring-[#4C78F5]/15 focus:border-[#4C78F5]/50 outline-none text-sm"
                         />
                       </div>
                     ) : null}
@@ -4401,11 +4407,11 @@ focus:border-blue-500 outline-none text-sm ${
                                   )
                                 }
                                 placeholder="0"
-                                className={`w-full rounded-md border py-1 pl-7 pr-4 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200 ${
+                                className={`w-full rounded-lg border py-1 pl-7 pr-4 text-sm outline-none focus:border-[#4C78F5]/50 focus:ring-2 focus:ring-[#4C78F5]/15 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200 ${
                                   errors["loanRequest.purchasePrice"] ||
                                   equityMismatchError
                                     ? "border-red-500 bg-red-50"
-                                    : "border-slate-300"
+                                    : "border-slate-200"
                                 }`}
                               />
                             </div>
@@ -4437,11 +4443,11 @@ focus:border-blue-500 outline-none text-sm ${
                                   )
                                 }
                                 placeholder="0"
-                                className={`w-full rounded-md border py-1 pl-7 pr-4 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200 ${
+                                className={`w-full rounded-lg border py-1 pl-7 pr-4 text-sm outline-none focus:border-[#4C78F5]/50 focus:ring-2 focus:ring-[#4C78F5]/15 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200 ${
                                   errors["loanRequest.downPayment"] ||
                                   equityMismatchError
                                     ? "border-red-500 bg-red-50"
-                                    : "border-slate-300"
+                                    : "border-slate-200"
                                 }`}
                               />
                             </div>
@@ -4490,12 +4496,12 @@ focus:border-blue-500 outline-none text-sm ${
                                       )
                                     }
                                     placeholder="0"
-                                    className={`w-full rounded-md border py-1 pl-7 pr-4 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200 ${
+                                    className={`w-full rounded-lg border py-1 pl-7 pr-4 text-sm outline-none focus:border-[#4C78F5]/50 focus:ring-2 focus:ring-[#4C78F5]/15 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200 ${
                                       errors["loanRequest.rehabCost"] ||
                                       errors["loanRequest.constructionCost"] ||
                                       equityMismatchError
                                         ? "border-red-500 bg-red-50"
-                                        : "border-slate-300"
+                                        : "border-slate-200"
                                     }`}
                                   />
                                 </div>
@@ -4530,10 +4536,10 @@ focus:border-blue-500 outline-none text-sm ${
                                       )
                                     }
                                     placeholder="0"
-                                    className={`w-full rounded-md border py-1 pl-7 pr-4 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200 ${
+                                    className={`w-full rounded-lg border py-1 pl-7 pr-4 text-sm outline-none focus:border-[#4C78F5]/50 focus:ring-2 focus:ring-[#4C78F5]/15 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200 ${
                                       errors["loanRequest.afterRepairValue"]
                                         ? "border-red-500 bg-red-50"
-                                        : "border-slate-300"
+                                        : "border-slate-200"
                                     }`}
                                   />
                                 </div>
@@ -4548,7 +4554,7 @@ focus:border-blue-500 outline-none text-sm ${
 
                         {(isFixAndFlipProduct(selectedProduct) ||
                           isConstructionLoanProduct(selectedProduct)) && (
-                          <div className="mt-3 rounded-md border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/40 p-3 text-xs text-slate-600 dark:text-slate-300">
+                          <div className="mt-3 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/40 p-3 text-xs text-slate-600 dark:text-slate-300">
                             <span className="font-semibold">
                               Total Amount / Project Cost (Auto):
                             </span>{" "}
@@ -4571,7 +4577,7 @@ focus:border-blue-500 outline-none text-sm ${
                         )}
 
                         <div
-                          className={`mt-3 rounded-md border p-3 text-xs ${
+                          className={`mt-3 rounded-lg border p-3 text-xs ${
                             !hasPurchasePrice
                               ? "border-amber-300 bg-amber-50 text-amber-700 dark:border-amber-700 dark:bg-amber-900/20 dark:text-amber-300"
                               : equityMismatchError
@@ -4650,7 +4656,7 @@ focus:border-blue-500 outline-none text-sm ${
                                   )
                                 }
                                 placeholder="0"
-                                className="w-full rounded-md border border-slate-300 py-1 pl-7 pr-4 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200"
+                                className="w-full rounded-lg border border-slate-200 py-1 pl-7 pr-4 text-sm outline-none focus:border-[#4C78F5]/50 focus:ring-2 focus:ring-[#4C78F5]/15 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200"
                               />
                             </div>
                           </div>
@@ -4677,13 +4683,13 @@ focus:border-blue-500 outline-none text-sm ${
                                   )
                                 }
                                 placeholder="0"
-                                className="w-full rounded-md border border-slate-300 py-1 pl-7 pr-4 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200"
+                                className="w-full rounded-lg border border-slate-200 py-1 pl-7 pr-4 text-sm outline-none focus:border-[#4C78F5]/50 focus:ring-2 focus:ring-[#4C78F5]/15 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200"
                               />
                             </div>
                           </div>
                         </div>
 
-                        <div className="mt-3 rounded-md border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/40 p-3 text-xs text-slate-600 dark:text-slate-300">
+                        <div className="mt-3 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/40 p-3 text-xs text-slate-600 dark:text-slate-300">
                           <span className="font-semibold">Equity (Auto):</span>{" "}
                           ${asIsEquity.toLocaleString()}
                         </div>
@@ -4724,7 +4730,7 @@ focus:border-blue-500 outline-none text-sm ${
                                   )
                                 }
                                 placeholder="0"
-                                className="w-full rounded-md border border-slate-300 py-1 pl-7 pr-4 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200"
+                                className="w-full rounded-lg border border-slate-200 py-1 pl-7 pr-4 text-sm outline-none focus:border-[#4C78F5]/50 focus:ring-2 focus:ring-[#4C78F5]/15 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200"
                               />
                             </div>
                           </div>
@@ -4751,14 +4757,14 @@ focus:border-blue-500 outline-none text-sm ${
                                   )
                                 }
                                 placeholder="0"
-                                className="w-full rounded-md border border-slate-300 py-1 pl-7 pr-4 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200"
+                                className="w-full rounded-lg border border-slate-200 py-1 pl-7 pr-4 text-sm outline-none focus:border-[#4C78F5]/50 focus:ring-2 focus:ring-[#4C78F5]/15 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200"
                               />
                             </div>
                           </div>
                         </div>
 
                         {/* Equity Auto Summary */}
-                        <div className="mt-3 rounded-md border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/40 p-3 text-xs text-slate-600 dark:text-slate-300">
+                        <div className="mt-3 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/40 p-3 text-xs text-slate-600 dark:text-slate-300">
                           <span className="font-semibold">Equity (Auto):</span>{" "}
                           ${asIsEquity.toLocaleString()}
                         </div>
@@ -4793,7 +4799,7 @@ focus:border-blue-500 outline-none text-sm ${
                                   )
                                 }
                                 placeholder="0"
-                                className="w-full rounded-md border border-slate-300 py-1 pl-7 pr-4 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200"
+                                className="w-full rounded-lg border border-slate-200 py-1 pl-7 pr-4 text-sm outline-none focus:border-[#4C78F5]/50 focus:ring-2 focus:ring-[#4C78F5]/15 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200"
                               />
                             </div>
                           </div>
@@ -4820,14 +4826,14 @@ focus:border-blue-500 outline-none text-sm ${
                                   )
                                 }
                                 placeholder="0"
-                                className="w-full rounded-md border border-slate-300 py-1 pl-7 pr-4 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200"
+                                className="w-full rounded-lg border border-slate-200 py-1 pl-7 pr-4 text-sm outline-none focus:border-[#4C78F5]/50 focus:ring-2 focus:ring-[#4C78F5]/15 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200"
                               />
                             </div>
                           </div>
                         </div>
 
                         {/* Total Project Cost Auto Summary */}
-                        <div className="mt-3 rounded-md border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/40 p-3 text-xs text-slate-600 dark:text-slate-300">
+                        <div className="mt-3 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/40 p-3 text-xs text-slate-600 dark:text-slate-300">
                           <span className="font-semibold">
                             Total Project Cost (Auto):
                           </span>{" "}
@@ -4854,7 +4860,7 @@ focus:border-blue-500 outline-none text-sm ${
                         }
                         rows={4}
                         placeholder="Describe how the loan funds will be used (e.g., acquisition cost, rehab, closing costs, reserves)..."
-                        className="mt-1 w-full rounded-md border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 dark:text-slate-200 px-4 py-2 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20"
+                        className="mt-1 w-full rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-900 dark:text-slate-200 px-4 py-2 text-sm outline-none focus:border-[#4C78F5]/50 focus:ring-2 focus:ring-[#4C78F5]/15"
                       />
                     </div>
                     {/* Exit Strategy */}
@@ -4870,7 +4876,7 @@ focus:border-blue-500 outline-none text-sm ${
                           }
                           rows={4}
                           placeholder="Describe how you plan to repay or refinance this loan..."
-                          className="mt-1 w-full rounded-md border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 dark:text-slate-200 px-4 py-2 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20"
+                          className="mt-1 w-full rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-900 dark:text-slate-200 px-4 py-2 text-sm outline-none focus:border-[#4C78F5]/50 focus:ring-2 focus:ring-[#4C78F5]/15"
                         />
                       </div>
                     )}
@@ -4883,7 +4889,7 @@ focus:border-blue-500 outline-none text-sm ${
           {/* step-1 — Entity Info */}
           {currentStep === 1 && (
             <div className="mt-6 relative z-10 border border-slate-200 dark:border-slate-700 rounded-2xl p-6 bg-white dark:bg-slate-800">
-              <h3 className="mb-1 inline-block border-b-2 border-[#13538A] pb-2 text-lg font-semibold dark:text-white">
+              <h3 className="mb-4 text-base font-semibold text-slate-900">
                 Step 2: Entity Info
               </h3>
 
@@ -4903,8 +4909,8 @@ focus:border-blue-500 outline-none text-sm ${
                     value={formData.entity.legalName}
                     onChange={(e) => updateEntity("legalName", e.target.value)}
                     placeholder="ABC Holdings LLC"
-                    className={`mt-1 w-full rounded-md border px-4 py-1 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200 ${
-                      fieldErrorClass("entity.legalName") || "border-slate-300"
+                    className={`mt-1 w-full rounded-lg border px-4 py-1 text-sm outline-none focus:border-[#4C78F5]/50 focus:ring-2 focus:ring-[#4C78F5]/15 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200 ${
+                      fieldErrorClass("entity.legalName") || "border-slate-200"
                     }`}
                   />
 
@@ -4924,8 +4930,8 @@ focus:border-blue-500 outline-none text-sm ${
                     data-field="entity.entityType"
                     value={formData.entity.entityType}
                     onChange={(e) => updateEntity("entityType", e.target.value)}
-                    className={`mt-1 w-full rounded-md border px-4 py-1 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200 ${
-                      fieldErrorClass("entity.entityType") || "border-slate-300"
+                    className={`mt-1 w-full rounded-lg border px-4 py-1 text-sm outline-none focus:border-[#4C78F5]/50 focus:ring-2 focus:ring-[#4C78F5]/15 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200 ${
+                      fieldErrorClass("entity.entityType") || "border-slate-200"
                     }`}
                   >
                     <option value="">Select</option>
@@ -4952,7 +4958,7 @@ focus:border-blue-500 outline-none text-sm ${
                     value={formData.entity.dba}
                     onChange={(e) => updateEntity("dba", e.target.value)}
                     placeholder="Doing Business As..."
-                    className="mt-1 w-full rounded-md border border-slate-300 px-4 py-1 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200"
+                    className="mt-1 w-full rounded-lg border border-slate-200 px-4 py-1 text-sm outline-none focus:border-[#4C78F5]/50 focus:ring-2 focus:ring-[#4C78F5]/15 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200"
                   />
                 </div>
 
@@ -4996,9 +5002,9 @@ focus:border-blue-500 outline-none text-sm ${
                       updateEntity("yearsInBusiness", e.target.value)
                     }
                     placeholder="0"
-                    className={`mt-1 w-full rounded-md border px-4 py-1 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200 ${
+                    className={`mt-1 w-full rounded-lg border px-4 py-1 text-sm outline-none focus:border-[#4C78F5]/50 focus:ring-2 focus:ring-[#4C78F5]/15 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200 ${
                       fieldErrorClass("entity.yearsInBusiness") ||
-                      "border-slate-300"
+                      "border-slate-200"
                     }`}
                   />
 
@@ -5061,7 +5067,7 @@ focus:border-blue-500 outline-none text-sm ${
                             )
                           }
                           placeholder="0"
-                          className="w-full rounded-md border border-slate-300 py-1 pl-7 pr-4 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200"
+                          className="w-full rounded-lg border border-slate-200 py-1 pl-7 pr-4 text-sm outline-none focus:border-[#4C78F5]/50 focus:ring-2 focus:ring-[#4C78F5]/15 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200"
                         />
                       </div>
                     </div>
@@ -5074,7 +5080,7 @@ focus:border-blue-500 outline-none text-sm ${
           {currentStep === 2 && (
             <div className="mt-6 relative z-10 border border-slate-200 dark:border-slate-700 rounded-2xl p-6 bg-white dark:bg-slate-800">
               <div className="mb-1 flex items-center gap-2">
-                <h3 className="inline-block border-b-2 border-[#13538A] pb-2 text-lg font-semibold dark:text-white">
+                <h3 className="text-base font-semibold text-slate-900">
                   Step 3:{" "}
                   {selectedCategory === "SBA_USDA" || selectedCategory === "ABL"
                     ? "Collateral Info"
@@ -5083,7 +5089,7 @@ focus:border-blue-500 outline-none text-sm ${
                 {selectedCategory &&
                   (selectedCategory === "SBA_USDA" ||
                     selectedCategory === "ABL") && (
-                    <span className="inline-flex items-center gap-1 rounded-full border border-[#13538A]/30 bg-blue-50 px-2.5 py-1 text-xs font-medium text-[#13538A] dark:bg-blue-900/30">
+                    <span className="inline-flex items-center gap-1 rounded-full border border-[#4C78F5]/30 bg-blue-50 px-2.5 py-1 text-xs font-medium text-[#4C78F5] dark:bg-blue-900/30">
                       {(() => {
                         const Icon = CATEGORY_ICONS[selectedCategory];
                         return Icon ? <Icon className="h-3.5 w-3.5" /> : null;
@@ -5106,10 +5112,10 @@ focus:border-blue-500 outline-none text-sm ${
                         updateLoanRequest("businessAddress", e.target.value)
                       }
                       placeholder="123 Main Street"
-                      className={`mt-1 w-full rounded-md border px-4 py-1 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200 ${
+                      className={`mt-1 w-full rounded-lg border px-4 py-1 text-sm outline-none focus:border-[#4C78F5]/50 focus:ring-2 focus:ring-[#4C78F5]/15 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200 ${
                         errors["loanRequest.businessAddress"]
                           ? "border-red-500 bg-red-50"
-                          : "border-slate-300"
+                          : "border-slate-200"
                       }`}
                     />
 
@@ -5130,10 +5136,10 @@ focus:border-blue-500 outline-none text-sm ${
                       onChange={(e) =>
                         updateLoanRequest("city", e.target.value)
                       }
-                      className={`mt-1 w-full rounded-md border px-4 py-1 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200 ${
+                      className={`mt-1 w-full rounded-lg border px-4 py-1 text-sm outline-none focus:border-[#4C78F5]/50 focus:ring-2 focus:ring-[#4C78F5]/15 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200 ${
                         errors["loanRequest.city"]
                           ? "border-red-500 bg-red-50"
-                          : "border-slate-300"
+                          : "border-slate-200"
                       }`}
                     />
 
@@ -5154,10 +5160,10 @@ focus:border-blue-500 outline-none text-sm ${
                       onChange={(e) =>
                         updateLoanRequest("state", e.target.value)
                       }
-                      className={`mt-1 w-full rounded-md border px-4 py-1 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200 ${
+                      className={`mt-1 w-full rounded-lg border px-4 py-1 text-sm outline-none focus:border-[#4C78F5]/50 focus:ring-2 focus:ring-[#4C78F5]/15 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200 ${
                         errors["loanRequest.state"]
                           ? "border-red-500 bg-red-50"
-                          : "border-slate-300"
+                          : "border-slate-200"
                       }`}
                     >
                       <option value="">Select state</option>
@@ -5190,10 +5196,10 @@ focus:border-blue-500 outline-none text-sm ${
                           .slice(0, 10);
                         updateLoanRequest("zip", value);
                       }}
-                      className={`mt-1 w-full rounded-md border px-4 py-1 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200 ${
+                      className={`mt-1 w-full rounded-lg border px-4 py-1 text-sm outline-none focus:border-[#4C78F5]/50 focus:ring-2 focus:ring-[#4C78F5]/15 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200 ${
                         errors["loanRequest.zip"]
                           ? "border-red-500 bg-red-50"
-                          : "border-slate-300"
+                          : "border-slate-200"
                       }`}
                     />
 
@@ -5229,10 +5235,10 @@ focus:border-blue-500 outline-none text-sm ${
                         onChange={(e) =>
                           updateLoanRequest("collateralType", e.target.value)
                         }
-                        className={`mt-1 w-full appearance-none rounded-md border bg-white px-4 py-2 text-sm leading-snug outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200 ${
+                        className={`mt-1 w-full appearance-none rounded-lg border bg-white px-4 py-2 text-sm leading-snug outline-none focus:border-[#4C78F5]/50 focus:ring-2 focus:ring-[#4C78F5]/15 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200 ${
                           errors["loanRequest.collateralType"]
                             ? "border-red-500 bg-red-50"
-                            : "border-slate-300"
+                            : "border-slate-200"
                         }`}
                         style={{
                           backgroundImage:
@@ -5292,10 +5298,10 @@ focus:border-blue-500 outline-none text-sm ${
                             updateLoanRequest("subPropertyType", "");
                           }
                         }}
-                        className={`mt-1 w-full rounded-md border px-4 py-1 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200 ${
+                        className={`mt-1 w-full rounded-lg border px-4 py-1 text-sm outline-none focus:border-[#4C78F5]/50 focus:ring-2 focus:ring-[#4C78F5]/15 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200 ${
                           errors["loanRequest.propertyType"]
                             ? "border-red-500 bg-red-50"
-                            : "border-slate-300"
+                            : "border-slate-200"
                         }`}
                       >
                         <option value="">
@@ -5339,10 +5345,10 @@ focus:border-blue-500 outline-none text-sm ${
                           updateLoanRequest("subPropertyType", e.target.value)
                         }
                         disabled={!formData.loanRequest.propertyType}
-                        className={`mt-1 w-full rounded-md border px-4 py-1 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200 ${
+                        className={`mt-1 w-full rounded-lg border px-4 py-1 text-sm outline-none focus:border-[#4C78F5]/50 focus:ring-2 focus:ring-[#4C78F5]/15 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200 ${
                           errors["loanRequest.subPropertyType"]
                             ? "border-red-500 bg-red-50"
-                            : "border-slate-300"
+                            : "border-slate-200"
                         }`}
                       >
                         <option value="">
@@ -5379,10 +5385,10 @@ focus:border-blue-500 outline-none text-sm ${
                         updateLoanRequest("businessAddress", e.target.value)
                       }
                       placeholder="123 Main Street"
-                      className={`mt-1 w-full rounded-md border px-4 py-1 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200 ${
+                      className={`mt-1 w-full rounded-lg border px-4 py-1 text-sm outline-none focus:border-[#4C78F5]/50 focus:ring-2 focus:ring-[#4C78F5]/15 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200 ${
                         errors["loanRequest.businessAddress"]
                           ? "border-red-500 bg-red-50"
-                          : "border-slate-300"
+                          : "border-slate-200"
                       }`}
                     />
 
@@ -5403,10 +5409,10 @@ focus:border-blue-500 outline-none text-sm ${
                       onChange={(e) =>
                         updateLoanRequest("city", e.target.value)
                       }
-                      className={`mt-1 w-full rounded-md border px-4 py-1 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200 ${
+                      className={`mt-1 w-full rounded-lg border px-4 py-1 text-sm outline-none focus:border-[#4C78F5]/50 focus:ring-2 focus:ring-[#4C78F5]/15 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200 ${
                         errors["loanRequest.city"]
                           ? "border-red-500 bg-red-50"
-                          : "border-slate-300"
+                          : "border-slate-200"
                       }`}
                     />
 
@@ -5427,10 +5433,10 @@ focus:border-blue-500 outline-none text-sm ${
                       onChange={(e) =>
                         updateLoanRequest("state", e.target.value)
                       }
-                      className={`mt-1 w-full rounded-md border px-4 py-1 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200 ${
+                      className={`mt-1 w-full rounded-lg border px-4 py-1 text-sm outline-none focus:border-[#4C78F5]/50 focus:ring-2 focus:ring-[#4C78F5]/15 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200 ${
                         errors["loanRequest.state"]
                           ? "border-red-500 bg-red-50"
-                          : "border-slate-300"
+                          : "border-slate-200"
                       }`}
                     >
                       <option value="">Select state</option>
@@ -5463,10 +5469,10 @@ focus:border-blue-500 outline-none text-sm ${
                           .slice(0, 10);
                         updateLoanRequest("zip", value);
                       }}
-                      className={`mt-1 w-full rounded-md border px-4 py-1 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200 ${
+                      className={`mt-1 w-full rounded-lg border px-4 py-1 text-sm outline-none focus:border-[#4C78F5]/50 focus:ring-2 focus:ring-[#4C78F5]/15 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200 ${
                         errors["loanRequest.zip"]
                           ? "border-red-500 bg-red-50"
-                          : "border-slate-300"
+                          : "border-slate-200"
                       }`}
                     />
 
@@ -5497,7 +5503,7 @@ focus:border-blue-500 outline-none text-sm ${
                           )
                         }
                         placeholder="e.g. 4"
-                        className="mt-1 w-full rounded-md border border-slate-300 px-4 py-1 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200"
+                        className="mt-1 w-full rounded-lg border border-slate-200 px-4 py-1 text-sm outline-none focus:border-[#4C78F5]/50 focus:ring-2 focus:ring-[#4C78F5]/15 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200"
                       />
                     </div>
                   )}
@@ -5537,17 +5543,17 @@ focus:border-blue-500 outline-none text-sm ${
                         updateLoanRequest("propertyType", e.target.value);
                         updateLoanRequest("subPropertyType", ""); // reset child
                       }}
-                      className={`w-full px-4 py-1 rounded-md border
-border-slate-300 dark:border-slate-600
+                      className={`w-full px-4 py-1 rounded-lg border
+border-slate-200 dark:border-slate-600
 bg-white dark:bg-slate-900
 text-slate-800 dark:text-slate-200
-focus:ring-2 focus:ring-blue-500/20
-focus:border-blue-500 outline-none text-sm ${
+focus:ring-2 focus:ring-[#4C78F5]/15
+focus:border-[#4C78F5]/50 outline-none text-sm ${
                         errors["loanRequest.propertyType"]
                           ? "border-red-500 bg-red-50"
-                          : "border-slate-300"
-                      } bg-white focus:ring-2 focus:ring-blue-500/20
-  focus:border-blue-500 outline-none text-sm`}
+                          : "border-slate-200"
+                      } bg-white focus:ring-2 focus:ring-[#4C78F5]/15
+  focus:border-[#4C78F5]/50 outline-none text-sm`}
                     >
                       <option value="">Select Property Type</option>
                       {Object.keys(PROPERTY_TYPE_MAP).map((type) => (
@@ -5574,17 +5580,17 @@ focus:border-blue-500 outline-none text-sm ${
                         updateLoanRequest("subPropertyType", e.target.value)
                       }
                       disabled={!formData.loanRequest.propertyType}
-                      className={`w-full px-4 py-1 rounded-md border
-border-slate-300 dark:border-slate-600
+                      className={`w-full px-4 py-1 rounded-lg border
+border-slate-200 dark:border-slate-600
 bg-white dark:bg-slate-900
 text-slate-800 dark:text-slate-200
-focus:ring-2 focus:ring-blue-500/20
-focus:border-blue-500 outline-none text-sm ${
+focus:ring-2 focus:ring-[#4C78F5]/15
+focus:border-[#4C78F5]/50 outline-none text-sm ${
                         errors["loanRequest.subPropertyType"]
                           ? "border-red-500 bg-red-50"
-                          : "border-slate-300"
-                      } bg-white focus:ring-2 focus:ring-blue-500/20
-  focus:border-blue-500 outline-none text-sm`}
+                          : "border-slate-200"
+                      } bg-white focus:ring-2 focus:ring-[#4C78F5]/15
+  focus:border-[#4C78F5]/50 outline-none text-sm`}
                     >
                       <option value="">
                         {formData.loanRequest.propertyType
@@ -5623,13 +5629,13 @@ focus:border-blue-500 outline-none text-sm ${
                         )
                       }
                       placeholder="1,500,000"
-                      className={`w-full px-4 py-1 rounded-md border dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200 ${
+                      className={`w-full px-4 py-1 rounded-lg border dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200 ${
                         errors["loanRequest.currentMarketValue"]
                           ? "border-red-500 bg-red-50"
-                          : "border-slate-300"
+                          : "border-slate-200"
                       } 
-          focus:ring-2 focus:ring-blue-500/20 
-          focus:border-blue-500 outline-none transition text-sm`}
+          focus:ring-2 focus:ring-[#4C78F5]/15 
+          focus:border-[#4C78F5]/50 outline-none transition text-sm`}
                     />
                     {errors["loanRequest.currentMarketValue"] && (
                       <p className="text-xs text-red-500 mt-1">
@@ -5655,13 +5661,13 @@ focus:border-blue-500 outline-none text-sm ${
                         )
                       }
                       placeholder="1,200,000"
-                      className={`w-full px-4 py-1 rounded-md border dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200 ${
+                      className={`w-full px-4 py-1 rounded-lg border dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200 ${
                         errors["loanRequest.purchasePrice"]
                           ? "border-red-500 bg-red-50"
-                          : "border-slate-300"
+                          : "border-slate-200"
                       } 
-          focus:ring-2 focus:ring-blue-500/20 
-          focus:border-blue-500 outline-none transition text-sm`}
+          focus:ring-2 focus:ring-[#4C78F5]/15 
+          focus:border-[#4C78F5]/50 outline-none transition text-sm`}
                     />
                     {errors["loanRequest.purchasePrice"] && (
                       <p className="text-xs text-red-500 mt-1">
@@ -5689,13 +5695,13 @@ focus:border-blue-500 outline-none text-sm ${
                         )
                       }
                       placeholder="2,000,000"
-                      className={`w-full px-4 py-1 rounded-md border dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200 ${
+                      className={`w-full px-4 py-1 rounded-lg border dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200 ${
                         errors["loanRequest.afterRepairValue"]
                           ? "border-red-500 bg-red-50"
-                          : "border-slate-300"
+                          : "border-slate-200"
                       }
-    focus:ring-2 focus:ring-blue-500/20
-    focus:border-blue-500 outline-none transition text-sm`}
+    focus:ring-2 focus:ring-[#4C78F5]/15
+    focus:border-[#4C78F5]/50 outline-none transition text-sm`}
                     />
 
                     {errors["loanRequest.afterRepairValue"] && (
@@ -5746,12 +5752,12 @@ focus:border-blue-500 outline-none text-sm ${
                           e.target.value,
                         )
                       }
-                      className={`w-full px-4 py-1 rounded-md border dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200  ${
+                      className={`w-full px-4 py-1 rounded-lg border dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200  ${
                         errors["loanRequest.totalAssets"]
                           ? "border-red-500 bg-red-50"
-                          : "border-slate-300"
+                          : "border-slate-200"
                       }
-    focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none text-sm`}
+    focus:ring-2 focus:ring-[#4C78F5]/15 focus:border-[#4C78F5]/50 outline-none text-sm`}
                     />
                     {errors["loanRequest.totalAssets"] && (
                       <p className="text-xs text-red-500 mt-1">
@@ -5777,12 +5783,12 @@ focus:border-blue-500 outline-none text-sm ${
                           e.target.value,
                         )
                       }
-                      className={`w-full px-4 py-1 rounded-md border dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200  ${
+                      className={`w-full px-4 py-1 rounded-lg border dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200  ${
                         errors["loanRequest.totalLiabilities"]
                           ? "border-red-500 bg-red-50"
-                          : "border-slate-300"
+                          : "border-slate-200"
                       }
-    focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none text-sm`}
+    focus:ring-2 focus:ring-[#4C78F5]/15 focus:border-[#4C78F5]/50 outline-none text-sm`}
                     />
                     {errors["loanRequest.totalLiabilities"] && (
                       <p className="text-xs text-red-500 mt-1">
@@ -5804,15 +5810,15 @@ focus:border-blue-500 outline-none text-sm ${
                         updateLoanRequest("businessAddress", e.target.value)
                       }
                       placeholder="123 Main Street"
-                      className={`mt-1 w-full px-4 py-1 rounded-md border 
+                      className={`mt-1 w-full px-4 py-1 rounded-lg border 
     dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200
     ${
       errors["loanRequest.businessAddress"]
         ? "border-red-500 bg-red-50"
-        : "border-slate-300"
+        : "border-slate-200"
     }
-    focus:ring-2 focus:ring-blue-500/20 
-    focus:border-blue-500 outline-none text-sm`}
+    focus:ring-2 focus:ring-[#4C78F5]/15 
+    focus:border-[#4C78F5]/50 outline-none text-sm`}
                     />
 
                     {errors["loanRequest.businessAddress"] && (
@@ -5833,15 +5839,15 @@ focus:border-blue-500 outline-none text-sm ${
                       onChange={(e) =>
                         updateLoanRequest("city", e.target.value)
                       }
-                      className={`mt-1 w-full px-4 py-1 rounded-md border 
+                      className={`mt-1 w-full px-4 py-1 rounded-lg border 
     dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200
     ${
       errors["loanRequest.city"]
         ? "border-red-500 bg-red-50"
-        : "border-slate-300"
+        : "border-slate-200"
     }
-    focus:ring-2 focus:ring-blue-500/20 
-    focus:border-blue-500 outline-none text-sm`}
+    focus:ring-2 focus:ring-[#4C78F5]/15 
+    focus:border-[#4C78F5]/50 outline-none text-sm`}
                     />
 
                     {errors["loanRequest.city"] && (
@@ -5862,15 +5868,15 @@ focus:border-blue-500 outline-none text-sm ${
                       onChange={(e) =>
                         updateLoanRequest("state", e.target.value)
                       }
-                      className={`w-full px-4 py-1 rounded-md border 
+                      className={`w-full px-4 py-1 rounded-lg border 
     dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200
     ${
       errors["loanRequest.state"]
         ? "border-red-500 bg-red-50"
-        : "border-slate-300"
+        : "border-slate-200"
     }
-    focus:ring-2 focus:ring-blue-500/20 
-    focus:border-blue-500 outline-none text-sm`}
+    focus:ring-2 focus:ring-[#4C78F5]/15 
+    focus:border-[#4C78F5]/50 outline-none text-sm`}
                     >
                       <option value="">Select state</option>
                       {US_STATES.map((state) => (
@@ -5905,15 +5911,15 @@ focus:border-blue-500 outline-none text-sm ${
                         updateLoanRequest("zip", value);
                       }}
                       placeholder="12345 or 12345-6789"
-                      className={`mt-1 w-full px-4 py-1 rounded-md border 
+                      className={`mt-1 w-full px-4 py-1 rounded-lg border 
     dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200
     ${
       errors["loanRequest.zip"]
         ? "border-red-500 bg-red-50"
-        : "border-slate-300"
+        : "border-slate-200"
     }
-    focus:ring-2 focus:ring-blue-500/20 
-    focus:border-blue-500 outline-none text-sm`}
+    focus:ring-2 focus:ring-[#4C78F5]/15 
+    focus:border-[#4C78F5]/50 outline-none text-sm`}
                     />
 
                     {errors["loanRequest.zip"] && (
@@ -5958,7 +5964,7 @@ focus:border-blue-500 outline-none text-sm ${
           {includeCoBrokerBorrowerInformationTab &&
             baseSteps[currentStep] === CO_BROKER_BORROWER_INFO_STEP && (
               <div className="mt-6 relative z-10 rounded-2xl border border-slate-200 bg-white p-6 dark:border-slate-700 dark:bg-slate-800">
-                <h3 className="mb-1 inline-block border-b-2 border-[#13538A] pb-2 text-lg font-semibold dark:text-white">
+                <h3 className="mb-4 text-base font-semibold text-slate-900">
                   Step 4: {CO_BROKER_BORROWER_INFO_STEP}
                 </h3>
                 <p className="mb-4 text-xs text-slate-500">
@@ -5993,7 +5999,7 @@ focus:border-blue-500 outline-none text-sm ${
                                 .value as WorkingWithMortgageBrokerAnswer,
                             }))
                           }
-                          className="h-4 w-4 text-[#13538A] focus:ring-[#13538A]"
+                          className="h-4 w-4 text-[#4C78F5] focus:ring-[#4C78F5]"
                         />
                         {opt.label}
                       </label>
@@ -6045,10 +6051,10 @@ focus:border-blue-500 outline-none text-sm ${
                                 return updated;
                               });
                             }}
-                            className={`w-full px-4 py-1 rounded-md border bg-white dark:bg-slate-900 dark:text-slate-200 text-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none ${
+                            className={`w-full px-4 py-1 rounded-lg border bg-white dark:bg-slate-900 dark:text-slate-200 text-sm focus:ring-2 focus:ring-[#4C78F5]/15 focus:border-[#4C78F5]/50 outline-none ${
                               errors[`referringBroker.${field}`]
                                 ? "border-red-500 bg-red-50"
-                                : "border-slate-300 dark:border-slate-600"
+                                : "border-slate-200 dark:border-slate-600"
                             }`}
                           />
                           {errors[`referringBroker.${field}`] && (
@@ -6088,10 +6094,10 @@ focus:border-blue-500 outline-none text-sm ${
                               return updated;
                             });
                           }}
-                          className={`w-full px-4 py-1 rounded-md border bg-white dark:bg-slate-900 dark:text-slate-200 text-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none ${
+                          className={`w-full px-4 py-1 rounded-lg border bg-white dark:bg-slate-900 dark:text-slate-200 text-sm focus:ring-2 focus:ring-[#4C78F5]/15 focus:border-[#4C78F5]/50 outline-none ${
                             errors["referringBroker.companyName"]
                               ? "border-red-500 bg-red-50"
-                              : "border-slate-300 dark:border-slate-600"
+                              : "border-slate-200 dark:border-slate-600"
                           }`}
                         />
                         {errors["referringBroker.companyName"] && (
@@ -6138,10 +6144,10 @@ focus:border-blue-500 outline-none text-sm ${
                               return updated;
                             });
                           }}
-                          className={`w-full px-4 py-1 rounded-md border bg-white dark:bg-slate-900 dark:text-slate-200 text-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none ${
+                          className={`w-full px-4 py-1 rounded-lg border bg-white dark:bg-slate-900 dark:text-slate-200 text-sm focus:ring-2 focus:ring-[#4C78F5]/15 focus:border-[#4C78F5]/50 outline-none ${
                             errors["referringBroker.phone"]
                               ? "border-red-500 bg-red-50"
-                              : "border-slate-300 dark:border-slate-600"
+                              : "border-slate-200 dark:border-slate-600"
                           }`}
                         />
                         {errors["referringBroker.phone"] && (
@@ -6184,10 +6190,10 @@ focus:border-blue-500 outline-none text-sm ${
                               return updated;
                             });
                           }}
-                          className={`w-full px-4 py-1 rounded-md border bg-white dark:bg-slate-900 dark:text-slate-200 text-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none ${
+                          className={`w-full px-4 py-1 rounded-lg border bg-white dark:bg-slate-900 dark:text-slate-200 text-sm focus:ring-2 focus:ring-[#4C78F5]/15 focus:border-[#4C78F5]/50 outline-none ${
                             errors["referringBroker.email"]
                               ? "border-red-500 bg-red-50"
-                              : "border-slate-300 dark:border-slate-600"
+                              : "border-slate-200 dark:border-slate-600"
                           }`}
                         />
                         {errors["referringBroker.email"] && (
@@ -6207,7 +6213,7 @@ focus:border-blue-500 outline-none text-sm ${
             <>
               {useResidentialBorrowerPanel ? (
                 <div className="mt-6 relative z-10 rounded-2xl border border-slate-200 bg-white p-6 dark:border-slate-700 dark:bg-slate-800">
-                  <h3 className="mb-1 inline-block border-b-2 border-[#13538A] pb-2 text-lg font-semibold dark:text-white">
+                  <h3 className="mb-4 text-base font-semibold text-slate-900">
                     Step 4: Borrower Info
                   </h3>
 
@@ -6447,7 +6453,7 @@ focus:border-blue-500 outline-none text-sm ${
                   <button
                     type="button"
                     onClick={handleAddCoBorrower}
-                    className="mt-4 flex items-center gap-2 rounded-md border border-slate-300 px-4 py-2 text-sm font-medium hover:bg-slate-50 dark:border-slate-600 dark:hover:bg-slate-800"
+                    className="mt-4 flex items-center gap-2 rounded-lg border border-slate-200 px-4 py-2 text-sm font-medium hover:bg-slate-50 dark:border-slate-600 dark:hover:bg-slate-800"
                   >
                     + Add Borrower
                   </button>
@@ -6467,7 +6473,7 @@ rounded-2xl p-6 bg-white dark:bg-slate-800"
                       <button
                         type="button"
                         onClick={handleAddCoBorrower}
-                        className="px-4 py-2 rounded-md border border-slate-300 
+                        className="px-4 py-2 rounded-lg border border-slate-200 
                text-sm font-medium hover:bg-slate-100 transition dark:text-white dark:hover:bg-slate-600"
                       >
                         + Add Co-Borrower
@@ -6494,13 +6500,13 @@ rounded-2xl p-6 bg-white dark:bg-slate-800"
                           onChange={(e) =>
                             updateBorrower("name", e.target.value)
                           }
-                          className={`mt-1 w-full px-4 py-1 rounded-md border dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200 ${
+                          className={`mt-1 w-full px-4 py-1 rounded-lg border dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200 ${
                             errors["borrower.name"]
                               ? "border-red-500 bg-red-50"
-                              : "border-slate-300"
+                              : "border-slate-200"
                           }
-                     focus:ring-2 focus:ring-blue-500/20 
-                     focus:border-blue-500 outline-none text-sm`}
+                     focus:ring-2 focus:ring-[#4C78F5]/15 
+                     focus:border-[#4C78F5]/50 outline-none text-sm`}
                         />
                         {errors["borrower.name"] && (
                           <p className="text-xs text-red-500 mt-1">
@@ -6519,13 +6525,13 @@ rounded-2xl p-6 bg-white dark:bg-slate-800"
                           onChange={(e) =>
                             updateBorrower("entityName", e.target.value)
                           }
-                          className={`mt-1 w-full px-4 py-1 rounded-md border dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200  ${
+                          className={`mt-1 w-full px-4 py-1 rounded-lg border dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200  ${
                             errors["borrower.entityName"]
                               ? "border-red-500 bg-red-50"
-                              : "border-slate-300"
+                              : "border-slate-200"
                           }
-                     focus:ring-2 focus:ring-blue-500/20 
-                     focus:border-blue-500 outline-none text-sm`}
+                     focus:ring-2 focus:ring-[#4C78F5]/15 
+                     focus:border-[#4C78F5]/50 outline-none text-sm`}
                         />
                         {errors["borrower.entityName"] && (
                           <p className="text-xs text-red-500 mt-1">
@@ -6563,13 +6569,13 @@ rounded-2xl p-6 bg-white dark:bg-slate-800"
                               return updated;
                             });
                           }}
-                          className={`mt-1 w-full px-4 py-1 rounded-md border dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200  ${
+                          className={`mt-1 w-full px-4 py-1 rounded-lg border dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200  ${
                             errors["borrower.phone"]
                               ? "border-red-500 bg-red-50"
-                              : "border-slate-300"
+                              : "border-slate-200"
                           }
-                     focus:ring-2 focus:ring-blue-500/20 
-                     focus:border-blue-500 outline-none text-sm`}
+                     focus:ring-2 focus:ring-[#4C78F5]/15 
+                     focus:border-[#4C78F5]/50 outline-none text-sm`}
                         />
                         {errors["borrower.phone"] && (
                           <p className="text-xs text-red-500 mt-1">
@@ -6589,13 +6595,13 @@ rounded-2xl p-6 bg-white dark:bg-slate-800"
                           onChange={(e) =>
                             updateBorrower("email", e.target.value)
                           }
-                          className={`mt-1 w-full px-4 py-1 rounded-md border dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200  ${
+                          className={`mt-1 w-full px-4 py-1 rounded-lg border dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200  ${
                             errors["borrower.email"]
                               ? "border-red-500 bg-red-50"
-                              : "border-slate-300"
+                              : "border-slate-200"
                           }
-                     focus:ring-2 focus:ring-blue-500/20 
-                     focus:border-blue-500 outline-none text-sm`}
+                     focus:ring-2 focus:ring-[#4C78F5]/15 
+                     focus:border-[#4C78F5]/50 outline-none text-sm`}
                         />
                         {errors["borrower.email"] && (
                           <p className="text-xs text-red-500 mt-1">
@@ -6615,13 +6621,13 @@ rounded-2xl p-6 bg-white dark:bg-slate-800"
                           onChange={(e) =>
                             updateBorrower("employer", e.target.value)
                           }
-                          className={`mt-1 w-full px-4 py-1 rounded-md border dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200 ${
+                          className={`mt-1 w-full px-4 py-1 rounded-lg border dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200 ${
                             errors["borrower.employer"]
                               ? "border-red-500 bg-red-50"
-                              : "border-slate-300"
+                              : "border-slate-200"
                           }
-                     focus:ring-2 focus:ring-blue-500/20 
-                     focus:border-blue-500 outline-none text-sm`}
+                     focus:ring-2 focus:ring-[#4C78F5]/15 
+                     focus:border-[#4C78F5]/50 outline-none text-sm`}
                         />
                         {errors["borrower.employer"] && (
                           <p className="text-xs text-red-500 mt-1">
@@ -6679,13 +6685,13 @@ rounded-2xl p-6 bg-white dark:bg-slate-800"
                               return updated;
                             });
                           }}
-                          className={`mt-1 w-full px-4 py-1 rounded-md border dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200 ${
+                          className={`mt-1 w-full px-4 py-1 rounded-lg border dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200 ${
                             errors["borrower.ssn"]
                               ? "border-red-500 bg-red-50"
-                              : "border-slate-300"
+                              : "border-slate-200"
                           }
-                     focus:ring-2 focus:ring-blue-500/20 
-                     focus:border-blue-500 outline-none text-sm`}
+                     focus:ring-2 focus:ring-[#4C78F5]/15 
+                     focus:border-[#4C78F5]/50 outline-none text-sm`}
                         />
                         {errors["borrower.ssn"] && (
                           <p className="text-xs text-red-500 mt-1">
@@ -6705,13 +6711,13 @@ rounded-2xl p-6 bg-white dark:bg-slate-800"
                           onChange={(e) =>
                             updateBorrower("creditScore", e.target.value)
                           }
-                          className={`mt-1 w-full px-4 py-1 rounded-md border dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200 ${
+                          className={`mt-1 w-full px-4 py-1 rounded-lg border dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200 ${
                             errors["borrower.creditScore"]
                               ? "border-red-500 bg-red-50"
-                              : "border-slate-300"
+                              : "border-slate-200"
                           }
-                     focus:ring-2 focus:ring-blue-500/20 
-                     focus:border-blue-500 outline-none text-sm`}
+                     focus:ring-2 focus:ring-[#4C78F5]/15 
+                     focus:border-[#4C78F5]/50 outline-none text-sm`}
                         />
                         {errors["borrower.creditScore"] && (
                           <p className="text-xs text-red-500 mt-1">
@@ -6732,13 +6738,13 @@ rounded-2xl p-6 bg-white dark:bg-slate-800"
                           onChange={(e) =>
                             updateBorrower("address", e.target.value)
                           }
-                          className={`mt-1 w-full px-4 py-1 rounded-md border dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200 ${
+                          className={`mt-1 w-full px-4 py-1 rounded-lg border dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200 ${
                             errors["borrower.address"]
                               ? "border-red-500 bg-red-50"
-                              : "border-slate-300"
+                              : "border-slate-200"
                           }
-                     focus:ring-2 focus:ring-blue-500/20 
-                     focus:border-blue-500 outline-none text-sm`}
+                     focus:ring-2 focus:ring-[#4C78F5]/15 
+                     focus:border-[#4C78F5]/50 outline-none text-sm`}
                         />
                         {errors["borrower.address"] && (
                           <p className="text-xs text-red-500 mt-1">
@@ -6757,13 +6763,13 @@ rounded-2xl p-6 bg-white dark:bg-slate-800"
                           onChange={(e) =>
                             updateBorrower("city", e.target.value)
                           }
-                          className={`mt-1 w-full px-4 py-1 rounded-md border dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200 ${
+                          className={`mt-1 w-full px-4 py-1 rounded-lg border dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200 ${
                             errors["borrower.city"]
                               ? "border-red-500 bg-red-50"
-                              : "border-slate-300"
+                              : "border-slate-200"
                           }
-    focus:ring-2 focus:ring-blue-500/20 
-    focus:border-blue-500 outline-none text-sm`}
+    focus:ring-2 focus:ring-[#4C78F5]/15 
+    focus:border-[#4C78F5]/50 outline-none text-sm`}
                         />
                         {errors["borrower.city"] && (
                           <p className="text-xs text-red-500 mt-1">
@@ -6782,18 +6788,18 @@ rounded-2xl p-6 bg-white dark:bg-slate-800"
                           onChange={(e) =>
                             updateBorrower("state", e.target.value)
                           }
-                          className={`w-full px-4 py-1 rounded-md border
-border-slate-300 dark:border-slate-600
+                          className={`w-full px-4 py-1 rounded-lg border
+border-slate-200 dark:border-slate-600
 bg-white dark:bg-slate-900
 text-slate-800 dark:text-slate-200
-focus:ring-2 focus:ring-blue-500/20
-focus:border-blue-500 outline-none text-sm ${
+focus:ring-2 focus:ring-[#4C78F5]/15
+focus:border-[#4C78F5]/50 outline-none text-sm ${
                             errors["borrower.state"]
                               ? "border-red-500 bg-red-50"
-                              : "border-slate-300"
+                              : "border-slate-200"
                           }
-    bg-white focus:ring-2 focus:ring-blue-500/20 
-    focus:border-blue-500 outline-none text-sm`}
+    bg-white focus:ring-2 focus:ring-[#4C78F5]/15 
+    focus:border-[#4C78F5]/50 outline-none text-sm`}
                         >
                           <option value="">Select State</option>
                           {US_STATES.map((state) => (
@@ -6820,13 +6826,13 @@ focus:border-blue-500 outline-none text-sm ${
                           onChange={(e) =>
                             updateBorrower("mailingAddress", e.target.value)
                           }
-                          className={`mt-1 w-full px-4 py-1 rounded-md border dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200 ${
+                          className={`mt-1 w-full px-4 py-1 rounded-lg border dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200 ${
                             errors["borrower.mailingAddress"]
                               ? "border-red-500 bg-red-50"
-                              : "border-slate-300"
+                              : "border-slate-200"
                           }
-                     focus:ring-2 focus:ring-blue-500/20 
-                     focus:border-blue-500 outline-none text-sm`}
+                     focus:ring-2 focus:ring-[#4C78F5]/15 
+                     focus:border-[#4C78F5]/50 outline-none text-sm`}
                         />
                         {errors["borrower.mailingAddress"] && (
                           <p className="text-xs text-red-500 mt-1">
@@ -6895,11 +6901,11 @@ focus:border-blue-500 outline-none text-sm ${
                                     e.target.value,
                                   )
                                 }
-                                className={`mt-1 w-full px-4 py-1 rounded-md border focus:ring-2 focus:ring-blue-500/20 
-          focus:border-blue-500 outline-none transition text-sm dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200 ${
+                                className={`mt-1 w-full px-4 py-1 rounded-lg border focus:ring-2 focus:ring-[#4C78F5]/15 
+          focus:border-[#4C78F5]/50 outline-none transition text-sm dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200 ${
             errors[`coBorrowers.${index}.name`]
               ? "border-red-500 bg-red-50"
-              : "border-slate-300"
+              : "border-slate-200"
           }`}
                               />
                               {errors[`coBorrowers.${index}.name`] && (
@@ -6923,11 +6929,11 @@ focus:border-blue-500 outline-none text-sm ${
                                     e.target.value,
                                   )
                                 }
-                                className={`mt-1 w-full px-4 py-1 rounded-md border    focus:ring-2 focus:ring-blue-500/20 
-          focus:border-blue-500 outline-none transition text-sm dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200  ${
+                                className={`mt-1 w-full px-4 py-1 rounded-lg border    focus:ring-2 focus:ring-[#4C78F5]/15 
+          focus:border-[#4C78F5]/50 outline-none transition text-sm dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200  ${
             errors[`coBorrowers.${index}.entityName`]
               ? "border-red-500 bg-red-50"
-              : "border-slate-300"
+              : "border-slate-200"
           }`}
                               />
 
@@ -6953,11 +6959,11 @@ focus:border-blue-500 outline-none text-sm ${
                                   );
                                   updateCoBorrower(index, "phone", formatted);
                                 }}
-                                className={`mt-1 w-full px-4 py-1 rounded-md border    focus:ring-2 focus:ring-blue-500/20 
-          focus:border-blue-500 outline-none transition text-sm dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200  ${
+                                className={`mt-1 w-full px-4 py-1 rounded-lg border    focus:ring-2 focus:ring-[#4C78F5]/15 
+          focus:border-[#4C78F5]/50 outline-none transition text-sm dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200  ${
             errors[`coBorrowers.${index}.phone`]
               ? "border-red-500 bg-red-50"
-              : "border-slate-300"
+              : "border-slate-200"
           }`}
                               />
 
@@ -6983,11 +6989,11 @@ focus:border-blue-500 outline-none text-sm ${
                                     e.target.value,
                                   )
                                 }
-                                className={`mt-1 w-full px-4 py-1 rounded-md border    focus:ring-2 focus:ring-blue-500/20 
-          focus:border-blue-500 outline-none transition text-sm dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200  ${
+                                className={`mt-1 w-full px-4 py-1 rounded-lg border    focus:ring-2 focus:ring-[#4C78F5]/15 
+          focus:border-[#4C78F5]/50 outline-none transition text-sm dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200  ${
             errors[`coBorrowers.${index}.email`]
               ? "border-red-500 bg-red-50"
-              : "border-slate-300"
+              : "border-slate-200"
           }`}
                               />
 
@@ -7012,11 +7018,11 @@ focus:border-blue-500 outline-none text-sm ${
                                     e.target.value,
                                   )
                                 }
-                                className={`mt-1 w-full px-4 py-1 rounded-md border    focus:ring-2 focus:ring-blue-500/20 
-          focus:border-blue-500 outline-none transition text-sm dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200  ${
+                                className={`mt-1 w-full px-4 py-1 rounded-lg border    focus:ring-2 focus:ring-[#4C78F5]/15 
+          focus:border-[#4C78F5]/50 outline-none transition text-sm dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200  ${
             errors[`coBorrowers.${index}.employer`]
               ? "border-red-500 bg-red-50"
-              : "border-slate-300"
+              : "border-slate-200"
           }`}
                               />
 
@@ -7062,11 +7068,11 @@ focus:border-blue-500 outline-none text-sm ${
                                   const formatted = formatSSN(e.target.value);
                                   updateCoBorrower(index, "ssn", formatted);
                                 }}
-                                className={`mt-1 w-full px-4 py-1 rounded-md border    focus:ring-2 focus:ring-blue-500/20 
-          focus:border-blue-500 outline-none transition text-sm dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200  ${
+                                className={`mt-1 w-full px-4 py-1 rounded-lg border    focus:ring-2 focus:ring-[#4C78F5]/15 
+          focus:border-[#4C78F5]/50 outline-none transition text-sm dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200  ${
             errors[`coBorrowers.${index}.ssn`]
               ? "border-red-500 bg-red-50"
-              : "border-slate-300"
+              : "border-slate-200"
           }`}
                               />
 
@@ -7092,11 +7098,11 @@ focus:border-blue-500 outline-none text-sm ${
                                     e.target.value,
                                   )
                                 }
-                                className={`text-sm mt-1 w-full px-4 py-1 rounded-md border focus:ring-2 focus:ring-blue-500/20 
-          focus:border-blue-500 outline-none transition dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200  ${
+                                className={`text-sm mt-1 w-full px-4 py-1 rounded-lg border focus:ring-2 focus:ring-[#4C78F5]/15 
+          focus:border-[#4C78F5]/50 outline-none transition dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200  ${
             errors[`coBorrowers.${index}.creditScore`]
               ? "border-red-500 bg-red-50"
-              : "border-slate-300"
+              : "border-slate-200"
           }`}
                               />
 
@@ -7122,11 +7128,11 @@ focus:border-blue-500 outline-none text-sm ${
                                   )
                                 }
                                 required
-                                className={`text-sm mt-1 w-full px-4 py-1 rounded-md border focus:ring-2 focus:ring-blue-500/20 
-          focus:border-blue-500 outline-none transition dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200  ${
+                                className={`text-sm mt-1 w-full px-4 py-1 rounded-lg border focus:ring-2 focus:ring-[#4C78F5]/15 
+          focus:border-[#4C78F5]/50 outline-none transition dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200  ${
             errors[`coBorrowers.${index}.address`]
               ? "border-red-500 bg-red-50"
-              : "border-slate-300"
+              : "border-slate-200"
           }`}
                               />
 
@@ -7151,11 +7157,11 @@ focus:border-blue-500 outline-none text-sm ${
                                     e.target.value,
                                   )
                                 }
-                                className={`mt-1 w-full px-4 py-1 rounded-md border dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200 ${
+                                className={`mt-1 w-full px-4 py-1 rounded-lg border dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200 ${
                                   errors[`coBorrowers.${index}.city`]
                                     ? "border-red-500 bg-red-50"
-                                    : "border-slate-300"
-                                } focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none text-sm`}
+                                    : "border-slate-200"
+                                } focus:ring-2 focus:ring-[#4C78F5]/15 focus:border-[#4C78F5]/50 outline-none text-sm`}
                               />
                               {errors[`coBorrowers.${index}.city`] && (
                                 <p className="text-xs text-red-500 mt-1">
@@ -7178,16 +7184,16 @@ focus:border-blue-500 outline-none text-sm ${
                                     e.target.value,
                                   )
                                 }
-                                className={`w-full px-4 py-1 rounded-md border
-border-slate-300 dark:border-slate-600
+                                className={`w-full px-4 py-1 rounded-lg border
+border-slate-200 dark:border-slate-600
 bg-white dark:bg-slate-900
 text-slate-800 dark:text-slate-200
-focus:ring-2 focus:ring-blue-500/20
-focus:border-blue-500 outline-none text-sm ${
+focus:ring-2 focus:ring-[#4C78F5]/15
+focus:border-[#4C78F5]/50 outline-none text-sm ${
                                   errors[`coBorrowers.${index}.state`]
                                     ? "border-red-500 bg-red-50"
-                                    : "border-slate-300"
-                                } bg-white focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none text-sm`}
+                                    : "border-slate-200"
+                                } bg-white focus:ring-2 focus:ring-[#4C78F5]/15 focus:border-[#4C78F5]/50 outline-none text-sm`}
                               >
                                 <option value="">Select State</option>
                                 {US_STATES.map((state) => (
@@ -7219,11 +7225,11 @@ focus:border-blue-500 outline-none text-sm ${
                                     e.target.value,
                                   )
                                 }
-                                className={`text-sm mt-1 w-full px-4 py-1 rounded-md border focus:ring-2 focus:ring-blue-500/20 
-          focus:border-blue-500 outline-none transition dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200 ${
+                                className={`text-sm mt-1 w-full px-4 py-1 rounded-lg border focus:ring-2 focus:ring-[#4C78F5]/15 
+          focus:border-[#4C78F5]/50 outline-none transition dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200 ${
             errors[`coBorrowers.${index}.mailingAddress`]
               ? "border-red-500 bg-red-50"
-              : "border-slate-300"
+              : "border-slate-200"
           }`}
                               />
 
@@ -7302,12 +7308,12 @@ focus:border-blue-500 outline-none text-sm ${
                                         );
                                       }
                                     }}
-                                    className={`mt-1 w-full px-4 py-1 rounded-md border text-sm dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200 ${
+                                    className={`mt-1 w-full px-4 py-1 rounded-lg border text-sm dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200 ${
                                       errors[
                                         `coBorrowers.${index}.${field.key}`
                                       ]
                                         ? "border-red-500 bg-red-50"
-                                        : "border-slate-300"
+                                        : "border-slate-200"
                                     }`}
                                   />
 
@@ -7341,7 +7347,7 @@ focus:border-blue-500 outline-none text-sm ${
             baseSteps[currentStep] === "Loan Term & Income") &&
             (useStandardSevenStepFlow ? (
               <div className="mt-6 relative z-10 rounded-2xl border border-slate-200 bg-white p-6 dark:border-slate-700 dark:bg-slate-800">
-                <h3 className="mb-1 inline-block border-b-2 border-[#13538A] pb-2 text-lg font-semibold dark:text-white">
+                <h3 className="mb-4 text-base font-semibold text-slate-900">
                   Step 5: Financials
                 </h3>
 
@@ -7367,17 +7373,17 @@ focus:border-blue-500 outline-none text-sm ${
                     onChange={(e) =>
                       updateLoanTermIncome("loanTerm", e.target.value)
                     }
-                    className={`w-full px-4 py-1 rounded-md border
-border-slate-300 dark:border-slate-600
+                    className={`w-full px-4 py-1 rounded-lg border
+border-slate-200 dark:border-slate-600
 bg-white dark:bg-slate-900
 text-slate-800 dark:text-slate-200
-focus:ring-2 focus:ring-blue-500/20
-focus:border-blue-500 outline-none text-sm ${
+focus:ring-2 focus:ring-[#4C78F5]/15
+focus:border-[#4C78F5]/50 outline-none text-sm ${
                       errors["loanTermIncome.loanTerm"]
                         ? "border-red-500 bg-red-50"
-                        : "border-slate-300"
-                    } bg-white focus:ring-2 focus:ring-blue-500/20
-  focus:border-blue-500 outline-none transition`}
+                        : "border-slate-200"
+                    } bg-white focus:ring-2 focus:ring-[#4C78F5]/15
+  focus:border-[#4C78F5]/50 outline-none transition`}
                   >
                     <option value="">Select Term</option>
                     <option value="12">12 Months</option>
@@ -7414,13 +7420,13 @@ focus:border-blue-500 outline-none text-sm ${
                           e.target.value,
                         )
                       }
-                      className={`w-full px-4 py-1 rounded-md border dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200  ${
+                      className={`w-full px-4 py-1 rounded-lg border dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200  ${
                         errors["loanTermIncome.monthlyRent"]
                           ? "border-red-500 bg-red-50"
-                          : "border-slate-300"
+                          : "border-slate-200"
                       }
-          focus:ring-2 focus:ring-blue-500/20
-          focus:border-blue-500 outline-none transition text-sm`}
+          focus:ring-2 focus:ring-[#4C78F5]/15
+          focus:border-[#4C78F5]/50 outline-none transition text-sm`}
                     />
                     {errors["loanTermIncome.monthlyRent"] && (
                       <p className="text-xs text-red-500 mt-1">
@@ -7446,13 +7452,13 @@ focus:border-blue-500 outline-none text-sm ${
                           e.target.value,
                         )
                       }
-                      className={`w-full px-4 py-1 rounded-md border dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200  ${
+                      className={`w-full px-4 py-1 rounded-lg border dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200  ${
                         errors["loanTermIncome.grossRevenueActual"]
                           ? "border-red-500 bg-red-50"
-                          : "border-slate-300"
+                          : "border-slate-200"
                       }
-          focus:ring-2 focus:ring-blue-500/20
-          focus:border-blue-500 outline-none transition text-sm`}
+          focus:ring-2 focus:ring-[#4C78F5]/15
+          focus:border-[#4C78F5]/50 outline-none transition text-sm`}
                     />
                     {errors["loanTermIncome.grossRevenueActual"] && (
                       <p className="text-xs text-red-500 mt-1">
@@ -7478,13 +7484,13 @@ focus:border-blue-500 outline-none text-sm ${
                           e.target.value,
                         )
                       }
-                      className={`w-full px-4 py-1 rounded-md border dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200 ${
+                      className={`w-full px-4 py-1 rounded-lg border dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200 ${
                         errors["loanTermIncome.grossRevenueProforma"]
                           ? "border-red-500 bg-red-50"
-                          : "border-slate-300"
+                          : "border-slate-200"
                       }
-          focus:ring-2 focus:ring-blue-500/20
-          focus:border-blue-500 outline-none transition text-sm`}
+          focus:ring-2 focus:ring-[#4C78F5]/15
+          focus:border-[#4C78F5]/50 outline-none transition text-sm`}
                     />
                     {errors["loanTermIncome.grossRevenueProforma"] && (
                       <p className="text-xs text-red-500 mt-1">
@@ -7510,13 +7516,13 @@ focus:border-blue-500 outline-none text-sm ${
                           e.target.value,
                         )
                       }
-                      className={`w-full px-4 py-1 rounded-md border dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200 ${
+                      className={`w-full px-4 py-1 rounded-lg border dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200 ${
                         errors["loanTermIncome.noiActual"]
                           ? "border-red-500 bg-red-50"
-                          : "border-slate-300"
+                          : "border-slate-200"
                       }
-          focus:ring-2 focus:ring-blue-500/20
-          focus:border-blue-500 outline-none transition text-sm`}
+          focus:ring-2 focus:ring-[#4C78F5]/15
+          focus:border-[#4C78F5]/50 outline-none transition text-sm`}
                     />
                     {errors["loanTermIncome.noiActual"] && (
                       <p className="text-xs text-red-500 mt-1">
@@ -7542,13 +7548,13 @@ focus:border-blue-500 outline-none text-sm ${
                           e.target.value,
                         )
                       }
-                      className={`w-full px-4 py-1 rounded-md border dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200 ${
+                      className={`w-full px-4 py-1 rounded-lg border dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200 ${
                         errors["loanTermIncome.noiProforma"]
                           ? "border-red-500 bg-red-50"
-                          : "border-slate-300"
+                          : "border-slate-200"
                       }
-          focus:ring-2 focus:ring-blue-500/20
-          focus:border-blue-500 outline-none transition text-sm`}
+          focus:ring-2 focus:ring-[#4C78F5]/15
+          focus:border-[#4C78F5]/50 outline-none transition text-sm`}
                     />
                     {errors["loanTermIncome.noiProforma"] && (
                       <p className="text-xs text-red-500 mt-1">
@@ -7581,13 +7587,13 @@ focus:border-blue-500 outline-none text-sm ${
                             e.target.value,
                           )
                         }
-                        className={`w-full px-4 py-1 rounded-md border dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200  ${
+                        className={`w-full px-4 py-1 rounded-lg border dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200  ${
                           errors["loanTermIncome.annualTaxes"]
                             ? "border-red-500 bg-red-50"
-                            : "border-slate-300"
+                            : "border-slate-200"
                         }
-          focus:ring-2 focus:ring-blue-500/20
-          focus:border-blue-500 outline-none transition text-sm`}
+          focus:ring-2 focus:ring-[#4C78F5]/15
+          focus:border-[#4C78F5]/50 outline-none transition text-sm`}
                       />
                       {errors["loanTermIncome.annualTaxes"] && (
                         <p className="text-xs text-red-500 mt-1">
@@ -7606,8 +7612,8 @@ focus:border-blue-500 outline-none text-sm ${
                       <div
                         className={`flex items-center gap-6 mt-2 dark:text-white ${
                           errors["loanTermIncome.floodZone"]
-                            ? "border p-1 rounded-md border-red-500 bg-red-50"
-                            : "border p-1 rounded-md border-slate-300 bg-white dark:bg-slate-900"
+                            ? "border p-1 rounded-lg border-red-500 bg-red-50"
+                            : "border p-1 rounded-lg border-slate-200 bg-white dark:bg-slate-900"
                         }`}
                       >
                         <label className="flex items-center gap-2 text-sm">
@@ -7660,13 +7666,13 @@ focus:border-blue-500 outline-none text-sm ${
                             e.target.value,
                           )
                         }
-                        className={`w-full px-4 py-1 rounded-md border dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200  ${
+                        className={`w-full px-4 py-1 rounded-lg border dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200  ${
                           errors["loanTermIncome.insurancePremium"]
                             ? "border-red-500 bg-red-50"
-                            : "border-slate-300"
+                            : "border-slate-200"
                         }
-          focus:ring-2 focus:ring-blue-500/20
-          focus:border-blue-500 outline-none transition text-sm`}
+          focus:ring-2 focus:ring-[#4C78F5]/15
+          focus:border-[#4C78F5]/50 outline-none transition text-sm`}
                       />
                       {errors["loanTermIncome.insurancePremium"] && (
                         <p className="text-xs text-red-500 mt-1">
@@ -7691,13 +7697,13 @@ focus:border-blue-500 outline-none text-sm ${
                             e.target.value,
                           )
                         }
-                        className={`w-full px-4 py-1 rounded-md border dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200  ${
+                        className={`w-full px-4 py-1 rounded-lg border dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200  ${
                           errors["loanTermIncome.hoaDues"]
                             ? "border-red-500 bg-red-50"
-                            : "border-slate-300"
+                            : "border-slate-200"
                         }
-          focus:ring-2 focus:ring-blue-500/20
-          focus:border-blue-500 outline-none transition text-sm`}
+          focus:ring-2 focus:ring-[#4C78F5]/15
+          focus:border-[#4C78F5]/50 outline-none transition text-sm`}
                       />
                       {errors["loanTermIncome.hoaDues"] && (
                         <p className="text-xs text-red-500 mt-1">
@@ -7714,7 +7720,7 @@ focus:border-blue-500 outline-none text-sm ${
           {baseSteps[currentStep] === "Documents" &&
             useStandardSevenStepFlow && (
               <div className="mt-6 relative z-10 rounded-2xl border border-slate-200 bg-white p-6 dark:border-slate-700 dark:bg-slate-800">
-                <h3 className="mb-1 inline-block border-b-2 border-[#13538A] pb-2 text-lg font-semibold dark:text-white">
+                <h3 className="mb-4 text-base font-semibold text-slate-900">
                   Step {currentStep + 1}: Documents
                 </h3>
 
@@ -7747,10 +7753,15 @@ focus:border-blue-500 outline-none text-sm ${
 
           {/* step — Review & Submit */}
           {isReviewStep && (
-            <div className="mt-6 relative z-10 rounded-2xl border border-slate-200 bg-white p-6 dark:border-slate-700 dark:bg-slate-800">
-              <h3 className="mb-1 inline-block border-b-2 border-[#13538A] pb-2 text-lg font-semibold dark:text-white">
-                Step {currentStep + 1}: Review & Submit
-              </h3>
+            <div className="relative z-10 mt-4 overflow-hidden rounded-2xl border border-slate-200 bg-white p-4 shadow-none sm:p-5">
+              <div className="mb-5 border-b border-slate-100 pb-4">
+                <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[#4C78F5]">
+                  Step {currentStep + 1}
+                </p>
+                <h3 className="mt-1 text-base font-semibold text-slate-900">
+                  Review & Submit
+                </h3>
+              </div>
 
               <ResidentialReviewStep
                 sections={reviewSections}
@@ -7813,29 +7824,28 @@ focus:border-blue-500 outline-none text-sm ${
             )}
 
           {/* Footer */}
-          <div className="flex justify-between pt-6 mt-6 border-t border-slate-200 dark:border-slate-700">
-            {/* Back Button */}
+          <div className="mt-5 flex items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-white px-4 py-3.5">
             <button
+              type="button"
               onClick={() => {
                 if (currentStep > 0) {
                   goToStep(currentStep - 1);
                 }
               }}
               disabled={currentStep === 0}
-              className={`px-4 py-2 rounded-md border transition flex items-center justify-center gap-2 text-sm
-  ${
-    currentStep === 0
-      ? "border-slate-200 text-slate-400 cursor-not-allowed"
-      : "border-slate-300 text-slate-600 hover:bg-slate-100"
-  }`}
+              className={`inline-flex h-10 items-center justify-center gap-1.5 rounded-xl border px-4 text-sm font-semibold transition ${
+                currentStep === 0
+                  ? "cursor-not-allowed border-slate-200 text-slate-400"
+                  : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
+              }`}
             >
               <IoIosArrowBack />
               Back
             </button>
 
-            {/* Save & Next Button */}
             {!isReviewStep && (
               <button
+                type="button"
                 onClick={() => {
                   if (currentStep === allSteps.length - 1) {
                     if (!validateAllStepsBeforeSubmit()) {
@@ -7875,8 +7885,7 @@ focus:border-blue-500 outline-none text-sm ${
                   goToStep(currentStep + 1);
                 }}
                 disabled={submitting}
-                className="px-6 py-2 rounded-md bg-[#13538A] hover:bg-[#0E426E] text-white 
-     transition shadow-sm text-sm disabled:opacity-50"
+                className="inline-flex h-10 items-center rounded-xl bg-[#4C78F5] px-5 text-sm font-semibold text-white transition hover:bg-[#3B66E0] disabled:opacity-50"
               >
                 {currentStep === allSteps.length - 1
                   ? submitting
@@ -7914,14 +7923,14 @@ focus:border-blue-500 outline-none text-sm ${
               <button
                 type="button"
                 onClick={() => setConfirmStartNewOpen(false)}
-                className="rounded-md border border-slate-300 px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50 dark:border-slate-600 dark:text-slate-200 dark:hover:bg-slate-800"
+                className="rounded-lg border border-slate-200 px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50 dark:border-slate-600 dark:text-slate-200 dark:hover:bg-slate-800"
               >
                 Keep progress
               </button>
               <button
                 type="button"
                 onClick={confirmStartNewApplication}
-                className="rounded-md bg-[#13538A] px-3 py-1.5 text-sm font-medium text-white hover:bg-[#0e3d66]"
+                className="rounded-md bg-[#4C78F5] px-3 py-1.5 text-sm font-medium text-white hover:bg-[#3B66E0]"
               >
                 Start new
               </button>

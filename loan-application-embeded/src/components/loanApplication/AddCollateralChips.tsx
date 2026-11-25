@@ -62,12 +62,12 @@ export default function AddCollateralChips({
           onChange={(e) => setDraft(e.target.value)}
           onKeyDown={handleKeyDown}
           placeholder="e.g. Intellectual property, domain names, crypto assets..."
-          className="flex-1 rounded-md border border-slate-300 px-4 py-1 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200"
+          className="flex-1 rounded-md border border-slate-300 px-4 py-1 text-sm outline-none focus:border-[#4C78F5]/50 focus:ring-2 focus:ring-[#4C78F5]/15 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200"
         />
         <button
           type="button"
           onClick={addChip}
-          className="inline-flex items-center gap-1.5 rounded-md border border-[#13538A] bg-[#13538A] px-4 text-sm font-medium text-white transition hover:bg-[#0E426E] focus:outline-none focus:ring-2 focus:ring-blue-500/30 disabled:cursor-not-allowed disabled:opacity-60"
+          className="inline-flex items-center gap-1.5 rounded-md border border-[#4C78F5] bg-[#4C78F5] px-4 text-sm font-medium text-white transition hover:bg-[#3B66E0] focus:outline-none focus:ring-2 focus:ring-[#4C78F5]/15/30 disabled:cursor-not-allowed disabled:opacity-60"
           disabled={!draft.trim()}
         >
           <Plus className="h-4 w-4" />
@@ -80,13 +80,13 @@ export default function AddCollateralChips({
           {items.map((item) => (
             <span
               key={item}
-              className="inline-flex items-center gap-1.5 rounded-full border border-[#13538A]/30 bg-blue-50 px-3 py-1 text-xs font-medium text-[#13538A] dark:border-[#13538A]/40 dark:bg-blue-900/30 dark:text-blue-200"
+              className="inline-flex items-center gap-1.5 rounded-full border border-[#4C78F5]/30 bg-blue-50 px-3 py-1 text-xs font-medium text-[#4C78F5] dark:border-[#4C78F5]/40 dark:bg-blue-900/30 dark:text-blue-200"
             >
               {item}
               <button
                 type="button"
                 onClick={() => removeChip(item)}
-                className="inline-flex h-4 w-4 items-center justify-center rounded-full text-[#13538A] hover:bg-[#13538A]/15 dark:text-blue-200 dark:hover:bg-blue-800/40"
+                className="inline-flex h-4 w-4 items-center justify-center rounded-full text-[#4C78F5] hover:bg-[#4C78F5]/15 dark:text-blue-200 dark:hover:bg-blue-800/40"
                 aria-label={`Remove ${item}`}
               >
                 <X className="h-3 w-3" />

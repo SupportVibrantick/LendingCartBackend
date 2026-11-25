@@ -53,14 +53,19 @@ export default function LoanApplicationFeeAgreementStep({
   stepNumber,
 }: LoanApplicationFeeAgreementStepProps) {
   return (
-    <div className="mt-6 relative z-10 rounded-2xl border border-slate-200 bg-white p-6 dark:border-slate-700 dark:bg-slate-800">
-      <h3 className="mb-1 inline-block border-b-2 border-[#13538A] pb-2 text-lg font-semibold dark:text-white">
-        Step {stepNumber}: Fee Agreement
-      </h3>
-      <p className="mt-3 text-sm text-slate-500 dark:text-slate-400">
-        Optional. If you include a fee agreement now, it will be available in
-        the client portal when this application is submitted.
-      </p>
+    <div className="relative z-10 mt-4 overflow-hidden rounded-2xl border border-slate-200 bg-white p-4 shadow-none sm:p-5">
+      <div className="mb-5 border-b border-slate-100 pb-4">
+        <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[#4C78F5]">
+          Step {stepNumber}
+        </p>
+        <h3 className="mt-1 text-base font-semibold text-slate-900">
+          Fee Agreement
+        </h3>
+        <p className="mt-1 text-sm text-slate-500">
+          Optional. If you include a fee agreement now, it will be available in
+          the client portal when this application is submitted.
+        </p>
+      </div>
 
       <label className="mt-5 flex cursor-pointer items-start gap-3 rounded-xl border border-slate-200 bg-slate-50 p-4 dark:border-slate-700 dark:bg-slate-900/60">
         <input
@@ -69,7 +74,7 @@ export default function LoanApplicationFeeAgreementStep({
           onChange={(event) =>
             onChange({ ...draft, include: event.target.checked })
           }
-          className="mt-1 h-4 w-4 rounded border-slate-300 text-[#13538A]"
+          className="mt-1 h-4 w-4 rounded border-slate-300 text-[#4C78F5]"
         />
         <span>
           <span className="flex items-center gap-2 text-sm font-semibold text-slate-800 dark:text-slate-100">

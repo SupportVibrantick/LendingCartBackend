@@ -77,8 +77,8 @@ export default function ResidentialDocumentsStep({
           }}
           className={`flex cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed px-6 py-12 transition ${
             dragActive
-              ? "border-[#13538A] bg-[#13538A]/5"
-              : "border-slate-300 bg-slate-50/50 hover:border-[#13538A]/60 dark:border-slate-600 dark:bg-slate-900/20"
+              ? "border-[#4C78F5] bg-[#4C78F5]/5"
+              : "border-slate-300 bg-slate-50/50 hover:border-[#4C78F5]/60 dark:border-slate-600 dark:bg-slate-900/20"
           } ${uploading ? "pointer-events-none opacity-60" : ""}`}
         >
           <Upload className="mb-3 h-8 w-8 text-slate-400" />
@@ -138,7 +138,7 @@ export default function ResidentialDocumentsStep({
                     )
                   }
                   disabled={uploading}
-                  className="w-full rounded-md border border-slate-300 px-3 py-1.5 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200 sm:w-56"
+                  className="w-full rounded-md border border-slate-300 px-3 py-1.5 text-sm outline-none focus:border-[#4C78F5]/50 focus:ring-2 focus:ring-[#4C78F5]/15 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200 sm:w-56"
                 >
                   <option value="">Select Document Type</option>
                   {APPLICATION_DOCUMENT_TYPE_OPTIONS.map((option) => (
