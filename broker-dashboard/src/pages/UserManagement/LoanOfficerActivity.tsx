@@ -128,7 +128,7 @@ function actionTone(action: string) {
 
 function avatarTone(seed?: string) {
   const tones = [
-    "bg-[#13538A]/10 text-[#13538A]",
+    "bg-[#4C78F5]/10 text-[#4C78F5]",
     "bg-teal-100 text-teal-700 dark:bg-teal-500/15 dark:text-teal-300",
     "bg-emerald-100 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300",
     "bg-amber-100 text-amber-700 dark:bg-amber-500/15 dark:text-amber-300",
@@ -213,7 +213,7 @@ function ActivityDetail({ item }: { item: ActivityItem }) {
         <button
           type="button"
           onClick={() => setOpen((v) => !v)}
-          className="mt-1.5 inline-flex items-center gap-1 text-[11px] font-semibold text-[#13538A] hover:underline dark:text-sky-400"
+          className="mt-1.5 inline-flex items-center gap-1 text-[11px] font-semibold text-[#4C78F5] hover:underline dark:text-sky-400"
         >
           <ChevronDown
             className={`h-3.5 w-3.5 transition ${open ? "rotate-180" : ""}`}
@@ -542,10 +542,10 @@ export function LoanOfficerActivityPanel({
     >
       {!embedded && (
         <div className="relative overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900">
-          <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-[#13538A] via-[#18B6B4] to-emerald-400" />
+          <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-[#4C78F5] via-[#18B6B4] to-emerald-400" />
           <div className="relative flex flex-col gap-5 p-6 lg:flex-row lg:items-center lg:justify-between">
             <div className="flex items-start gap-4">
-              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-[#13538A]/10 text-[#13538A] ring-1 ring-[#13538A]/15 dark:bg-[#13538A]/20 dark:text-sky-300">
+              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-[#4C78F5]/10 text-[#4C78F5] ring-1 ring-[#4C78F5]/15 dark:bg-[#4C78F5]/20 dark:text-sky-300">
                 <UserCog className="h-6 w-6" />
               </div>
               <div>
@@ -610,7 +610,7 @@ export function LoanOfficerActivityPanel({
                 value={officerSearch}
                 onChange={(e) => setOfficerSearch(e.target.value)}
                 placeholder="Search by name or email..."
-                className="h-10 w-full rounded-xl border border-slate-200 bg-slate-50 pl-9 pr-9 text-sm outline-none transition focus:border-[#13538A] focus:bg-white focus:ring-2 focus:ring-[#13538A]/15 dark:border-slate-700 dark:bg-slate-800 dark:text-white"
+                className="h-10 w-full rounded-xl border border-slate-200 bg-slate-50 pl-9 pr-9 text-sm outline-none transition focus:border-[#4C78F5] focus:bg-white focus:ring-2 focus:ring-[#4C78F5]/15 dark:border-slate-700 dark:bg-slate-800 dark:text-white"
               />
               {(isSearchPending || loadingOfficers) && (
                 <RefreshCw className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 animate-spin text-slate-400" />
@@ -647,8 +647,8 @@ export function LoanOfficerActivityPanel({
                     }}
                     className={`w-full rounded-xl border p-3.5 text-left transition ${
                       isSelected
-                        ? "border-[#13538A] bg-[#13538A]/8 ring-2 ring-[#13538A]/20 dark:bg-[#13538A]/15"
-                        : "border-slate-200 bg-white hover:border-[#13538A]/40 hover:bg-slate-50 dark:border-slate-800 dark:bg-slate-900 dark:hover:bg-slate-800/60"
+                        ? "border-[#4C78F5] bg-[#4C78F5]/8 ring-2 ring-[#4C78F5]/20 dark:bg-[#4C78F5]/15"
+                        : "border-slate-200 bg-white hover:border-[#4C78F5]/40 hover:bg-slate-50 dark:border-slate-800 dark:bg-slate-900 dark:hover:bg-slate-800/60"
                     }`}
                   >
                     <div className="flex items-start gap-3">
@@ -771,7 +771,7 @@ export function LoanOfficerActivityPanel({
               )}
               <Link
                 to="/admin-logs?loanOfficersOnly=1"
-                className="inline-flex h-10 items-center rounded-xl border border-slate-200 bg-white px-3 text-sm font-medium text-[#13538A] transition hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-800 dark:text-sky-300"
+                className="inline-flex h-10 items-center rounded-xl border border-slate-200 bg-white px-3 text-sm font-medium text-[#4C78F5] transition hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-800 dark:text-sky-300"
               >
                 Full audit trail
               </Link>
@@ -782,7 +782,7 @@ export function LoanOfficerActivityPanel({
                   fetchActivity();
                 }}
                 disabled={loading}
-                className="inline-flex h-10 items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 text-sm font-medium text-slate-700 transition hover:border-[#13538A]/40 hover:text-[#13538A] disabled:opacity-60 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200"
+                className="inline-flex h-10 items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 text-sm font-medium text-slate-700 transition hover:border-[#4C78F5]/40 hover:text-[#4C78F5] disabled:opacity-60 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200"
               >
                 <RefreshCw
                   className={`h-4 w-4 ${loading ? "animate-spin" : ""}`}
@@ -794,7 +794,7 @@ export function LoanOfficerActivityPanel({
 
           {!selectedOfficerId ? (
             <div className="flex flex-col items-center justify-center px-6 py-24 text-center">
-              <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-[#13538A]/10 text-[#13538A]">
+              <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-[#4C78F5]/10 text-[#4C78F5]">
                 <Users className="h-7 w-7" />
               </div>
               <h3 className="mt-4 text-base font-semibold text-slate-800 dark:text-white">
@@ -818,7 +818,7 @@ export function LoanOfficerActivityPanel({
               <button
                 type="button"
                 onClick={() => fetchActivity()}
-                className="mt-4 rounded-xl bg-[#13538A] px-4 py-2 text-sm font-semibold text-white hover:bg-[#0f4573]"
+                className="mt-4 rounded-xl bg-[#4C78F5] px-4 py-2 text-sm font-semibold text-white hover:bg-[#0f4573]"
               >
                 Try again
               </button>

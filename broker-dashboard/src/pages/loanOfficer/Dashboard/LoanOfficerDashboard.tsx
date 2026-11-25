@@ -133,7 +133,7 @@ function statusBadgeClass(status: string) {
     return "bg-orange-50 text-orange-700 ring-orange-100";
   }
   if (key === "DRAFT") return "bg-slate-100 text-slate-600 ring-slate-200";
-  return "bg-[#13538A]/10 text-[#13538A] ring-[#13538A]/10";
+  return "bg-[#4C78F5]/10 text-[#4C78F5] ring-[#4C78F5]/10";
 }
 
 function productLabel(code?: string) {
@@ -317,7 +317,7 @@ export default function LoanOfficerDashboard() {
 
   return (
     <div className="space-y-4">
-      <section className="overflow-hidden rounded-xl border border-[#13538A]/20 bg-gradient-to-r from-[#13538A] via-[#1a6aad] to-[#2C92D5] px-4 py-4 shadow-sm sm:px-5 sm:py-5">
+      <section className="overflow-hidden rounded-xl border border-[#4C78F5]/20 bg-gradient-to-r from-[#4C78F5] via-[#1a6aad] to-[#4C78F5] px-4 py-4 shadow-sm sm:px-5 sm:py-5">
         <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
           <div className="min-w-0">
             <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-white/70">
@@ -342,7 +342,7 @@ export default function LoanOfficerDashboard() {
                     onClick={() => setPeriod(option.value)}
                     className={`rounded-md px-2.5 py-1.5 text-xs font-semibold transition ${
                       period === option.value
-                        ? "bg-white text-[#13538A] shadow-sm"
+                        ? "bg-white text-[#4C78F5] shadow-sm"
                         : "text-white/80 hover:bg-white/10 hover:text-white"
                     }`}
                   >
@@ -473,7 +473,7 @@ export default function LoanOfficerDashboard() {
             {canViewPipeline ? (
               <Link
                 to="/loan-officer/loan-pipeline"
-                className="text-xs font-semibold text-[#13538A] hover:underline"
+                className="text-xs font-semibold text-[#4C78F5] hover:underline"
               >
                 View all
               </Link>
@@ -499,7 +499,7 @@ export default function LoanOfficerDashboard() {
                 <button
                   type="button"
                   onClick={() => navigate("/loan-officer/loan-application")}
-                  className="mt-2 text-sm font-semibold text-[#13538A] hover:underline"
+                  className="mt-2 text-sm font-semibold text-[#4C78F5] hover:underline"
                 >
                   Create your first application
                 </button>

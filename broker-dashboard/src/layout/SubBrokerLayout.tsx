@@ -18,20 +18,28 @@ function LayoutContent() {
   useCoBrokerSessionMonitor();
 
   useEffect(() => {
+    document.documentElement.classList.add("dashboard-scroll-lock");
+    return () => {
+      document.documentElement.classList.remove("dashboard-scroll-lock");
+    };
+  }, []);
+
+  useEffect(() => {
     void hydrateOrgEntitlements();
   }, []);
 
+  const mainOffset =
+    isExpanded || isHovered || isMobileOpen ? "lg:pl-[260px]" : "lg:pl-[84px]";
+
   return (
-    <div className="flex h-screen overflow-hidden bg-gray-50 dark:bg-gray-950">
-      <div className="shrink-0">
-        <Sidebar />
-        <Backdrop />
-      </div>
+    <div className="flex h-full overflow-hidden bg-surface dark:bg-gray-950">
+      <Sidebar />
+      <Backdrop />
 
       <div
-        className={`flex min-h-0 min-w-0 flex-1 flex-col transition-all duration-300 ease-in-out
-        ${isExpanded || isHovered ? "lg:ml-[290px]" : "lg:ml-[90px]"}
-        ${isMobileOpen ? "ml-0" : ""}`}
+        className={`flex h-full min-h-0 min-w-0 flex-1 flex-col overflow-hidden transition-all duration-300 ease-in-out ${mainOffset} ${
+          isMobileOpen ? "pl-0" : ""
+        }`}
       >
         {isImpersonation && (
           <div className="flex flex-wrap items-center justify-between gap-3 border-b border-amber-200 bg-amber-50 px-4 py-2 text-sm text-amber-900 dark:border-amber-900/40 dark:bg-amber-950/40 dark:text-amber-200">
@@ -50,8 +58,8 @@ function LayoutContent() {
 
         <CoBrokerHeader />
 
-        <main className="min-h-0 flex-1 overflow-y-auto">
-          <div className="mx-auto max-w-[1600px] p-4 md:p-6">
+        <main className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto overscroll-y-contain bg-surface">
+          <div className="mx-auto w-full max-w-(--breakpoint-2xl) p-3 md:p-4 lg:p-4">
             <Outlet />
           </div>
         </main>

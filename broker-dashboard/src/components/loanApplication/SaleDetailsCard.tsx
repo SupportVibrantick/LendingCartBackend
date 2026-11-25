@@ -62,7 +62,7 @@ export default function SaleDetailsCard({
           onClick={() => onPrivateSaleChange(!privateSale)}
           className={`relative inline-flex h-6 w-11 shrink-0 rounded-full transition ${
             privateSale
-              ? "bg-[#13538A]"
+              ? "bg-[#4C78F5]"
               : "bg-slate-200 dark:bg-slate-700"
           }`}
         >

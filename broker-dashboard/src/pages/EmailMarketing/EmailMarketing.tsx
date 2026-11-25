@@ -13,24 +13,19 @@ import {
   Search,
   ChevronLeft,
   ChevronRight,
+  Users,
+  RefreshCw,
 } from "lucide-react";
 import RichEditor from "./Editor";
 import toast from "react-hot-toast";
 import Swal from "sweetalert2";
+import PageMeta from "../../components/common/PageMeta";
+import StatPill from "../../components/common/StatPill";
 import { getPortalAuthHeaders } from "../../lib/portalAuth";
-
-const PRIMARY_BTN =
-  "inline-flex items-center justify-center gap-2 rounded-lg bg-[#13538A] text-sm font-semibold text-white transition hover:bg-[#0E426E] disabled:opacity-60";
-const FOCUS =
-  "focus:outline-none focus:border-[#13538A] focus:ring-2 focus:ring-[#13538A]/20";
-const FOCUS_WITHIN =
-  "focus-within:border-[#13538A] focus-within:ring-2 focus-within:ring-[#13538A]/20";
 
 type Contact = {
   email: string;
 };
-
-type StatTone = "navy" | "green" | "red";
 
 type Campaign = {
   id: string;
@@ -52,6 +47,8 @@ type ContactInput = {
   name: string;
 };
 
+type ActiveTab = "create" | "result";
+
 export default function CreateCampaignPage() {
   const dropdownRef = useRef<HTMLDivElement | null>(null);
   const [contacts, setContacts] = useState<ContactInput[]>([]);
@@ -65,7 +62,7 @@ export default function CreateCampaignPage() {
   const [repeat, setRepeat] = useState(false);
   const [interval, setInterval] = useState(1);
   const [unit, setUnit] = useState("minutes");
-  const [activeTab, setActiveTab] = useState("create");
+  const [activeTab, setActiveTab] = useState<ActiveTab>("create");
 
   const [loading, setLoading] = useState(false);
 
@@ -77,27 +74,7 @@ export default function CreateCampaignPage() {
 
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
-
-  const colorMap: Record<
-    StatTone,
-    { text: string; bg: string; icon: React.ReactNode }
-  > = {
-    navy: {
-      text: "text-[#13538A]",
-      bg: "bg-[#13538A]/10",
-      icon: <Send size={16} />,
-    },
-    green: {
-      text: "text-emerald-600",
-      bg: "bg-emerald-100",
-      icon: <CheckCircle2 size={16} />,
-    },
-    red: {
-      text: "text-red-600",
-      bg: "bg-red-100",
-      icon: <XCircle size={16} />,
-    },
-  };
+  const [campaignTotal, setCampaignTotal] = useState(0);
 
   const addContact = (value?: string) => {
     const email = (value || input).trim();
@@ -136,7 +113,7 @@ export default function CreateCampaignPage() {
       setLoadingList(true);
 
       const res = await fetch(
-        `${import.meta.env.VITE_API_BASE}/broker/campaign/list?page=${page}&limit=6&search=${debouncedSearch}`,
+        `${import.meta.env.VITE_API_BASE}/broker/campaign/list?page=${page}&limit=10&search=${debouncedSearch}`,
         { headers },
       );
 
@@ -146,9 +123,10 @@ export default function CreateCampaignPage() {
 
       if (data?.success) {
         setCampaigns(data.data);
-        setTotalPages(data.pagination.totalPages);
+        setTotalPages(data.pagination.totalPages || 1);
+        setCampaignTotal(data.pagination.total ?? data.data?.length ?? 0);
       }
-    } catch (err) {
+    } catch {
       toast.error("Failed to load campaigns");
     } finally {
       setLoadingList(false);
@@ -253,7 +231,7 @@ export default function CreateCampaignPage() {
 
       setLoading(true);
 
-      let payload: any = {
+      let payload: Record<string, unknown> = {
         contacts: contacts.map((c) => ({
           email: c.email,
           name: c.name.trim(),
@@ -364,521 +342,591 @@ export default function CreateCampaignPage() {
   const sentTotal = campaigns.reduce((a, c) => a + (c.sent || 0), 0);
   const failedTotal = campaigns.reduce((a, c) => a + (c.failed || 0), 0);
   const recurringTotal = campaigns.filter((c) => c.isRecurring).length;
+  const namedCount = contacts.filter((c) => c.name.trim()).length;
 
   return (
-    <div className="space-y-5">
-      <div className="flex flex-col gap-1">
-        <h1 className="text-xl font-semibold tracking-tight text-slate-900 dark:text-white sm:text-2xl">
-          Email Marketing
-        </h1>
-        <p className="max-w-xl text-sm text-slate-500 dark:text-slate-400">
-          Create campaigns, reach your contacts, and track delivery from one
-          place.
-        </p>
-      </div>
+    <>
+      <PageMeta
+        title="Email Marketing | Broker Dashboard"
+        description="Create campaigns, reach contacts, and track delivery"
+      />
 
-      <div className="inline-flex w-full gap-1 rounded-lg bg-slate-100 p-1 dark:bg-slate-800 sm:w-fit">
-        {(
-          [
-            { key: "create", label: "Create Campaign", icon: Layout },
-            { key: "result", label: "Campaign History", icon: BarChart3 },
-          ] as const
-        ).map(({ key, label, icon: Icon }) => (
-          <button
-            key={key}
-            type="button"
-            onClick={() => setActiveTab(key)}
-            className={`inline-flex flex-1 items-center justify-center gap-2 rounded-md px-4 py-2 text-sm font-semibold transition sm:flex-none ${
-              activeTab === key
-                ? "bg-[#13538A] text-white shadow-sm"
-                : "text-slate-500 hover:bg-white hover:text-slate-800 dark:text-slate-400 dark:hover:bg-slate-700 dark:hover:text-white"
-            }`}
-          >
-            <Icon size={16} />
-            {label}
-          </button>
-        ))}
-      </div>
-
-      {activeTab === "create" ? (
-        <div className="space-y-5">
-          <section className="space-y-4 rounded-xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
-            <div className="flex items-center justify-between gap-3">
-              <h3 className="flex items-center gap-2 text-sm font-semibold text-slate-800 dark:text-slate-100">
-                <Mail size={16} className="text-[#13538A]" />
-                Recipients
-              </h3>
-              <span className="rounded-full bg-[#13538A]/10 px-2.5 py-0.5 text-[11px] font-semibold text-[#0E426E]">
-                {contacts.length} added
-              </span>
-            </div>
-
-            <div ref={dropdownRef} className="relative">
-              <div
-                className={`flex flex-wrap gap-2 rounded-xl border border-slate-200 bg-slate-50 p-3 transition dark:border-slate-700 dark:bg-slate-800/50 ${FOCUS_WITHIN}`}
-              >
-                {contacts.map((c) => (
-                  <div
-                    key={c.email}
-                    className="flex items-center gap-2 rounded-lg border border-[#13538A]/20 bg-white px-2 py-1 dark:bg-slate-900"
-                  >
-                    <input
-                      value={c.name}
-                      onChange={(e) => updateName(c.email, e.target.value)}
-                      placeholder="Name"
-                      className="w-[90px] text-xs outline-none dark:bg-transparent"
-                    />
-                    <span className="text-xs font-medium text-[#13538A]">
-                      {c.email}
-                    </span>
-                    <button
-                      type="button"
-                      onClick={() => removeContact(c.email)}
-                      className="rounded p-0.5 text-slate-400 hover:bg-[#13538A]/10 hover:text-[#13538A]"
-                    >
-                      <X size={14} />
-                    </button>
-                  </div>
-                ))}
-
-                <input
-                  autoComplete="off"
-                  value={input}
-                  onFocus={() => setShowDropdown(true)}
-                  onPaste={(e) => {
-                    e.preventDefault();
-                    const paste = e.clipboardData.getData("text");
-
-                    const pastedEmails = paste.split(/[\s,;]+/);
-                    const validEmails = pastedEmails.filter(isValidEmail);
-
-                    setContacts((prev) => [
-                      ...prev,
-                      ...validEmails
-                        .filter(
-                          (email) => !prev.some((c) => c.email === email),
-                        )
-                        .map((email) => ({ email, name: "" })),
-                    ]);
-                  }}
-                  onChange={(e) => {
-                    setInput(e.target.value);
-                    setShowDropdown(true);
-                  }}
-                  onKeyDown={(e) => {
-                    if (["Enter", "Tab", ","].includes(e.key)) {
-                      e.preventDefault();
-                      addContact();
-                    }
-
-                    if (e.key === "Backspace" && !input && contacts.length) {
-                      setContacts((prev) => prev.slice(0, -1));
-                    }
-                  }}
-                  className="min-w-[200px] flex-1 bg-transparent py-1 text-sm outline-none"
-                  placeholder="Enter or select email..."
-                />
-              </div>
-
-              {showDropdown && filteredSuggestions.length > 0 && (
-                <div
-                  onClick={(e) => e.stopPropagation()}
-                  className="absolute z-20 mt-2 max-h-52 w-full overflow-auto rounded-xl border border-slate-200 bg-white shadow-lg dark:border-slate-700 dark:bg-slate-900"
-                >
-                  {filteredSuggestions.map((item) => (
-                    <button
-                      key={item}
-                      type="button"
-                      onClick={() => addContact(item)}
-                      className="flex w-full items-center gap-2 px-4 py-2.5 text-left text-sm transition hover:bg-[#13538A]/8"
-                    >
-                      <Mail size={14} className="text-[#13538A]" />
-                      <span className="text-slate-700 dark:text-slate-200">
-                        {item}
-                      </span>
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
-            <p className="text-xs text-slate-400">
-              Add a name for each recipient. Use {"{{name}}"} in the subject or
-              body to personalize.
+      <div className="w-full min-w-0 space-y-4 pb-4 text-text-primary dark:text-slate-100">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+          <div className="min-w-0">
+            <h1 className="ds-page-title">Email Marketing</h1>
+            <p className="ds-page-subtitle">
+              Create campaigns, reach your contacts, and track delivery from one
+              place.
             </p>
-          </section>
-
-          <section className="space-y-5 rounded-xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
-            <div className="space-y-2">
-              <label className="text-sm font-semibold text-slate-700 dark:text-slate-200">
-                Subject line
-              </label>
-              <input
-                value={subject}
-                onChange={(e) => setSubject(e.target.value)}
-                className={`w-full rounded-xl border border-slate-200 p-3 text-sm dark:border-slate-700 dark:bg-slate-900 ${FOCUS}`}
-                placeholder="e.g. Exclusive Offer for {{name}}!"
-              />
-            </div>
-
-            <div className="space-y-2">
-              <label className="text-sm font-semibold text-slate-700 dark:text-slate-200">
-                Email body
-              </label>
-              <RichEditor value={message} onChange={setMessage} />
-            </div>
-          </section>
-
-          <section className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
-            <div className="flex items-center justify-between gap-4">
-              <div className="flex items-center gap-3">
-                <div
-                  className={`rounded-lg p-2 ${
-                    repeat
-                      ? "bg-[#13538A]/10 text-[#13538A]"
-                      : "bg-slate-100 text-slate-400 dark:bg-slate-800"
-                  }`}
-                >
-                  <Calendar size={18} />
-                </div>
-                <div>
-                  <p className="text-sm font-semibold text-slate-800 dark:text-slate-100">
-                    Recurring campaign
-                  </p>
-                  <p className="text-xs text-slate-500">
-                    Automatically resend this message
-                  </p>
-                </div>
-              </div>
-              <label className="relative inline-flex cursor-pointer items-center">
-                <input
-                  type="checkbox"
-                  checked={repeat}
-                  onChange={() => setRepeat(!repeat)}
-                  className="peer sr-only"
-                />
-                <div className="h-6 w-11 rounded-full bg-slate-200 after:absolute after:left-[2px] after:top-[2px] after:h-5 after:w-5 after:rounded-full after:border after:border-slate-300 after:bg-white after:transition-all after:content-[''] peer-checked:bg-[#13538A] peer-checked:after:translate-x-full peer-checked:after:border-white peer-focus:outline-none dark:bg-slate-700" />
-              </label>
-            </div>
-
-            {repeat && (
-              <div className="mt-5 border-t border-slate-100 pt-5 dark:border-slate-800">
-                <div className="flex items-center justify-between">
-                  <p className="text-sm font-semibold text-slate-700 dark:text-slate-200">
-                    Schedule repeat
-                  </p>
-                  <span className="rounded-full bg-[#13538A]/10 px-2.5 py-0.5 text-[11px] font-semibold text-[#0E426E]">
-                    Auto send enabled
-                  </span>
-                </div>
-
-                <div className="mt-4 flex flex-wrap items-center gap-3 rounded-xl border border-[#13538A]/20 bg-[#13538A]/5 px-4 py-3">
-                  <span className="text-sm text-slate-600 dark:text-slate-300">
-                    Every
-                  </span>
-                  <input
-                    type="number"
-                    min={1}
-                    value={interval}
-                    onChange={(e) => setInterval(Number(e.target.value))}
-                    className={`w-16 rounded-xl border border-slate-200 bg-white py-1.5 text-center text-sm font-medium dark:border-slate-700 dark:bg-slate-900 ${FOCUS}`}
-                  />
-                  <select
-                    value={unit}
-                    onChange={(e) => setUnit(e.target.value)}
-                    className={`cursor-pointer rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-sm font-medium dark:border-slate-700 dark:bg-slate-900 ${FOCUS}`}
-                  >
-                    <option value="minutes">Minutes</option>
-                    <option value="hours">Hours</option>
-                    <option value="days">Days</option>
-                  </select>
-                  <span className="text-xs text-slate-500">
-                    Next run in {interval} {unit}
-                  </span>
-                </div>
-              </div>
-            )}
-          </section>
-
-          <div className="flex justify-end">
+          </div>
+          {activeTab === "create" ? (
             <button
               type="button"
               onClick={handleSendCampaign}
               disabled={loading}
-              className={`${PRIMARY_BTN} min-w-[200px] px-5 py-2.5`}
+              className="ds-btn-primary shrink-0 disabled:opacity-60"
             >
               <Send size={16} />
-              {loading ? "Sending..." : "Launch Campaign"}
+              {loading ? "Sending…" : "Launch campaign"}
             </button>
-          </div>
+          ) : null}
         </div>
-      ) : (
-        <div className="space-y-5">
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
-            {[
-              {
-                label: "Campaigns",
-                val: campaigns.length,
-                tone: "navy" as const,
-                icon: <Send size={16} />,
-              },
-              {
-                label: "Sent",
-                val: sentTotal,
-                tone: "green" as const,
-                icon: <CheckCircle2 size={16} />,
-              },
-              {
-                label: "Failed",
-                val: failedTotal,
-                tone: "red" as const,
-                icon: <XCircle size={16} />,
-              },
-              {
-                label: "Recurring",
-                val: recurringTotal,
-                tone: "navy" as const,
-                icon: <Repeat size={16} />,
-              },
-            ].map((stat) => {
-              const styles = colorMap[stat.tone];
-              return (
-                <div
-                  key={stat.label}
-                  className="flex items-center justify-between rounded-xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900"
-                >
-                  <div>
-                    <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">
-                      {stat.label}
-                    </p>
-                    <p className={`mt-1 text-lg font-semibold ${styles.text}`}>
-                      {stat.val}
-                    </p>
-                  </div>
-                  <div
-                    className={`flex h-9 w-9 items-center justify-center rounded-lg ${styles.bg} ${styles.text}`}
-                  >
-                    {stat.icon}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
 
-          <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900">
-            <div className="flex flex-col gap-3 border-b border-slate-100 px-5 py-4 sm:flex-row sm:items-center sm:justify-between dark:border-slate-800">
-              <div>
-                <h3 className="text-sm font-semibold text-slate-800 dark:text-slate-100">
-                  All campaigns
-                </h3>
-                <p className="mt-0.5 text-xs text-slate-400">
-                  {campaigns.length} on this page
-                </p>
-              </div>
-              <div className="relative w-full sm:w-64">
-                <Search
-                  size={14}
-                  className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
-                />
-                <input
-                  value={search}
-                  onChange={(e) => {
-                    setSearch(e.target.value);
-                    setPage(1);
-                  }}
-                  placeholder="Search campaign..."
-                  className={`w-full rounded-lg border border-slate-200 py-2 pl-8 pr-3 text-xs dark:border-slate-700 dark:bg-slate-900 ${FOCUS}`}
-                />
-              </div>
+        <div className="inline-flex w-full gap-1 rounded-xl border border-border bg-white p-1 dark:border-slate-700 dark:bg-slate-950 sm:w-auto">
+          {(
+            [
+              { key: "create" as const, label: "Create campaign", icon: Layout },
+              {
+                key: "result" as const,
+                label: "Campaign history",
+                icon: BarChart3,
+              },
+            ] as const
+          ).map(({ key, label, icon: Icon }) => (
+            <button
+              key={key}
+              type="button"
+              onClick={() => setActiveTab(key)}
+              className={`inline-flex flex-1 items-center justify-center gap-1.5 rounded-lg px-3.5 py-1.5 text-xs font-semibold transition sm:flex-none ${
+                activeTab === key
+                  ? "bg-[#4C78F5] text-white"
+                  : "text-text-secondary hover:bg-surface hover:text-[#4C78F5] dark:text-slate-300 dark:hover:bg-slate-900"
+              }`}
+            >
+              <Icon size={14} />
+              {label}
+            </button>
+          ))}
+        </div>
+
+        {activeTab === "create" ? (
+          <div className="space-y-4">
+            <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3">
+              <StatPill
+                icon={<Users size={14} />}
+                label="Recipients"
+                value={contacts.length}
+                color="blue"
+              />
+              <StatPill
+                icon={<CheckCircle2 size={14} />}
+                label="Named"
+                value={namedCount}
+                color="emerald"
+              />
+              <StatPill
+                icon={<Repeat size={14} />}
+                label="Schedule"
+                value={repeat ? "On" : "Off"}
+                color={repeat ? "amber" : "slate"}
+              />
             </div>
 
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead className="bg-slate-50 text-[10px] font-semibold uppercase tracking-wide text-slate-400 dark:bg-slate-800/50">
-                  <tr>
-                    <th className="px-5 py-3 text-left">Campaign</th>
-                    <th className="px-5 py-3 text-left">Status</th>
-                    <th className="px-5 py-3 text-left">Performance</th>
-                    <th className="px-5 py-3 text-left">Created</th>
-                    <th className="px-5 py-3 text-left">Action</th>
-                  </tr>
-                </thead>
+            <section className="overflow-hidden rounded-2xl border border-border bg-white dark:border-slate-700 dark:bg-slate-900">
+              <div className="flex items-center justify-between gap-3 border-b border-border px-4 py-3.5 sm:px-5 dark:border-slate-800">
+                <h3 className="flex items-center gap-2 text-sm font-semibold text-text-primary">
+                  <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#4C78F5]/10 text-[#4C78F5]">
+                    <Mail size={15} />
+                  </span>
+                  Recipients
+                </h3>
+                <span className="rounded-full bg-[#4C78F5]/10 px-2.5 py-1 text-[11px] font-semibold text-[#4C78F5]">
+                  {contacts.length} added
+                </span>
+              </div>
 
-                <tbody>
-                  {loadingList ? (
-                    [...Array(5)].map((_, i) => (
-                      <tr key={i} className="animate-pulse">
-                        <td className="px-5 py-4">
-                          <div className="mb-2 h-4 w-40 rounded bg-slate-200 dark:bg-slate-700" />
-                          <div className="h-3 w-24 rounded bg-slate-100 dark:bg-slate-800" />
-                        </td>
-                        <td className="px-5 py-4">
-                          <div className="h-6 w-20 rounded-full bg-slate-200 dark:bg-slate-700" />
-                        </td>
-                        <td className="px-5 py-4">
-                          <div className="mb-2 h-3 w-full rounded bg-slate-200 dark:bg-slate-700" />
-                          <div className="h-2 w-3/4 rounded bg-slate-100 dark:bg-slate-800" />
-                        </td>
-                        <td className="px-5 py-4">
-                          <div className="h-3 w-24 rounded bg-slate-200 dark:bg-slate-700" />
-                        </td>
-                        <td className="px-5 py-4">
-                          <div className="h-6 w-16 rounded-lg bg-slate-200 dark:bg-slate-700" />
+              <div className="space-y-3 px-4 py-4 sm:px-5">
+                <div ref={dropdownRef} className="relative">
+                  <div className="flex min-h-11 flex-wrap gap-2 rounded-xl border border-border bg-white p-2.5 transition focus-within:border-[#4C78F5]/50 focus-within:ring-2 focus-within:ring-[#4C78F5]/15 dark:border-slate-700 dark:bg-slate-950">
+                    {contacts.map((c) => (
+                      <div
+                        key={c.email}
+                        className="flex items-center gap-1.5 rounded-lg border border-[#4C78F5]/20 bg-[#4C78F5]/5 px-2 py-1"
+                      >
+                        <input
+                          value={c.name}
+                          onChange={(e) => updateName(c.email, e.target.value)}
+                          placeholder="Name"
+                          className="w-[88px] bg-transparent text-xs font-medium text-text-primary outline-none placeholder:text-text-secondary/70"
+                        />
+                        <span className="max-w-[160px] truncate text-xs font-medium text-[#4C78F5]">
+                          {c.email}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => removeContact(c.email)}
+                          className="rounded p-0.5 text-text-secondary transition hover:bg-white hover:text-[#4C78F5]"
+                          aria-label={`Remove ${c.email}`}
+                        >
+                          <X size={13} />
+                        </button>
+                      </div>
+                    ))}
+
+                    <input
+                      autoComplete="off"
+                      value={input}
+                      onFocus={() => setShowDropdown(true)}
+                      onPaste={(e) => {
+                        e.preventDefault();
+                        const paste = e.clipboardData.getData("text");
+
+                        const pastedEmails = paste.split(/[\s,;]+/);
+                        const validEmails = pastedEmails.filter(isValidEmail);
+
+                        setContacts((prev) => [
+                          ...prev,
+                          ...validEmails
+                            .filter(
+                              (email) => !prev.some((c) => c.email === email),
+                            )
+                            .map((email) => ({ email, name: "" })),
+                        ]);
+                      }}
+                      onChange={(e) => {
+                        setInput(e.target.value);
+                        setShowDropdown(true);
+                      }}
+                      onKeyDown={(e) => {
+                        if (["Enter", "Tab", ","].includes(e.key)) {
+                          e.preventDefault();
+                          addContact();
+                        }
+
+                        if (
+                          e.key === "Backspace" &&
+                          !input &&
+                          contacts.length
+                        ) {
+                          setContacts((prev) => prev.slice(0, -1));
+                        }
+                      }}
+                      className="min-w-[180px] flex-1 bg-transparent px-1 py-1 text-sm outline-none placeholder:text-text-secondary/70"
+                      placeholder="Enter or select email…"
+                    />
+                  </div>
+
+                  {showDropdown && filteredSuggestions.length > 0 && (
+                    <div
+                      onClick={(e) => e.stopPropagation()}
+                      className="absolute z-20 mt-2 max-h-52 w-full overflow-auto rounded-xl border border-border bg-white dark:border-slate-700 dark:bg-slate-900"
+                    >
+                      {filteredSuggestions.map((item) => (
+                        <button
+                          key={item}
+                          type="button"
+                          onClick={() => addContact(item)}
+                          className="flex w-full items-center gap-2 px-4 py-2.5 text-left text-sm transition hover:bg-[#4C78F5]/8"
+                        >
+                          <Mail size={14} className="text-[#4C78F5]" />
+                          <span className="text-text-primary">{item}</span>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+                <p className="text-xs text-text-secondary">
+                  Add a name for each recipient. Use{" "}
+                  <code className="rounded bg-surface px-1 py-0.5 text-[11px] font-medium text-[#4C78F5]">
+                    {"{{name}}"}
+                  </code>{" "}
+                  in the subject or body to personalize.
+                </p>
+              </div>
+            </section>
+
+            <section className="overflow-hidden rounded-2xl border border-border bg-white dark:border-slate-700 dark:bg-slate-900">
+              <div className="border-b border-border px-4 py-3.5 sm:px-5 dark:border-slate-800">
+                <h3 className="flex items-center gap-2 text-sm font-semibold text-text-primary">
+                  <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#4C78F5]/10 text-[#4C78F5]">
+                    <Layout size={15} />
+                  </span>
+                  Email content
+                </h3>
+              </div>
+
+              <div className="space-y-4 px-4 py-4 sm:px-5">
+                <div className="space-y-1.5">
+                  <label className="text-xs font-semibold uppercase tracking-[0.06em] text-text-secondary">
+                    Subject line
+                  </label>
+                  <input
+                    value={subject}
+                    onChange={(e) => setSubject(e.target.value)}
+                    className="ds-input"
+                    placeholder="e.g. Exclusive Offer for {{name}}!"
+                  />
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="text-xs font-semibold uppercase tracking-[0.06em] text-text-secondary">
+                    Email body
+                  </label>
+                  <RichEditor value={message} onChange={setMessage} />
+                </div>
+              </div>
+            </section>
+
+            <section className="overflow-hidden rounded-2xl border border-border bg-white dark:border-slate-700 dark:bg-slate-900">
+              <div className="flex items-center justify-between gap-4 px-4 py-4 sm:px-5">
+                <div className="flex items-center gap-3">
+                  <span
+                    className={`flex h-9 w-9 items-center justify-center rounded-lg ${
+                      repeat
+                        ? "bg-[#4C78F5]/10 text-[#4C78F5]"
+                        : "bg-slate-100 text-slate-400 dark:bg-slate-800"
+                    }`}
+                  >
+                    <Calendar size={16} />
+                  </span>
+                  <div>
+                    <p className="text-sm font-semibold text-text-primary">
+                      Recurring campaign
+                    </p>
+                    <p className="text-xs text-text-secondary">
+                      Automatically resend this message on a schedule
+                    </p>
+                  </div>
+                </div>
+                <label className="relative inline-flex cursor-pointer items-center">
+                  <input
+                    type="checkbox"
+                    checked={repeat}
+                    onChange={() => setRepeat(!repeat)}
+                    className="peer sr-only"
+                  />
+                  <div className="h-6 w-11 rounded-full bg-slate-200 after:absolute after:top-[2px] after:left-[2px] after:h-5 after:w-5 after:rounded-full after:border after:border-slate-300 after:bg-white after:transition-all after:content-[''] peer-checked:bg-[#4C78F5] peer-checked:after:translate-x-full peer-checked:after:border-white peer-focus:outline-none dark:bg-slate-700" />
+                </label>
+              </div>
+
+              {repeat ? (
+                <div className="border-t border-border px-4 py-4 sm:px-5 dark:border-slate-800">
+                  <div className="mb-3 flex items-center justify-between gap-2">
+                    <p className="text-sm font-semibold text-text-primary">
+                      Schedule repeat
+                    </p>
+                    <span className="rounded-full bg-amber-50 px-2.5 py-1 text-[11px] font-semibold text-amber-700 ring-1 ring-inset ring-amber-200 dark:bg-amber-500/10 dark:text-amber-300 dark:ring-amber-500/30">
+                      Auto send enabled
+                    </span>
+                  </div>
+
+                  <div className="flex flex-wrap items-center gap-2.5 rounded-xl border border-[#4C78F5]/20 bg-[#4C78F5]/[0.04] px-3.5 py-3">
+                    <span className="text-sm text-text-secondary">Every</span>
+                    <input
+                      type="number"
+                      min={1}
+                      value={interval}
+                      onChange={(e) => setInterval(Number(e.target.value))}
+                      className="h-9 w-16 rounded-xl border border-border bg-white text-center text-sm font-semibold outline-none focus:border-[#4C78F5]/50 focus:ring-2 focus:ring-[#4C78F5]/15 dark:border-slate-700 dark:bg-slate-950"
+                    />
+                    <select
+                      value={unit}
+                      onChange={(e) => setUnit(e.target.value)}
+                      className="h-9 rounded-xl border border-border bg-white px-3 text-sm font-medium outline-none focus:border-[#4C78F5]/50 focus:ring-2 focus:ring-[#4C78F5]/15 dark:border-slate-700 dark:bg-slate-950"
+                    >
+                      <option value="minutes">Minutes</option>
+                      <option value="hours">Hours</option>
+                      <option value="days">Days</option>
+                    </select>
+                    <span className="text-xs text-text-secondary">
+                      Next run in {interval} {unit}
+                    </span>
+                  </div>
+                </div>
+              ) : null}
+            </section>
+
+            <div className="flex justify-end">
+              <button
+                type="button"
+                onClick={handleSendCampaign}
+                disabled={loading}
+                className="ds-btn-primary min-w-[200px] disabled:opacity-60"
+              >
+                <Send size={16} />
+                {loading ? "Sending…" : "Launch campaign"}
+              </button>
+            </div>
+          </div>
+        ) : (
+          <div className="space-y-4">
+            <div className="grid grid-cols-2 gap-2.5 lg:grid-cols-4">
+              <StatPill
+                icon={<Send size={14} />}
+                label="Campaigns"
+                value={campaignTotal}
+                color="blue"
+                loading={loadingList && campaignTotal === 0}
+              />
+              <StatPill
+                icon={<CheckCircle2 size={14} />}
+                label="Sent (page)"
+                value={sentTotal}
+                color="emerald"
+                loading={loadingList && campaigns.length === 0}
+              />
+              <StatPill
+                icon={<XCircle size={14} />}
+                label="Failed (page)"
+                value={failedTotal}
+                color="rose"
+                loading={loadingList && campaigns.length === 0}
+              />
+              <StatPill
+                icon={<Repeat size={14} />}
+                label="Recurring"
+                value={recurringTotal}
+                color="amber"
+                loading={loadingList && campaigns.length === 0}
+              />
+            </div>
+
+            <div className="overflow-hidden rounded-2xl border border-border bg-white dark:border-slate-700 dark:bg-slate-900">
+              <div className="flex flex-col gap-2.5 border-b border-border px-4 py-3.5 dark:border-slate-800 sm:flex-row sm:items-center sm:justify-between sm:px-5">
+                <div className="group relative w-full sm:max-w-sm">
+                  <Search className="pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-text-secondary transition-colors group-focus-within:text-[#4C78F5]" />
+                  <input
+                    value={search}
+                    onChange={(e) => {
+                      setSearch(e.target.value);
+                      setPage(1);
+                    }}
+                    placeholder="Search campaigns…"
+                    className="h-10 w-full rounded-xl border border-border bg-white py-2 pr-9 pl-10 text-sm text-text-primary outline-none transition placeholder:text-text-secondary/70 focus:border-[#4C78F5]/50 focus:ring-2 focus:ring-[#4C78F5]/15 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
+                  />
+                  {search ? (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSearch("");
+                        setPage(1);
+                      }}
+                      className="absolute top-1/2 right-2.5 -translate-y-1/2 rounded-md p-1 text-text-secondary hover:bg-surface"
+                      aria-label="Clear search"
+                    >
+                      <X size={14} />
+                    </button>
+                  ) : null}
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => void fetchCampaigns()}
+                  disabled={loadingList}
+                  className="inline-flex h-10 items-center justify-center gap-2 rounded-xl border border-border bg-white px-3 text-sm font-medium text-text-secondary transition hover:bg-surface disabled:opacity-60 dark:border-slate-700 dark:bg-slate-950"
+                >
+                  <RefreshCw
+                    className={`h-4 w-4 ${loadingList ? "animate-spin" : ""}`}
+                  />
+                  Refresh
+                </button>
+              </div>
+
+              <div className="overflow-x-auto">
+                <table className="ds-table min-w-[880px] w-full">
+                  <thead>
+                    <tr>
+                      <th>Campaign</th>
+                      <th>Status</th>
+                      <th>Performance</th>
+                      <th className="hidden sm:table-cell">Created</th>
+                      <th className="!text-right">Action</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {loadingList ? (
+                      <tr>
+                        <td colSpan={5} className="px-5 py-14 text-center">
+                          <div className="inline-flex items-center gap-2 text-sm text-text-secondary">
+                            <RefreshCw className="h-4 w-4 animate-spin text-[#4C78F5]" />
+                            Loading campaigns…
+                          </div>
                         </td>
                       </tr>
-                    ))
-                  ) : campaigns.length === 0 ? (
-                    <tr>
-                      <td colSpan={5} className="py-16">
-                        <div className="flex flex-col items-center justify-center text-center">
-                          <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-[#13538A]/10">
-                            <Inbox className="h-7 w-7 text-[#13538A]" />
+                    ) : campaigns.length === 0 ? (
+                      <tr>
+                        <td
+                          colSpan={5}
+                          className="!px-5 !py-14 text-center"
+                        >
+                          <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-xl bg-[#4C78F5]/10 text-[#4C78F5]">
+                            <Inbox className="h-5 w-5" />
                           </div>
-                          <h3 className="mt-4 text-sm font-semibold text-slate-800 dark:text-slate-100">
+                          <p className="text-sm font-semibold text-text-primary">
                             No campaigns yet
-                          </h3>
-                          <p className="mt-1 max-w-[240px] text-xs leading-relaxed text-slate-400">
+                          </p>
+                          <p className="mx-auto mt-1.5 max-w-sm text-xs text-text-secondary">
                             Start your first campaign to engage your audience
                             and track performance here.
                           </p>
                           <button
                             type="button"
                             onClick={() => setActiveTab("create")}
-                            className={`${PRIMARY_BTN} mt-5 px-4 py-2 text-xs`}
+                            className="ds-btn-primary mt-4 h-9 px-4 text-xs"
                           >
-                            Create Campaign
+                            <Layout size={14} />
+                            Create campaign
                           </button>
-                        </div>
-                      </td>
-                    </tr>
-                  ) : (
-                    campaigns.map((c) => (
-                      <tr
-                        key={c.id}
-                        className="border-t border-slate-100 transition hover:bg-[#13538A]/5 dark:border-slate-800"
-                      >
-                        <td className="px-5 py-4">
-                          <p className="font-semibold text-slate-800 dark:text-slate-100">
-                            {c.name}
-                          </p>
-                          <p className="mt-1 line-clamp-1 text-xs text-slate-400">
-                            {c.subject}
-                          </p>
-                        </td>
-                        <td className="px-5 py-4">
-                          {c.status === "SENT" ? (
-                            <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2.5 py-1 text-[11px] font-semibold text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-300">
-                              <CheckCircle2 size={14} />
-                              Delivered
-                            </span>
-                          ) : (
-                            <span className="inline-flex items-center gap-1 rounded-full bg-red-50 px-2.5 py-1 text-[11px] font-semibold text-red-600 dark:bg-red-500/10 dark:text-red-300">
-                              <XCircle size={14} />
-                              Failed
-                            </span>
-                          )}
-                        </td>
-                        <td className="px-5 py-4">
-                          <div className="space-y-1">
-                            <div className="flex justify-between text-[11px] text-slate-500">
-                              <span>Sent</span>
-                              <span className="font-semibold text-emerald-600">
-                                {c.sent}
-                              </span>
-                            </div>
-                            <div className="flex justify-between text-[11px] text-slate-500">
-                              <span>Failed</span>
-                              <span className="font-semibold text-red-500">
-                                {c.failed}
-                              </span>
-                            </div>
-                            <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-slate-100 dark:bg-slate-800">
-                              <div
-                                className="h-full bg-emerald-500"
-                                style={{
-                                  width: `${
-                                    c.total ? (c.sent / c.total) * 100 : 0
-                                  }%`,
-                                }}
-                              />
-                            </div>
-                          </div>
-                        </td>
-                        <td className="px-5 py-4 text-xs text-slate-500">
-                          <div className="flex flex-col">
-                            <span>
-                              {new Date(c.createdAt).toLocaleDateString()}
-                            </span>
-                            <span className="text-slate-400">
-                              {new Date(c.createdAt).toLocaleTimeString()}
-                            </span>
-                          </div>
-                        </td>
-                        <td className="px-5 py-4">
-                          {c.isRecurring ? (
-                            <div className="flex flex-wrap items-center gap-2">
-                              <span className="inline-flex items-center gap-1.5 rounded-full border border-[#13538A]/20 bg-[#13538A]/8 px-2.5 py-1 text-[11px] font-semibold text-[#0E426E] dark:text-sky-200">
-                                <Repeat size={13} />
-                                Every {c.intervalValue} {c.intervalUnit}
-                              </span>
-                              <button
-                                type="button"
-                                onClick={() => handleStopCampaign(c.id)}
-                                disabled={stoppingId === c.id}
-                                className="rounded-lg bg-red-50 px-3 py-1 text-[11px] font-semibold text-red-600 transition hover:bg-red-100 disabled:opacity-50 dark:bg-red-500/10 dark:text-red-300"
-                              >
-                                {stoppingId === c.id ? "Stopping..." : "Stop"}
-                              </button>
-                            </div>
-                          ) : (
-                            <span className="text-xs text-slate-300">—</span>
-                          )}
                         </td>
                       </tr>
-                    ))
-                  )}
-                </tbody>
-              </table>
-            </div>
+                    ) : (
+                      campaigns.map((c) => {
+                        const successRate = c.total
+                          ? Math.round((c.sent / c.total) * 100)
+                          : 0;
 
-            <div className="flex items-center justify-between border-t border-slate-100 px-5 py-3 dark:border-slate-800">
-              <p className="text-xs text-slate-500">
-                Showing{" "}
-                <span className="font-semibold text-slate-700 dark:text-slate-200">
-                  {page}
-                </span>{" "}
-                of{" "}
-                <span className="font-semibold text-slate-700 dark:text-slate-200">
-                  {totalPages || 1}
-                </span>{" "}
-                pages
-              </p>
-              <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  disabled={page === 1}
-                  onClick={() => setPage((p) => p - 1)}
-                  className="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-600 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300"
-                >
-                  <ChevronLeft size={14} />
-                  Prev
-                </button>
-                <div className="rounded-lg bg-[#13538A]/10 px-3 py-1.5 text-xs font-semibold text-[#13538A]">
-                  {page}
-                </div>
-                <button
-                  type="button"
-                  disabled={page === totalPages || totalPages === 0}
-                  onClick={() => setPage((p) => p + 1)}
-                  className="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-600 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300"
-                >
-                  Next
-                  <ChevronRight size={14} />
-                </button>
+                        return (
+                          <tr key={c.id}>
+                            <td>
+                              <div className="flex items-center gap-3">
+                                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#4C78F5] text-white">
+                                  <Mail className="h-4 w-4" />
+                                </div>
+                                <div className="min-w-0">
+                                  <p className="ds-table-title">{c.name}</p>
+                                  <p className="ds-table-meta">{c.subject}</p>
+                                </div>
+                              </div>
+                            </td>
+
+                            <td>
+                              {c.status === "SENT" ? (
+                                <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2.5 py-1 text-[11px] font-semibold text-emerald-700 ring-1 ring-inset ring-emerald-200">
+                                  <CheckCircle2 className="h-3.5 w-3.5" />
+                                  Delivered
+                                </span>
+                              ) : (
+                                <span className="inline-flex items-center gap-1 rounded-full bg-rose-100 px-2.5 py-1 text-[11px] font-semibold text-rose-700 ring-1 ring-inset ring-rose-200">
+                                  <XCircle className="h-3.5 w-3.5" />
+                                  Failed
+                                </span>
+                              )}
+                            </td>
+
+                            <td>
+                              <div className="min-w-[140px] space-y-1.5">
+                                <div className="flex items-center justify-between gap-3 text-[11px]">
+                                  <span className="font-medium text-text-secondary">
+                                    {c.sent}/{c.total} sent
+                                  </span>
+                                  <span className="font-semibold tabular-nums text-emerald-600">
+                                    {successRate}%
+                                  </span>
+                                </div>
+                                <div className="h-1.5 overflow-hidden rounded-full bg-slate-100 dark:bg-slate-800">
+                                  <div
+                                    className="h-full rounded-full bg-emerald-500"
+                                    style={{ width: `${successRate}%` }}
+                                  />
+                                </div>
+                                {c.failed > 0 ? (
+                                  <p className="text-[11px] font-medium text-rose-600">
+                                    {c.failed} failed
+                                  </p>
+                                ) : null}
+                              </div>
+                            </td>
+
+                            <td className="hidden ds-table-muted whitespace-nowrap sm:table-cell">
+                              <div className="flex flex-col">
+                                <span>
+                                  {new Date(c.createdAt).toLocaleDateString()}
+                                </span>
+                                <span className="text-[11px] text-text-secondary/80">
+                                  {new Date(c.createdAt).toLocaleTimeString()}
+                                </span>
+                              </div>
+                            </td>
+
+                            <td className="text-right">
+                              {c.isRecurring ? (
+                                <div className="inline-flex flex-wrap items-center justify-end gap-2">
+                                  <span className="inline-flex items-center gap-1 rounded-full border border-[#4C78F5]/20 bg-[#4C78F5]/8 px-2.5 py-1 text-[11px] font-semibold text-[#4C78F5]">
+                                    <Repeat size={12} />
+                                    Every {c.intervalValue} {c.intervalUnit}
+                                  </span>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleStopCampaign(c.id)}
+                                    disabled={stoppingId === c.id}
+                                    className="inline-flex h-8 items-center rounded-lg border border-rose-200 bg-white px-3 text-xs font-semibold text-rose-700 transition hover:bg-rose-50 disabled:opacity-50 dark:border-rose-500/30 dark:bg-slate-950 dark:text-rose-300"
+                                  >
+                                    {stoppingId === c.id
+                                      ? "Stopping…"
+                                      : "Stop"}
+                                  </button>
+                                </div>
+                              ) : (
+                                <span className="text-[12px] font-medium italic text-text-secondary/70">
+                                  One-time
+                                </span>
+                              )}
+                            </td>
+                          </tr>
+                        );
+                      })
+                    )}
+                  </tbody>
+                </table>
               </div>
+
+              {!loadingList && campaigns.length > 0 ? (
+                <div className="flex flex-col gap-3 border-t border-border px-4 py-3.5 dark:border-slate-800 sm:flex-row sm:items-center sm:justify-between sm:px-5">
+                  <p className="text-[13px] text-text-secondary">
+                    Page{" "}
+                    <span className="font-semibold text-text-primary">
+                      {page}
+                    </span>{" "}
+                    of{" "}
+                    <span className="font-semibold text-text-primary">
+                      {totalPages || 1}
+                    </span>
+                    {campaignTotal > 0 ? (
+                      <>
+                        {" "}
+                        ·{" "}
+                        <span className="font-semibold text-text-primary">
+                          {campaignTotal}
+                        </span>{" "}
+                        total
+                      </>
+                    ) : null}
+                  </p>
+
+                  {totalPages > 1 ? (
+                    <div className="flex items-center gap-1.5">
+                      <button
+                        type="button"
+                        disabled={page <= 1 || loadingList}
+                        onClick={() => setPage((p) => Math.max(1, p - 1))}
+                        className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-border bg-white transition hover:bg-surface disabled:opacity-40 dark:border-slate-700 dark:bg-slate-950"
+                      >
+                        <ChevronLeft size={16} />
+                      </button>
+                      <span className="inline-flex h-9 min-w-9 items-center justify-center rounded-xl bg-[#4C78F5] px-2.5 text-sm font-semibold text-white">
+                        {page}
+                      </span>
+                      <button
+                        type="button"
+                        disabled={
+                          page >= totalPages || loadingList || totalPages < 1
+                        }
+                        onClick={() =>
+                          setPage((p) => Math.min(totalPages, p + 1))
+                        }
+                        className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-border bg-white transition hover:bg-surface disabled:opacity-40 dark:border-slate-700 dark:bg-slate-950"
+                      >
+                        <ChevronRight size={16} />
+                      </button>
+                    </div>
+                  ) : null}
+                </div>
+              ) : null}
             </div>
           </div>
-        </div>
-      )}
-    </div>
+        )}
+      </div>
+    </>
   );
 }

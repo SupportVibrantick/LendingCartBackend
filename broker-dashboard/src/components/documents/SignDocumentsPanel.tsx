@@ -1,4 +1,12 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type MouseEvent as ReactMouseEvent,
+  type ReactNode,
+} from "react";
+import { createPortal } from "react-dom";
 import { useNavigate } from "react-router";
 import SignatureCanvas from "react-signature-canvas";
 import toast from "react-hot-toast";
@@ -16,6 +24,7 @@ import {
   FileText,
   HelpCircle,
   Loader2,
+  MoreVertical,
   MousePointer2,
   PenLine,
   Search,
@@ -321,36 +330,36 @@ const BROKER_BUCKET_FILTERS: Array<{
     label: "Awaiting you",
     summaryKey: "awaitingYou",
     color: "text-amber-700 dark:text-amber-300",
-    idle: "border-amber-200/80 bg-amber-50/60 hover:border-amber-300 hover:bg-amber-50 hover:shadow-md dark:border-amber-800/40 dark:bg-amber-950/15 dark:hover:border-amber-700 dark:hover:bg-amber-950/30",
+    idle: "border-slate-200 bg-white hover:border-amber-300 dark:border-slate-700 dark:bg-slate-950 dark:hover:border-amber-700",
     active:
-      "border-amber-400 bg-amber-50 shadow-md ring-2 ring-amber-300/70 dark:border-amber-500 dark:bg-amber-950/40 dark:ring-amber-500/40",
+      "border-amber-400 bg-white ring-1 ring-amber-300/60 dark:border-amber-500 dark:bg-slate-950 dark:ring-amber-500/40",
   },
   {
     key: "withClient",
     label: "With client",
     summaryKey: "withClient",
-    color: "text-[#13538A] dark:text-sky-300",
-    idle: "border-[#13538A]/20 bg-[#13538A]/8 hover:border-[#13538A]/40 hover:bg-[#13538A]/12 hover:shadow-md dark:border-[#13538A]/30 dark:bg-[#13538A]/10 dark:hover:border-[#13538A]/50",
+    color: "text-[#4C78F5] dark:text-sky-300",
+    idle: "border-slate-200 bg-white hover:border-[#4C78F5]/40 dark:border-slate-700 dark:bg-slate-950 dark:hover:border-[#4C78F5]/50",
     active:
-      "border-[#13538A] bg-[#13538A]/10 shadow-md ring-2 ring-[#13538A]/35 dark:border-sky-400 dark:bg-[#13538A]/25 dark:ring-sky-400/40",
+      "border-[#4C78F5] bg-white ring-1 ring-[#4C78F5]/25 dark:border-sky-400 dark:bg-slate-950 dark:ring-sky-400/40",
   },
   {
     key: "readyToForward",
     label: "Ready to forward",
     summaryKey: "readyToForward",
     color: "text-emerald-700 dark:text-emerald-300",
-    idle: "border-emerald-200/80 bg-emerald-50/60 hover:border-emerald-300 hover:bg-emerald-50 hover:shadow-md dark:border-emerald-800/40 dark:bg-emerald-950/15 dark:hover:border-emerald-700 dark:hover:bg-emerald-950/30",
+    idle: "border-slate-200 bg-white hover:border-emerald-300 dark:border-slate-700 dark:bg-slate-950 dark:hover:border-emerald-700",
     active:
-      "border-emerald-400 bg-emerald-50 shadow-md ring-2 ring-emerald-300/70 dark:border-emerald-500 dark:bg-emerald-950/40 dark:ring-emerald-500/40",
+      "border-emerald-400 bg-white ring-1 ring-emerald-300/60 dark:border-emerald-500 dark:bg-slate-950 dark:ring-emerald-500/40",
   },
   {
     key: "forwarded",
     label: "Forwarded",
     summaryKey: "forwarded",
-    color: "text-[#0E426E] dark:text-sky-200",
-    idle: "border-slate-200 bg-slate-50/80 hover:border-slate-300 hover:bg-white hover:shadow-md dark:border-slate-700 dark:bg-slate-900/40 dark:hover:border-slate-500 dark:hover:bg-slate-900",
+    color: "text-[#3B66E0] dark:text-sky-200",
+    idle: "border-slate-200 bg-white hover:border-[#4C78F5]/40 dark:border-slate-700 dark:bg-slate-950 dark:hover:border-sky-500",
     active:
-      "border-[#13538A]/50 bg-slate-50 shadow-md ring-2 ring-[#13538A]/30 dark:border-sky-500 dark:bg-slate-900 dark:ring-sky-500/40",
+      "border-[#4C78F5]/50 bg-white ring-1 ring-[#4C78F5]/20 dark:border-sky-500 dark:bg-slate-950 dark:ring-sky-500/40",
   },
 ];
 
@@ -366,11 +375,11 @@ const statusClass = (status?: string | null) => {
     case "AWAITING_BROKER":
       return "border-amber-200 bg-amber-50 text-amber-800 dark:border-amber-800/60 dark:bg-amber-950/30 dark:text-amber-200";
     case "SENT_TO_CLIENT":
-      return "border-[#13538A]/25 bg-[#13538A]/8 text-[#0E426E] dark:border-[#13538A]/40 dark:bg-[#13538A]/15 dark:text-sky-200";
+      return "border-[#4C78F5]/25 bg-[#4C78F5]/8 text-[#3B66E0] dark:border-[#4C78F5]/40 dark:bg-[#4C78F5]/15 dark:text-sky-200";
     case "CLIENT_SIGNED":
       return "border-emerald-200 bg-emerald-50 text-emerald-800 dark:border-emerald-800/60 dark:bg-emerald-950/30 dark:text-emerald-200";
     case "FORWARDED_TO_LENDER":
-      return "border-[#13538A]/25 bg-[#13538A]/8 text-[#0E426E] dark:border-[#13538A]/40 dark:bg-[#13538A]/15 dark:text-sky-200";
+      return "border-[#4C78F5]/25 bg-[#4C78F5]/8 text-[#3B66E0] dark:border-[#4C78F5]/40 dark:bg-[#4C78F5]/15 dark:text-sky-200";
     case "LENDER_SEEN":
       return "border-teal-200 bg-teal-50 text-teal-800 dark:border-teal-800/60 dark:bg-teal-950/30 dark:text-teal-200";
     default:
@@ -459,6 +468,17 @@ export default function SignDocumentsPanel({
   const [brokerSearchInput, setBrokerSearchInput] = useState("");
   const [debouncedBrokerSearch, setDebouncedBrokerSearch] = useState("");
   const [brokerPage, setBrokerPage] = useState(1);
+  const [signActionMenuKey, setSignActionMenuKey] = useState<string | null>(
+    null,
+  );
+  const [signActionMenuPos, setSignActionMenuPos] = useState<{
+    top: number;
+    left: number;
+  } | null>(null);
+  const signActionMenuRef = useRef<HTMLDivElement | null>(null);
+  const signActionButtonRefs = useRef<Record<string, HTMLButtonElement | null>>(
+    {},
+  );
   const [brokerPagination, setBrokerPagination] =
     useState<SignDocumentsPagination | null>(null);
   const [brokerSummary, setBrokerSummary] = useState<BrokerSignDocumentsSummary>({
@@ -487,11 +507,15 @@ export default function SignDocumentsPanel({
     },
   );
   const [clientListRefreshing, setClientListRefreshing] = useState(false);
+  const [brokerListRefreshing, setBrokerListRefreshing] = useState(false);
   const sigRef = useRef<SignatureCanvas | null>(null);
   const uploadFileInputRef = useRef<HTMLInputElement | null>(null);
   const clientSearchInputRef = useRef<HTMLInputElement | null>(null);
   const clientSearchFocusedRef = useRef(false);
   const clientListLoadedRef = useRef(false);
+  const brokerSearchInputRef = useRef<HTMLInputElement | null>(null);
+  const brokerSearchFocusedRef = useRef(false);
+  const brokerListLoadedRef = useRef(false);
 
   const openClientSignPage = (
     pageMode: "template" | "sign" | "fill",
@@ -600,11 +624,13 @@ export default function SignDocumentsPanel({
   }) => {
     const softRefresh =
       Boolean(options?.soft) ||
-      (isClientMode && clientListLoadedRef.current);
+      (isClientMode && clientListLoadedRef.current) ||
+      (isBrokerMode && brokerListLoadedRef.current);
 
     try {
       if (softRefresh) {
-        setClientListRefreshing(true);
+        if (isClientMode) setClientListRefreshing(true);
+        if (isBrokerMode) setBrokerListRefreshing(true);
       } else {
         setLoading(true);
       }
@@ -678,6 +704,7 @@ export default function SignDocumentsPanel({
             void fetchForwardableLenders();
           }
         }
+        brokerListLoadedRef.current = true;
       }
       if (isClientMode) {
         setClientPagination(json.pagination || null);
@@ -700,10 +727,16 @@ export default function SignDocumentsPanel({
     } finally {
       setLoading(false);
       setClientListRefreshing(false);
-      // Search refetch remounts result cards; keep caret in the search box.
+      setBrokerListRefreshing(false);
+      // Soft refetch can remount result rows; keep caret in the search box.
       if (clientSearchFocusedRef.current) {
         requestAnimationFrame(() => {
           clientSearchInputRef.current?.focus({ preventScroll: true });
+        });
+      }
+      if (brokerSearchFocusedRef.current) {
+        requestAnimationFrame(() => {
+          brokerSearchInputRef.current?.focus({ preventScroll: true });
         });
       }
     }
@@ -714,7 +747,7 @@ export default function SignDocumentsPanel({
 
     const timer = window.setTimeout(() => {
       setDebouncedBrokerSearch(brokerSearchInput);
-      setBrokerPage(1);
+      setBrokerPage((page) => (page === 1 ? page : 1));
     }, 500);
 
     return () => window.clearTimeout(timer);
@@ -778,6 +811,11 @@ export default function SignDocumentsPanel({
     if (!isClientMode) return;
     setClientPage(1);
   }, [clientBucket, isClientMode]);
+
+  useEffect(() => {
+    if (!isBrokerMode) return;
+    brokerListLoadedRef.current = false;
+  }, [isBrokerMode, submissionId]);
 
   useEffect(() => {
     if (isBrokerMode && brokerViewTab !== "documents") return;
@@ -1620,7 +1658,7 @@ export default function SignDocumentsPanel({
     return (
       <div className="min-w-0">
         <h3
-          className="truncate text-[13px] font-semibold leading-snug text-slate-900 dark:text-white"
+          className="truncate text-sm font-semibold leading-snug text-slate-900 dark:text-white"
           title={titleTooltip}
         >
           {docName}
@@ -1632,8 +1670,8 @@ export default function SignDocumentsPanel({
   const renderForwardLenderPicker = (row: SignDocumentRow) => {
     if (forwardableLenders.length === 1) {
       return (
-        <p className="flex items-center gap-1.5 truncate text-[11px] text-slate-500 dark:text-slate-400">
-          <Building2 size={12} className="shrink-0" />
+        <p className="flex items-center gap-1.5 truncate text-[13px] text-slate-500 dark:text-slate-400">
+          <Building2 size={14} className="shrink-0" />
           To {forwardableLenders[0].lenderName}
         </p>
       );
@@ -1671,15 +1709,228 @@ export default function SignDocumentsPanel({
     );
   };
 
-  const renderBrokerDocumentCard = (row: SignDocumentRow) => {
+  const closeSignActionMenu = () => {
+    setSignActionMenuKey(null);
+    setSignActionMenuPos(null);
+  };
+
+  const openSignActionMenu = (
+    rowKey: string,
+    event: ReactMouseEvent<HTMLButtonElement>,
+  ) => {
+    if (signActionMenuKey === rowKey) {
+      closeSignActionMenu();
+      return;
+    }
+    const rect = event.currentTarget.getBoundingClientRect();
+    const menuWidth = 220;
+    const menuHeight = 280;
+    const left = Math.min(
+      Math.max(8, rect.right - menuWidth),
+      window.innerWidth - menuWidth - 8,
+    );
+    let top = rect.bottom + 6;
+    if (top + menuHeight > window.innerHeight - 8) {
+      top = Math.max(8, rect.top - menuHeight - 6);
+    }
+    setSignActionMenuPos({ top, left });
+    setSignActionMenuKey(rowKey);
+  };
+
+  useEffect(() => {
+    if (!signActionMenuKey) return;
+    const onDown = (event: MouseEvent) => {
+      const target = event.target as Node;
+      if (signActionMenuRef.current?.contains(target)) return;
+      const btn = signActionButtonRefs.current[signActionMenuKey];
+      if (btn?.contains(target)) return;
+      closeSignActionMenu();
+    };
+    const onScroll = () => closeSignActionMenu();
+    document.addEventListener("mousedown", onDown);
+    window.addEventListener("scroll", onScroll, true);
+    window.addEventListener("resize", onScroll);
+    return () => {
+      document.removeEventListener("mousedown", onDown);
+      window.removeEventListener("scroll", onScroll, true);
+      window.removeEventListener("resize", onScroll);
+    };
+  }, [signActionMenuKey]);
+
+  type SignMenuItem = {
+    key: string;
+    label: string;
+    icon: ReactNode;
+    onClick: () => void;
+    disabled?: boolean;
+    tone?: "default" | "primary" | "success" | "muted";
+  };
+
+  const getBrokerRowMenuItems = (row: SignDocumentRow): SignMenuItem[] => {
     const isActionLoading = actionId === row.requirementId;
-    const isSelected = selectedRequirementIds.has(row.requirementId);
     const forwardLenderCount = getForwardLenderIdsForRow(row).length;
-    const canBulkSelect = isBulkSelectableRow(row);
     const hasSigned = Boolean(row.signedUpload?.fileUrl);
-    const showInlineExtras =
+    const items: SignMenuItem[] = [];
+
+    if (row.signStatus === "AWAITING_BROKER") {
+      if (row.templateFileUrl) {
+        items.push({
+          key: "view",
+          label: "View",
+          icon: <Eye size={14} className="text-[#4C78F5]" />,
+          onClick: () => setActiveTemplateViewDoc(row),
+        });
+      }
+      if (row.signMode === "DYNAMIC_FORM") {
+        items.push({
+          key: "fill",
+          label: "Fill",
+          icon: <PenLine size={14} className="text-[#4C78F5]" />,
+          onClick: () => openBrokerTemplate(row),
+        });
+      }
+      if (isBrokerUploadedDoc(row) && row.templateFileUrl) {
+        items.push({
+          key: "map",
+          label: "Map fields",
+          icon: <MousePointer2 size={14} className="text-[#4C78F5]" />,
+          onClick: () => setMappingDoc(row),
+        });
+        if (row.signMode !== "DYNAMIC_FORM") {
+          items.push({
+            key: "fillable-help",
+            label: "How to make PDF fillable",
+            icon: <HelpCircle size={14} className="text-slate-400" />,
+            onClick: () => {
+              setFillableHelpRow(row);
+              setFillableHelpOpen(true);
+            },
+          });
+        }
+      }
+      items.push({
+        key: "send-client",
+        label: "Send to client",
+        icon: <SendHorizonal size={14} />,
+        onClick: () => sendToClient(row.requirementId),
+        disabled: isActionLoading,
+        tone: "primary",
+      });
+    }
+
+    if (row.signStatus === "SENT_TO_CLIENT") {
+      if (row.templateFileUrl) {
+        items.push({
+          key: "view",
+          label: "View",
+          icon: <Eye size={14} className="text-[#4C78F5]" />,
+          onClick: () => setActiveTemplateViewDoc(row),
+        });
+      }
+      if (row.signMode === "DYNAMIC_FORM") {
+        items.push({
+          key: "review-fill",
+          label:
+            row.brokerBucket === "awaitingYou"
+              ? "Fill broker fields"
+              : "Review",
+          icon: <PenLine size={14} className="text-[#4C78F5]" />,
+          onClick: () => openBrokerTemplate(row),
+          tone: row.brokerBucket === "awaitingYou" ? "primary" : "default",
+        });
+      }
+      items.push({
+        key: "send-lender-locked",
+        label: "Send to lender",
+        icon: <SendHorizonal size={14} />,
+        onClick: () => undefined,
+        disabled: true,
+        tone: "muted",
+      });
+    }
+
+    if (row.signStatus === "CLIENT_SIGNED") {
+      if (row.signMode === "DYNAMIC_FORM") {
+        items.push({
+          key: "review",
+          label: "Review",
+          icon: <PenLine size={14} className="text-[#4C78F5]" />,
+          onClick: () => openBrokerTemplate(row),
+        });
+      }
+      if (hasSigned) {
+        items.push({
+          key: "download",
+          label: "Download",
+          icon: <Download size={14} className="text-[#4C78F5]" />,
+          onClick: () => downloadSignedCopy(row),
+          disabled: downloadingId === row.requirementId,
+        });
+      }
+      items.push({
+        key: "forward",
+        label: getForwardToLenderLabel(row, forwardLenderCount),
+        icon: <SendHorizonal size={14} />,
+        onClick: () => forwardToLender(row),
+        disabled:
+          isActionLoading ||
+          (isStandaloneBrokerTermSheet(row) &&
+            !forwardLenderByRequirement[row.requirementId] &&
+            forwardableLenders.length !== 1) ||
+          (!isStandaloneBrokerTermSheet(row) && forwardLenderCount === 0),
+        tone: "success",
+      });
+    }
+
+    if (
       row.signStatus === "FORWARDED_TO_LENDER" ||
-      row.signStatus === "LENDER_SEEN";
+      row.signStatus === "LENDER_SEEN"
+    ) {
+      if (row.templateFileUrl) {
+        items.push({
+          key: "open-form",
+          label: getBrokerDynamicFormActionLabel(row),
+          icon:
+            row.signMode === "DYNAMIC_FORM" &&
+            isBrokerFormForwardedToLender(row) ? (
+              <Eye size={14} className="text-[#4C78F5]" />
+            ) : row.signMode === "DYNAMIC_FORM" ? (
+              <PenLine size={14} className="text-[#4C78F5]" />
+            ) : isBrokerUploadedDoc(row) ? (
+              <MousePointer2 size={14} className="text-[#4C78F5]" />
+            ) : (
+              <Eye size={14} className="text-[#4C78F5]" />
+            ),
+          onClick: () =>
+            isBrokerMode
+              ? openBrokerTemplate(row)
+              : setActiveTemplateViewDoc(row),
+        });
+      }
+      if (hasSigned) {
+        items.push({
+          key: "download-signed",
+          label: "Download",
+          icon: <Download size={14} className="text-[#4C78F5]" />,
+          onClick: () => downloadSignedCopy(row),
+          disabled: downloadingId === row.requirementId,
+        });
+      }
+    }
+
+    return items;
+  };
+
+  const activeSignActionRow = useMemo(
+    () => rows.find((row) => row.requirementId === signActionMenuKey) || null,
+    [rows, signActionMenuKey],
+  );
+
+  const renderBrokerDocumentRow = (row: SignDocumentRow) => {
+    const isSelected = selectedRequirementIds.has(row.requirementId);
+    const canBulkSelect = isBulkSelectableRow(row);
+    const menuItems = getBrokerRowMenuItems(row);
+    const menuOpen = signActionMenuKey === row.requirementId;
 
     const metaParts: string[] = [];
     if (isBrokerUploadedDoc(row)) metaParts.push("Your upload");
@@ -1688,383 +1939,148 @@ export default function SignDocumentsPanel({
       metaParts.push(`${row.fieldCount} fields`);
     }
 
-    const secondaryBtn =
-      "inline-flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-slate-200 bg-white px-2.5 py-2 text-xs font-semibold text-slate-700 transition hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800";
-    const primaryBtn =
-      "inline-flex w-full items-center justify-center gap-2 rounded-lg bg-[#13538A] px-3 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-[#0E426E] disabled:cursor-not-allowed disabled:opacity-50";
-    const successBtn =
-      "inline-flex w-full items-center justify-center gap-2 rounded-lg bg-emerald-600 px-3 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-50";
-    const lockedBtn =
-      "inline-flex w-full cursor-not-allowed items-center justify-center gap-2 rounded-lg border border-dashed border-slate-200 bg-slate-50 px-3 py-2.5 text-sm font-semibold text-slate-400 dark:border-slate-700 dark:bg-slate-800/60 dark:text-slate-500";
-
-    const accentClass =
-      row.signStatus === "AWAITING_BROKER"
-        ? "border-t-amber-400"
-        : row.signStatus === "SENT_TO_CLIENT"
-          ? "border-t-sky-500"
-          : row.signStatus === "CLIENT_SIGNED"
-            ? "border-t-emerald-500"
-            : row.signStatus === "FORWARDED_TO_LENDER"
-              ? "border-t-[#13538A]"
-              : row.signStatus === "LENDER_SEEN"
-                ? "border-t-teal-500"
-                : "border-t-slate-200";
-
-    const iconWrapClass =
-      row.signStatus === "AWAITING_BROKER"
-        ? "bg-amber-100 text-amber-800"
-        : row.signStatus === "CLIENT_SIGNED"
-          ? "bg-emerald-100 text-emerald-800"
-          : row.signStatus === "LENDER_SEEN"
-            ? "bg-teal-100 text-teal-800"
-            : "bg-[#13538A]/10 text-[#13538A]";
-
     const waitingHint =
       row.brokerBucket === "awaitingYou"
         ? "Client done — finish remaining broker fields"
         : "Waiting for the client to fill and submit";
 
+    const detailContent = (() => {
+      if (row.signStatus === "SENT_TO_CLIENT") {
+        return (
+          <p className="flex items-center gap-1.5 text-[13px] text-slate-500 dark:text-slate-400">
+            <Clock size={14} className="shrink-0" />
+            <span className="truncate">
+              {row.workflowHint || waitingHint}
+            </span>
+          </p>
+        );
+      }
+      if (row.signStatus === "FORWARDED_TO_LENDER") {
+        return (
+          <p className="flex items-center gap-1.5 text-[13px] font-medium text-slate-600 dark:text-slate-300">
+            <CheckCircle2 size={14} className="shrink-0 text-[#4C78F5]" />
+            Forwarded to {row.lenderName || "lender"}
+          </p>
+        );
+      }
+      if (row.signStatus === "LENDER_SEEN") {
+        return (
+          <p className="flex items-center gap-1.5 text-[13px] font-medium text-slate-600 dark:text-slate-300">
+            <CheckCircle2 size={14} className="shrink-0 text-teal-600" />
+            Seen by {row.lenderName || "lender"}
+          </p>
+        );
+      }
+      if (row.signStatus === "CLIENT_SIGNED") {
+        return (
+          <div className="min-w-[180px] max-w-[280px]">
+            {isStandaloneBrokerTermSheet(row) ? (
+              <select
+                value={forwardLenderByRequirement[row.requirementId] || ""}
+                onChange={(e) =>
+                  setForwardLenderByRequirement((prev) => ({
+                    ...prev,
+                    [row.requirementId]: e.target.value,
+                  }))
+                }
+                className="w-full rounded-lg border border-slate-200 bg-white px-2.5 py-2 text-[13px] text-slate-800 outline-none focus:border-[#4C78F5] focus:ring-2 focus:ring-[#4C78F5]/15 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
+              >
+                <option value="">Select lender</option>
+                {forwardableLenders.map((lender) => (
+                  <option
+                    key={lender.applicationLenderId}
+                    value={lender.applicationLenderId}
+                  >
+                    {lender.lenderName}
+                  </option>
+                ))}
+              </select>
+            ) : (
+              renderForwardLenderPicker(row)
+            )}
+          </div>
+        );
+      }
+      return (
+        <span className="text-[13px] text-slate-400">No updates yet</span>
+      );
+    })();
+
     return (
-      <div
+      <tr
         key={row.requirementId}
-        className={`flex h-full flex-col overflow-hidden rounded-xl border border-t-[3px] bg-white shadow-sm dark:bg-slate-900 ${accentClass} ${
+        className={`border-b border-slate-100 transition-colors last:border-b-0 dark:border-slate-800 ${
           isSelected
-            ? "border-[#13538A] ring-1 ring-[#13538A]/20 dark:border-[#13538A]/50"
-            : "border-slate-200 dark:border-slate-700"
+            ? "bg-[#4C78F5]/[0.06] dark:bg-sky-950/20"
+            : "bg-white hover:bg-slate-50/80 dark:bg-slate-950 dark:hover:bg-slate-800/40"
         }`}
       >
-        <div className="flex flex-1 flex-col gap-3 p-3.5">
-          <div className="flex items-start gap-2.5">
-            <div
-              className={`mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${iconWrapClass}`}
-            >
+        <td className="px-3.5 py-3 align-middle">
+          {canBulkSelect ? (
+            <input
+              type="checkbox"
+              checked={isSelected}
+              onChange={() => toggleRequirementSelection(row)}
+              className="h-4 w-4 cursor-pointer rounded border-slate-300 text-[#4C78F5] accent-[#4C78F5] focus:ring-[#4C78F5]"
+              aria-label={`Select ${row.documentName}`}
+            />
+          ) : (
+            <span className="inline-block w-4" />
+          )}
+        </td>
+        <td className="px-3.5 py-3 align-middle">
+          <div className="flex min-w-0 items-center gap-3">
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[#4C78F5]/10 text-[#4C78F5]">
               {isImageTemplate(row.templateMimeType, row.templateFileUrl) ? (
                 <FileImage size={16} />
               ) : (
                 <FileText size={16} />
               )}
             </div>
-
-            <div className="min-w-0 flex-1">
-              <div className="flex items-start justify-between gap-2">
-                <div className="min-w-0 flex-1">{renderDocumentTitle(row)}</div>
-                <div className="flex shrink-0 items-center gap-1.5">
-                  <span
-                    className={`inline-flex whitespace-nowrap rounded-md border px-1.5 py-0.5 text-[10px] font-semibold ${statusClass(row.signStatus)}`}
-                    title={row.signStatusLabel || row.signStatus || undefined}
-                  >
-                    {row.signStatusLabel || row.signStatus || "-"}
-                  </span>
-                  {canBulkSelect && (
-                    <label
-                      className="flex cursor-pointer items-center"
-                      title="Select for bulk action"
-                    >
-                      <input
-                        type="checkbox"
-                        checked={isSelected}
-                        onChange={() => toggleRequirementSelection(row)}
-                        className="rounded border-slate-300 text-[#13538A] focus:ring-[#13538A]"
-                        aria-label="Select for bulk action"
-                      />
-                    </label>
-                  )}
-                </div>
-              </div>
+            <div className="min-w-0">
+              <div className="min-w-0">{renderDocumentTitle(row)}</div>
               {metaParts.length > 0 ? (
-                <p className="mt-1 truncate text-[11px] text-slate-500 dark:text-slate-400">
+                <p className="mt-0.5 truncate text-xs text-slate-500 dark:text-slate-400">
                   {metaParts.join(" · ")}
                 </p>
-              ) : null}
+              ) : (
+                <p className="mt-0.5 text-xs text-slate-400">No source info</p>
+              )}
             </div>
           </div>
-
-          {showInlineExtras ? renderInlineDocumentActions(row) : null}
-        </div>
-
-        <div className="mt-auto space-y-2 border-t border-slate-100 px-3.5 py-3 dark:border-slate-800">
-          {row.signStatus === "AWAITING_BROKER" && (
-            <>
-              {(row.templateFileUrl ||
-                row.signMode === "DYNAMIC_FORM" ||
-                (isBrokerUploadedDoc(row) && row.templateFileUrl)) && (
-                <div className="grid grid-cols-2 gap-1.5">
-                  {row.templateFileUrl ? (
-                    <button
-                      type="button"
-                      onClick={() => setActiveTemplateViewDoc(row)}
-                      className={secondaryBtn}
-                      title="Preview form before sending to client"
-                    >
-                      <Eye size={13} />
-                      View
-                    </button>
-                  ) : null}
-                  {row.signMode === "DYNAMIC_FORM" && (
-                    <button
-                      type="button"
-                      onClick={() => openBrokerTemplate(row)}
-                      className={secondaryBtn}
-                    >
-                      <PenLine size={13} />
-                      Fill
-                    </button>
-                  )}
-                  {isBrokerUploadedDoc(row) && row.templateFileUrl && (
-                    <button
-                      type="button"
-                      onClick={() => setMappingDoc(row)}
-                      className={secondaryBtn}
-                    >
-                      <MousePointer2 size={13} />
-                      Map fields
-                    </button>
-                  )}
-                </div>
-              )}
-              <button
-                type="button"
-                disabled={isActionLoading}
-                onClick={() => sendToClient(row.requirementId)}
-                className={primaryBtn}
-              >
-                {isActionLoading ? (
-                  <Loader2 size={15} className="animate-spin" />
-                ) : (
-                  <SendHorizonal size={15} />
-                )}
-                Send to client
-              </button>
-              {isBrokerUploadedDoc(row) &&
-                row.templateFileUrl &&
-                row.signMode !== "DYNAMIC_FORM" && (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setFillableHelpRow(row);
-                      setFillableHelpOpen(true);
-                    }}
-                    className="inline-flex items-center gap-1 text-[11px] font-medium text-slate-500 transition hover:text-[#13538A] dark:text-slate-400"
-                  >
-                    <HelpCircle size={12} />
-                    How to make PDF fillable
-                  </button>
-                )}
-            </>
-          )}
-
-          {row.signStatus === "SENT_TO_CLIENT" && (
-            <>
-              <p className="flex items-center gap-1.5 text-[11px] text-slate-500 dark:text-slate-400">
-                <Clock size={13} className="shrink-0" />
-                <span className="truncate">
-                  {row.workflowHint || waitingHint}
-                </span>
-              </p>
-              <div className="grid grid-cols-2 gap-1.5">
-                {row.templateFileUrl ? (
-                  <button
-                    type="button"
-                    onClick={() => setActiveTemplateViewDoc(row)}
-                    className={secondaryBtn}
-                  >
-                    <Eye size={13} />
-                    View
-                  </button>
-                ) : null}
-                {row.signMode === "DYNAMIC_FORM" ? (
-                  <button
-                    type="button"
-                    onClick={() => openBrokerTemplate(row)}
-                    className={
-                      row.brokerBucket === "awaitingYou"
-                        ? `${primaryBtn} flex-1`
-                        : secondaryBtn
-                    }
-                  >
-                    <PenLine size={13} />
-                    {row.brokerBucket === "awaitingYou"
-                      ? "Fill broker fields"
-                      : "Review"}
-                  </button>
-                ) : null}
-              </div>
-              <button
-                type="button"
-                disabled
-                title="Available after the client submits this form"
-                className={lockedBtn}
-              >
-                <SendHorizonal size={15} />
-                Send to lender
-              </button>
-            </>
-          )}
-
-          {row.signStatus === "CLIENT_SIGNED" && (
-            <>
-              {isStandaloneBrokerTermSheet(row) ? (
-                <select
-                  value={forwardLenderByRequirement[row.requirementId] || ""}
-                  onChange={(e) =>
-                    setForwardLenderByRequirement((prev) => ({
-                      ...prev,
-                      [row.requirementId]: e.target.value,
-                    }))
-                  }
-                  className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs text-slate-800 outline-none focus:border-[#13538A] focus:ring-2 focus:ring-[#13538A]/15 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
-                >
-                  <option value="">Select lender</option>
-                  {forwardableLenders.map((lender) => (
-                    <option
-                      key={lender.applicationLenderId}
-                      value={lender.applicationLenderId}
-                    >
-                      {lender.lenderName}
-                    </option>
-                  ))}
-                </select>
-              ) : (
-                renderForwardLenderPicker(row)
-              )}
-              <div className="grid grid-cols-2 gap-1.5">
-                {row.signMode === "DYNAMIC_FORM" && (
-                  <button
-                    type="button"
-                    onClick={() => openBrokerTemplate(row)}
-                    className={secondaryBtn}
-                  >
-                    <PenLine size={13} />
-                    Review
-                  </button>
-                )}
-                {hasSigned ? (
-                  <button
-                    type="button"
-                    onClick={() => downloadSignedCopy(row)}
-                    disabled={downloadingId === row.requirementId}
-                    className={secondaryBtn}
-                  >
-                    {downloadingId === row.requirementId ? (
-                      <Loader2 size={13} className="animate-spin" />
-                    ) : (
-                      <Download size={13} />
-                    )}
-                    Download
-                  </button>
-                ) : null}
-              </div>
-              <button
-                type="button"
-                disabled={
-                  isActionLoading ||
-                  (isStandaloneBrokerTermSheet(row) &&
-                    !forwardLenderByRequirement[row.requirementId] &&
-                    forwardableLenders.length !== 1) ||
-                  (!isStandaloneBrokerTermSheet(row) &&
-                    forwardLenderCount === 0)
-                }
-                onClick={() => forwardToLender(row)}
-                className={successBtn}
-              >
-                {isActionLoading ? (
-                  <Loader2 size={15} className="animate-spin" />
-                ) : (
-                  <SendHorizonal size={15} />
-                )}
-                {getForwardToLenderLabel(row, forwardLenderCount)}
-              </button>
-            </>
-          )}
-
-          {row.signStatus === "FORWARDED_TO_LENDER" && (
-            <p className="flex items-center gap-1.5 text-xs font-medium text-slate-600 dark:text-slate-300">
-              <CheckCircle2 size={14} className="shrink-0 text-[#13538A]" />
-              Forwarded to {row.lenderName || "lender"}
-            </p>
-          )}
-
-          {row.signStatus === "LENDER_SEEN" && (
-            <p className="flex items-center gap-1.5 text-xs font-medium text-slate-600 dark:text-slate-300">
-              <CheckCircle2 size={14} className="shrink-0 text-teal-600" />
-              Seen by {row.lenderName || "lender"}
-            </p>
-          )}
-        </div>
-      </div>
-    );
-  };
-
-  const inlineActionClass =
-    "inline-flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-[11px] font-semibold text-slate-600 transition hover:border-slate-300 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800 min-w-0 whitespace-nowrap";
-
-  const renderInlineDocumentActions = (row: SignDocumentRow) => {
-    const hasTemplate = Boolean(row.templateFileUrl);
-    const hasSigned = Boolean(row.signedUpload?.fileUrl);
-
-    if (!hasTemplate && !hasSigned) return null;
-
-    return (
-      <div className="mb-1 flex items-stretch gap-1.5">
-        {hasTemplate && (
-          <button
-            type="button"
-            onClick={() =>
-              isBrokerMode ? openBrokerTemplate(row) : setActiveTemplateViewDoc(row)
-            }
-            className={inlineActionClass}
-            title={
-              row.signMode === "DYNAMIC_FORM"
-                ? isBrokerFormForwardedToLender(row)
-                  ? "View filled form"
-                  : "Open fillable form"
-                : isBrokerUploadedDoc(row)
-                  ? "Detect PDF fields and publish"
-                  : "View template"
-            }
+        </td>
+        <td className="px-3.5 py-3 align-middle">
+          <span
+            className={`inline-flex whitespace-nowrap rounded-full border px-2.5 py-1 text-xs font-semibold ${statusClass(row.signStatus)}`}
+            title={row.signStatusLabel || row.signStatus || undefined}
           >
-            {row.signMode === "DYNAMIC_FORM" ? (
-              isBrokerFormForwardedToLender(row) ? (
-                <Eye size={13} className="shrink-0" />
-              ) : (
-                <PenLine size={13} className="shrink-0" />
-              )
-            ) : isBrokerUploadedDoc(row) ? (
-              <MousePointer2 size={13} className="shrink-0" />
-            ) : (
-              <Eye size={13} className="shrink-0" />
-            )}
-            {getBrokerDynamicFormActionLabel(row)}
-          </button>
-        )}
-        {hasSigned && !isBrokerMode && (
-          <button
-            type="button"
-            onClick={() => setActiveSignedViewDoc(row)}
-            className={inlineActionClass}
-            title="View signed copy"
-          >
-            <Eye size={13} className="shrink-0" />
-            Signed
-          </button>
-        )}
-        {hasSigned && (
-          <button
-            type="button"
-            onClick={() => downloadSignedCopy(row)}
-            disabled={downloadingId === row.requirementId}
-            className={`${inlineActionClass} disabled:opacity-60`}
-            title="Download signed copy"
-          >
-            {downloadingId === row.requirementId ? (
-              <Loader2 size={13} className="shrink-0 animate-spin" />
-            ) : (
-              <Download size={13} className="shrink-0" />
-            )}
-            Download
-          </button>
-        )}
-      </div>
+            {row.signStatusLabel || row.signStatus || "Pending"}
+          </span>
+        </td>
+        <td className="px-3.5 py-3 align-middle">{detailContent}</td>
+        <td className="px-3.5 py-3 text-center align-middle">
+          {menuItems.length > 0 ? (
+            <button
+              type="button"
+              ref={(el) => {
+                signActionButtonRefs.current[row.requirementId] = el;
+              }}
+              onClick={(event) => openSignActionMenu(row.requirementId, event)}
+              className={`rounded-lg border p-1.5 transition ${
+                menuOpen
+                  ? "border-[#4C78F5]/40 bg-[#4C78F5]/10 text-[#4C78F5]"
+                  : "border-transparent text-slate-500 hover:border-slate-200 hover:bg-slate-50 hover:text-slate-700 dark:hover:border-slate-700 dark:hover:bg-slate-800"
+              }`}
+              aria-label={`Actions for ${row.documentName}`}
+              aria-expanded={menuOpen}
+            >
+              <MoreVertical size={16} />
+            </button>
+          ) : (
+            <span className="inline-block w-8" />
+          )}
+        </td>
+      </tr>
     );
   };
 
@@ -2128,7 +2144,7 @@ export default function SignDocumentsPanel({
           <button
             type="button"
             onClick={() => openFile(row.templateFileUrl)}
-            className="inline-flex items-center gap-2 rounded-xl bg-[#13538A] px-4 py-2 text-sm font-semibold text-white"
+            className="inline-flex items-center gap-2 rounded-xl bg-[#4C78F5] px-4 py-2 text-sm font-semibold text-white"
           >
             <Eye size={16} />
             Open template
@@ -2195,7 +2211,7 @@ export default function SignDocumentsPanel({
           <button
             type="button"
             onClick={() => openFile(signed.fileUrl)}
-            className="inline-flex items-center gap-2 rounded-xl bg-[#13538A] px-4 py-2 text-sm font-semibold text-white"
+            className="inline-flex items-center gap-2 rounded-xl bg-[#4C78F5] px-4 py-2 text-sm font-semibold text-white"
           >
             <Eye size={16} />
             Open signed copy
@@ -2362,9 +2378,9 @@ export default function SignDocumentsPanel({
           className="flex max-h-[94vh] w-full max-w-6xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl"
           onClick={(event) => event.stopPropagation()}
         >
-          <div className="flex items-start justify-between gap-4 border-b border-slate-200 bg-gradient-to-r from-[#13538A]/8 to-white px-5 py-4 sm:px-6">
+          <div className="flex items-start justify-between gap-4 border-b border-slate-200 bg-gradient-to-r from-[#4C78F5]/8 to-white px-5 py-4 sm:px-6">
             <div className="min-w-0">
-              <p className="text-xs font-semibold uppercase tracking-wide text-[#13538A]">
+              <p className="text-xs font-semibold uppercase tracking-wide text-[#4C78F5]">
                 Review & Sign
               </p>
               <h3
@@ -2373,7 +2389,7 @@ export default function SignDocumentsPanel({
               >
                 {activeSigningDoc.documentName}
                 {activeSigningDoc.loiVersionLabel ? (
-                  <span className="ml-2 text-sm font-medium text-[#13538A]">
+                  <span className="ml-2 text-sm font-medium text-[#4C78F5]">
                     ({activeSigningDoc.loiVersionLabel})
                   </span>
                 ) : null}
@@ -2386,7 +2402,7 @@ export default function SignDocumentsPanel({
                   : "Read the document, add your signature, then submit."}
               </p>
               {isBrokerTermSheetDoc(activeSigningDoc) && (
-                <p className="mt-1 text-xs font-medium text-[#0E426E]">
+                <p className="mt-1 text-xs font-medium text-[#3B66E0]">
                   {isStandaloneBrokerTermSheet(activeSigningDoc)
                     ? "Broker Term Sheet"
                     : activeSigningDoc.lenderName
@@ -2477,9 +2493,9 @@ export default function SignDocumentsPanel({
         aria-labelledby="template-view-modal-title"
         className="fixed inset-0 z-[9999] flex h-dvh w-screen flex-col bg-white"
       >
-        <div className="flex shrink-0 items-start justify-between gap-4 border-b border-slate-200 bg-[#13538A]/8 px-4 py-3 sm:px-6 sm:py-4">
+        <div className="flex shrink-0 items-start justify-between gap-4 border-b border-slate-200 bg-[#4C78F5]/8 px-4 py-3 sm:px-6 sm:py-4">
           <div className="min-w-0">
-            <p className="text-xs font-semibold uppercase tracking-wide text-[#13538A]">
+            <p className="text-xs font-semibold uppercase tracking-wide text-[#4C78F5]">
               Template Preview
             </p>
             <h3
@@ -2502,7 +2518,7 @@ export default function SignDocumentsPanel({
                 downloadingId ===
                 `${activeTemplateViewDoc.requirementId}-template`
               }
-              className="inline-flex items-center justify-center gap-2 rounded-xl bg-[#13538A] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-[#0E426E] disabled:opacity-60"
+              className="inline-flex items-center justify-center gap-2 rounded-xl bg-[#4C78F5] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-[#3B66E0] disabled:opacity-60"
             >
               {downloadingId ===
               `${activeTemplateViewDoc.requirementId}-template` ? (
@@ -2535,7 +2551,8 @@ export default function SignDocumentsPanel({
     const hasBucketFilter = brokerBucket !== "all";
     const hasActiveFilters =
       hasSearchQuery || selectedLenderKey !== "all" || hasBucketFilter;
-    const listLoading = loading && rows.length > 0;
+    const listLoading = brokerListRefreshing || (loading && rows.length > 0);
+    const isInitialDocumentsLoad = loading && !brokerListLoadedRef.current && rows.length === 0;
     const activeBucketLabel =
       BROKER_BUCKET_FILTERS.find((filter) => filter.key === brokerBucket)
         ?.label || null;
@@ -2557,14 +2574,17 @@ export default function SignDocumentsPanel({
 
     return (
       <>
-      <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-950">
-        <div className="border-b border-slate-100 px-5 py-5 dark:border-slate-800 sm:px-6">
-          <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+      <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-none dark:border-slate-800 dark:bg-slate-950">
+        <div className="border-b border-slate-100 px-4 py-4 dark:border-slate-800 sm:px-5">
+          <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
             <div className="min-w-0 flex-1">
-              <h2 className="text-lg font-semibold tracking-tight text-slate-900 dark:text-white">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[#4C78F5]">
+                Document workflow
+              </p>
+              <h2 className="mt-1 text-lg font-semibold tracking-tight text-slate-900 dark:text-white">
                 Fill & Sign Forms
               </h2>
-              <p className="mt-0.5 text-sm text-slate-500 dark:text-slate-400">
+              <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
                 Upload PDFs, map or fill fields, send to the client, then forward
                 completed forms to eligible lenders.
               </p>
@@ -2581,7 +2601,7 @@ export default function SignDocumentsPanel({
           </div>
 
           <div className="mt-4">
-            <p className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-slate-400 dark:text-slate-500">
+            <p className="mb-2 text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-400 dark:text-slate-500">
               Filter by status
               {activeBucketLabel ? (
                 <span className="ml-1.5 font-medium normal-case tracking-normal text-slate-500">
@@ -2589,7 +2609,7 @@ export default function SignDocumentsPanel({
                 </span>
               ) : null}
             </p>
-            <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+            <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-4">
               {BROKER_BUCKET_FILTERS.map((filter) => {
                 const isActive = brokerBucket === filter.key;
                 const count = brokerSummary[filter.summaryKey];
@@ -2609,27 +2629,27 @@ export default function SignDocumentsPanel({
                         prev === filter.key ? "all" : filter.key,
                       )
                     }
-                    className={`group relative cursor-pointer rounded-xl border px-3 py-3 text-left transition duration-150 ease-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#13538A]/40 focus-visible:ring-offset-2 active:scale-[0.98] dark:focus-visible:ring-offset-slate-950 ${
+                    className={`group relative cursor-pointer rounded-xl border px-3.5 py-3 text-left transition duration-150 ease-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#4C78F5]/40 focus-visible:ring-offset-1 active:scale-[0.98] dark:focus-visible:ring-offset-slate-950 ${
                       isActive ? filter.active : filter.idle
                     }`}
                   >
-                    <div className="flex items-start justify-between gap-2">
+                    <div className="flex items-center justify-between gap-2">
                       <p
-                        className={`text-xl font-semibold tabular-nums ${filter.color}`}
+                        className={`text-xl font-bold tabular-nums leading-none ${filter.color}`}
                       >
                         {count}
                       </p>
                       <span
-                        className={`mt-0.5 inline-flex items-center gap-0.5 rounded-full px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide transition ${
+                        className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide transition ${
                           isActive
-                            ? "bg-[#13538A] text-white"
+                            ? "bg-[#4C78F5] text-white"
                             : "bg-white/80 text-slate-400 opacity-0 group-hover:opacity-100 dark:bg-slate-800/80 dark:text-slate-300"
                         }`}
                       >
-                        {isActive ? "Active" : "Filter"}
+                        {isActive ? "On" : "Filter"}
                       </span>
                     </div>
-                    <p className="mt-1 text-[10px] font-semibold uppercase tracking-wide text-slate-600 dark:text-slate-300">
+                    <p className="mt-2 text-xs font-semibold uppercase tracking-wide text-slate-600 dark:text-slate-300">
                       {filter.label}
                     </p>
                   </button>
@@ -2641,7 +2661,7 @@ export default function SignDocumentsPanel({
           <div
             role="tablist"
             aria-label="Fill and sign view"
-            className="mt-4 inline-flex w-full gap-1.5 rounded-xl border border-slate-200 bg-slate-50 p-1.5 shadow-inner dark:border-slate-700 dark:bg-slate-900/70 sm:w-auto"
+            className="mt-3 inline-flex w-full gap-1 rounded-xl border border-slate-200 bg-slate-50 p-1 dark:border-slate-700 dark:bg-slate-900/70 sm:w-auto"
           >
             <button
               type="button"
@@ -2651,14 +2671,14 @@ export default function SignDocumentsPanel({
                 setBrokerViewTab("upload");
                 void fetchLibraryTemplates();
               }}
-              className={`inline-flex flex-1 cursor-pointer items-center justify-center gap-2 rounded-lg px-4 py-2.5 text-sm font-semibold transition duration-150 ease-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#13538A]/40 focus-visible:ring-offset-2 active:scale-[0.98] sm:flex-none dark:focus-visible:ring-offset-slate-950 ${
+              className={`inline-flex flex-1 cursor-pointer items-center justify-center gap-2 rounded-lg px-3.5 py-2 text-[13px] font-semibold transition duration-150 ease-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#4C78F5]/40 sm:flex-none ${
                 brokerViewTab === "upload"
-                  ? "bg-[#13538A] text-white shadow-md ring-1 ring-[#0E426E]/30"
-                  : "border border-transparent bg-white text-slate-600 shadow-sm hover:border-slate-200 hover:text-slate-900 hover:shadow-md dark:bg-slate-800 dark:text-slate-300 dark:hover:border-slate-600 dark:hover:bg-slate-700 dark:hover:text-white"
+                  ? "bg-[#4C78F5] text-white"
+                  : "bg-transparent text-slate-600 hover:bg-white hover:text-slate-900 dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-white"
               }`}
             >
               <Upload
-                size={16}
+                size={15}
                 className={
                   brokerViewTab === "upload" ? "text-white" : "text-slate-400"
                 }
@@ -2670,14 +2690,14 @@ export default function SignDocumentsPanel({
               role="tab"
               aria-selected={brokerViewTab === "documents"}
               onClick={() => setBrokerViewTab("documents")}
-              className={`inline-flex flex-1 cursor-pointer items-center justify-center gap-2 rounded-lg px-4 py-2.5 text-sm font-semibold transition duration-150 ease-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#13538A]/40 focus-visible:ring-offset-2 active:scale-[0.98] sm:flex-none dark:focus-visible:ring-offset-slate-950 ${
+              className={`inline-flex flex-1 cursor-pointer items-center justify-center gap-2 rounded-lg px-3.5 py-2 text-[13px] font-semibold transition duration-150 ease-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#4C78F5]/40 sm:flex-none ${
                 brokerViewTab === "documents"
-                  ? "bg-[#13538A] text-white shadow-md ring-1 ring-[#0E426E]/30"
-                  : "border border-transparent bg-white text-slate-600 shadow-sm hover:border-slate-200 hover:text-slate-900 hover:shadow-md dark:bg-slate-800 dark:text-slate-300 dark:hover:border-slate-600 dark:hover:bg-slate-700 dark:hover:text-white"
+                  ? "bg-[#4C78F5] text-white"
+                  : "bg-transparent text-slate-600 hover:bg-white hover:text-slate-900 dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-white"
               }`}
             >
               <FileText
-                size={16}
+                size={15}
                 className={
                   brokerViewTab === "documents"
                     ? "text-white"
@@ -2690,7 +2710,7 @@ export default function SignDocumentsPanel({
                   className={`rounded-full px-1.5 py-0.5 text-[10px] font-bold tabular-nums ${
                     brokerViewTab === "documents"
                       ? "bg-white/20 text-white"
-                      : "bg-slate-100 text-slate-600 ring-1 ring-slate-200 dark:bg-slate-700 dark:text-slate-200 dark:ring-slate-600"
+                      : "bg-slate-100 text-slate-600 dark:bg-slate-700 dark:text-slate-200"
                   }`}
                 >
                   {totalDocuments}
@@ -2702,13 +2722,13 @@ export default function SignDocumentsPanel({
 
         {brokerViewTab === "upload" ? (
         <div>
-          <div className="border-b border-slate-100 px-5 py-4 dark:border-slate-800">
+          <div className="border-b border-slate-100 px-4 py-3 dark:border-slate-800 sm:px-5">
             <div className="flex items-start gap-3">
-              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-[#13538A] text-white">
-                <Upload size={18} />
+              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[#4C78F5] text-white">
+                <Upload size={16} />
               </div>
               <div>
-                <h3 className="text-sm font-semibold text-slate-900 dark:text-white">
+                <h3 className="text-[13px] font-semibold text-slate-900 dark:text-white">
                   Upload a form
                 </h3>
                 <p className="mt-0.5 text-xs text-slate-500">
@@ -2719,67 +2739,69 @@ export default function SignDocumentsPanel({
             </div>
           </div>
 
-          <div className="space-y-4 p-5">
-            <div className="rounded-lg border border-slate-200 bg-slate-50 px-4 py-3 dark:border-slate-700 dark:bg-slate-800/40">
-              <p className="text-xs font-semibold text-slate-800 dark:text-slate-100">
-                How it works
-              </p>
-              <ol className="mt-2 space-y-2 text-xs leading-relaxed text-slate-600 dark:text-slate-300">
-                <li className="flex gap-2.5">
-                  <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-[#13538A] text-[10px] font-bold text-white">
-                    1
-                  </span>
-                  <span>
-                    <span className="font-medium text-slate-800 dark:text-slate-100">Upload</span>{" "}
-                    your PDF (fillable or flat).
-                  </span>
-                </li>
-                <li className="flex gap-2.5">
-                  <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-slate-200 text-[10px] font-bold text-slate-700 dark:bg-slate-700 dark:text-slate-100">
-                    2
-                  </span>
-                  <span>
-                    <span className="font-medium text-slate-800 dark:text-slate-100">Map fields</span>{" "}
-                    — review detected boxes and fix anything off.
-                  </span>
-                </li>
-                <li className="flex gap-2.5">
-                  <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-slate-200 text-[10px] font-bold text-slate-700 dark:bg-slate-700 dark:text-slate-100">
-                    3
-                  </span>
-                  <span>
-                    <span className="font-medium text-slate-800 dark:text-slate-100">Publish</span>,
-                    fill, send to client, then forward to lenders.
-                  </span>
-                </li>
-              </ol>
-              <p className="mt-3 text-[11px] text-slate-500 dark:text-slate-400">
-                Optional: make the PDF fillable in{" "}
-                <a
-                  href="https://tools.pdf24.org/en/create-pdf-form"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="font-semibold text-[#13538A] underline hover:text-[#0E426E]"
-                >
-                  PDF24
-                </a>{" "}
-                first for better detection.{" "}
+          <div className="space-y-4 p-4 sm:p-5">
+            <div className="rounded-xl border border-slate-200 bg-slate-50/70 px-4 py-3 dark:border-slate-700 dark:bg-slate-900/40">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-400">
+                  How it works
+                </p>
                 <button
                   type="button"
                   onClick={() => {
                     setFillableHelpRow(null);
                     setFillableHelpOpen(true);
                   }}
-                  className="inline-flex items-center gap-1 font-semibold text-[#13538A] underline hover:text-[#0E426E]"
+                  className="inline-flex items-center gap-1 text-[11px] font-semibold text-[#4C78F5] hover:text-[#3B66E0]"
                 >
-                  <HelpCircle size={11} />
+                  <HelpCircle size={12} />
                   Quick guide
                 </button>
+              </div>
+              <ol className="mt-2.5 grid gap-2 sm:grid-cols-3">
+                <li className="flex gap-2 text-xs leading-relaxed text-slate-600 dark:text-slate-300">
+                  <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-[#4C78F5] text-[10px] font-bold text-white">
+                    1
+                  </span>
+                  <span>
+                    <span className="font-semibold text-slate-800 dark:text-slate-100">Upload</span>{" "}
+                    your PDF (fillable or flat).
+                  </span>
+                </li>
+                <li className="flex gap-2 text-xs leading-relaxed text-slate-600 dark:text-slate-300">
+                  <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-slate-200 text-[10px] font-bold text-slate-700 dark:bg-slate-700 dark:text-slate-100">
+                    2
+                  </span>
+                  <span>
+                    <span className="font-semibold text-slate-800 dark:text-slate-100">Map fields</span>{" "}
+                    and fix anything off.
+                  </span>
+                </li>
+                <li className="flex gap-2 text-xs leading-relaxed text-slate-600 dark:text-slate-300">
+                  <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-slate-200 text-[10px] font-bold text-slate-700 dark:bg-slate-700 dark:text-slate-100">
+                    3
+                  </span>
+                  <span>
+                    <span className="font-semibold text-slate-800 dark:text-slate-100">Publish</span>,
+                    send to client, then lenders.
+                  </span>
+                </li>
+              </ol>
+              <p className="mt-2.5 text-[11px] text-slate-500 dark:text-slate-400">
+                Optional: make the PDF fillable in{" "}
+                <a
+                  href="https://tools.pdf24.org/en/create-pdf-form"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="font-semibold text-[#4C78F5] hover:text-[#3B66E0]"
+                >
+                  PDF24
+                </a>{" "}
+                first for better detection.
               </p>
             </div>
 
             <label className="block">
-              <span className="mb-1.5 block text-xs font-medium text-slate-600 dark:text-slate-400">
+              <span className="mb-1.5 block text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-400">
                 Document name
               </span>
               <input
@@ -2788,12 +2810,12 @@ export default function SignDocumentsPanel({
                 onChange={(e) => setUploadName(e.target.value)}
                 placeholder="e.g. Borrower authorization form"
                 maxLength={160}
-                className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm transition focus:border-[#13538A] focus:outline-none focus:ring-2 focus:ring-[#13538A]/20 dark:border-slate-700 dark:bg-slate-950"
+                className="h-10 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm transition focus:border-[#4C78F5]/50 focus:outline-none focus:ring-2 focus:ring-[#4C78F5]/20 dark:border-slate-700 dark:bg-slate-950"
               />
             </label>
 
             <div>
-              <span className="mb-1.5 block text-xs font-medium text-slate-600 dark:text-slate-400">
+              <span className="mb-1.5 block text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-400">
                 PDF or image file
               </span>
               <input
@@ -2832,19 +2854,19 @@ export default function SignDocumentsPanel({
                     setUploadName,
                   );
                 }}
-                className={`flex min-h-[132px] w-full flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed px-4 py-6 text-center transition ${
+                className={`flex min-h-[112px] w-full flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed px-4 py-5 text-center transition ${
                   uploadFile
-                    ? "border-[#13538A] bg-[#13538A]/8 dark:border-[#13538A]/50 dark:bg-[#13538A]/15"
+                    ? "border-[#4C78F5] bg-[#4C78F5]/8 dark:border-[#4C78F5]/50 dark:bg-[#4C78F5]/15"
                     : uploadDragOver
-                      ? "border-[#13538A] bg-[#13538A]/10 dark:border-[#13538A]/60 dark:bg-[#13538A]/20"
-                      : "border-slate-200 bg-slate-50/50 hover:border-[#13538A] hover:bg-[#13538A]/8 dark:border-slate-700 dark:bg-slate-900/50 dark:hover:border-[#13538A]/40"
+                      ? "border-[#4C78F5] bg-[#4C78F5]/10 dark:border-[#4C78F5]/60 dark:bg-[#4C78F5]/20"
+                      : "border-slate-200 bg-slate-50/50 hover:border-[#4C78F5] hover:bg-[#4C78F5]/8 dark:border-slate-700 dark:bg-slate-900/50 dark:hover:border-[#4C78F5]/40"
                 }`}
               >
                 <div
-                  className={`flex h-12 w-12 items-center justify-center rounded-xl ${
+                  className={`flex h-10 w-10 items-center justify-center rounded-lg ${
                     uploadFile
-                      ? "bg-[#13538A] text-white"
-                      : "bg-white text-slate-400 shadow-sm dark:bg-slate-800"
+                      ? "bg-[#4C78F5] text-white"
+                      : "bg-white text-slate-400 dark:bg-slate-800"
                   }`}
                 >
                   {uploadFile && uploadFile.type.startsWith("image/") ? (
@@ -2901,7 +2923,7 @@ export default function SignDocumentsPanel({
                   type="button"
                   disabled={uploading || !uploadName.trim() || !uploadFile}
                   onClick={() => void handleBrokerUpload()}
-                  className="inline-flex flex-1 items-center justify-center gap-2 rounded-lg bg-[#13538A] px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-[#0E426E] disabled:cursor-not-allowed disabled:opacity-50 sm:flex-none"
+                  className="inline-flex flex-1 items-center justify-center gap-2 rounded-lg bg-[#4C78F5] px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-[#3B66E0] disabled:cursor-not-allowed disabled:opacity-50 sm:flex-none"
                 >
                   {uploading ? (
                     <Loader2 size={16} className="animate-spin" />
@@ -2926,7 +2948,7 @@ export default function SignDocumentsPanel({
                   <select
                     value={selectedTemplateId}
                     onChange={(e) => setSelectedTemplateId(e.target.value)}
-                    className="flex-1 rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm focus:border-[#13538A] focus:outline-none focus:ring-2 focus:ring-[#13538A]/20 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+                    className="flex-1 rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm focus:border-[#4C78F5] focus:outline-none focus:ring-2 focus:ring-[#4C78F5]/20 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
                   >
                     <option value="">Select template…</option>
                     {libraryTemplates.map((template) => (
@@ -2957,196 +2979,8 @@ export default function SignDocumentsPanel({
           </div>
         </div>
         ) : (
-          <div className="space-y-4 p-5 sm:p-6">
-            {(totalDocuments > 0 || hasActiveFilters) && (
-            <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
-              <div>
-                <h3 className="text-sm font-semibold text-slate-900 dark:text-white">
-                  Documents
-                  <span className="ml-1.5 font-normal text-slate-400">
-                    ({totalDocuments}
-                    {hasActiveFilters ? " found" : ""})
-                  </span>
-                </h3>
-              </div>
-
-              <div className="flex w-full flex-col gap-3 sm:flex-row sm:items-end lg:w-auto">
-                {(brokerLenderGroups.length > 0 ||
-                  selectedLenderKey !== "all") && (
-                  <label className="w-full sm:min-w-[220px]">
-                    <span className="mb-1.5 block text-xs font-medium text-slate-600 dark:text-slate-400">
-                      Filter by source
-                    </span>
-                    <div className="relative">
-                      <Building2
-                        size={16}
-                        className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
-                      />
-                      <select
-                        value={selectedLenderKey}
-                        onChange={(event) =>
-                          setSelectedLenderKey(event.target.value)
-                        }
-                        className="w-full appearance-none rounded-lg border border-slate-200 bg-white py-2 pl-9 pr-9 text-sm text-slate-700 transition focus:border-[#13538A] focus:outline-none focus:ring-2 focus:ring-[#13538A]/20 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
-                      >
-                        <option value="all">
-                          All forms ({allFormsCount || totalDocuments})
-                        </option>
-                        {brokerLenderGroups.map((group) => (
-                          <option key={group.key} value={group.key}>
-                            {group.lenderName} ({group.count})
-                          </option>
-                        ))}
-                      </select>
-                      <ChevronDown
-                        size={16}
-                        className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-slate-400"
-                      />
-                    </div>
-                  </label>
-                )}
-
-                <label className="w-full sm:max-w-xs">
-                  <span className="mb-1.5 block text-xs font-medium text-slate-600 dark:text-slate-400">
-                    Search
-                  </span>
-                  <div className="relative">
-                    <Search
-                      size={16}
-                      className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
-                    />
-                    <input
-                      type="search"
-                      value={brokerSearchInput}
-                      onChange={(event) =>
-                        setBrokerSearchInput(event.target.value)
-                      }
-                      placeholder="Search documents..."
-                      className="w-full rounded-lg border border-slate-200 bg-white py-2 pl-9 pr-9 text-sm text-slate-700 transition focus:border-[#13538A] focus:outline-none focus:ring-2 focus:ring-[#13538A]/20 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100 [&::-webkit-search-cancel-button]:hidden [&::-webkit-search-decoration]:hidden"
-                    />
-                    {brokerSearchInput.trim() ? (
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setBrokerSearchInput("");
-                          setDebouncedBrokerSearch("");
-                        }}
-                        className="absolute right-2.5 top-1/2 -translate-y-1/2 rounded p-0.5 text-slate-400 transition hover:bg-slate-100 hover:text-slate-700 dark:hover:bg-slate-800"
-                        aria-label="Clear search"
-                        title="Clear search"
-                      >
-                        <X size={14} />
-                      </button>
-                    ) : null}
-                  </div>
-                </label>
-              </div>
-            </div>
-            )}
-
-            {loading && rows.length === 0 ? (
-              <div className="flex min-h-[220px] items-center justify-center rounded-2xl border border-dashed border-slate-200 bg-slate-50 dark:border-slate-700 dark:bg-slate-900/40">
-                <div className="text-center">
-                  <Loader2 className="mx-auto h-7 w-7 animate-spin text-[#13538A]" />
-                  <p className="mt-3 text-sm text-slate-500">
-                    Loading documents...
-                  </p>
-                </div>
-              </div>
-            ) : rows.length === 0 ? (
-              <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-slate-200 bg-slate-50 px-6 py-16 text-center dark:border-slate-700 dark:bg-slate-900/40">
-                <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-[#13538A] text-white">
-                  {hasActiveFilters ? (
-                    <SearchX size={22} />
-                  ) : (
-                    <FileText size={22} />
-                  )}
-                </div>
-                <h3 className="text-base font-semibold text-slate-800 dark:text-slate-200">
-                  {hasActiveFilters
-                    ? "No matching documents"
-                    : "No sign documents yet"}
-                </h3>
-                <p className="mx-auto mt-1 max-w-md text-sm text-slate-500 dark:text-slate-400">
-                  {hasActiveFilters
-                    ? hasSearchQuery
-                      ? `Nothing matched “${debouncedBrokerSearch.trim()}”. Clear search or try another name.`
-                      : hasBucketFilter
-                        ? `No forms in “${activeBucketLabel}”. Try another status tab or clear filters.`
-                        : "Nothing matched this source filter. Switch back to All forms."
-                    : "Upload a PDF form, or wait for a lender to send one that needs a client signature."}
-                </p>
-                <div className="mt-4 flex flex-wrap items-center justify-center gap-2">
-                  {hasActiveFilters ? (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setBrokerSearchInput("");
-                        setDebouncedBrokerSearch("");
-                        setSelectedLenderKey("all");
-                        setBrokerBucket("all");
-                      }}
-                      className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3.5 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
-                    >
-                      <X size={14} />
-                      Clear filters
-                    </button>
-                  ) : (
-                    <button
-                      type="button"
-                      onClick={() => setBrokerViewTab("upload")}
-                      className="inline-flex items-center gap-2 rounded-lg bg-[#13538A] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-[#0E426E]"
-                    >
-                      <Upload size={16} />
-                      Upload a form
-                    </button>
-                  )}
-                </div>
-              </div>
-            ) : (
-              <>
-            <div className="flex flex-col gap-3 rounded-lg border border-slate-200 bg-white px-4 py-2.5 dark:border-slate-700 dark:bg-slate-900 sm:flex-row sm:items-center sm:justify-between">
-              <label className="inline-flex cursor-pointer items-center gap-2.5 text-sm font-medium text-slate-700 dark:text-slate-200">
-                <input
-                  type="checkbox"
-                  checked={selectAllActive}
-                  ref={(input) => {
-                    if (input) {
-                      input.indeterminate = selectAllIndeterminate;
-                    }
-                  }}
-                  disabled={selectAllLoading || eligibleOnPage.length === 0}
-                  onChange={() => void handleSelectAllToggle()}
-                  className="rounded border-slate-300 text-[#13538A] focus:ring-[#13538A] disabled:opacity-50"
-                />
-                {selectAllLoading ? (
-                  <span className="inline-flex items-center gap-2 text-slate-500">
-                    <Loader2 size={14} className="animate-spin" />
-                    Selecting…
-                  </span>
-                ) : (
-                  <span>
-                    Select all eligible
-                    {eligibleOnPage.length > 0 ? (
-                      <span className="ml-1 font-normal text-slate-500">
-                        ({eligibleOnPage.length} on this page)
-                      </span>
-                    ) : null}
-                  </span>
-                )}
-              </label>
-              {selectedRequirementIds.size > 0 && (
-                <button
-                  type="button"
-                  onClick={clearSelection}
-                  className="text-sm font-medium text-[#13538A] hover:text-[#0E426E]"
-                >
-                  Clear selection ({selectedRequirementIds.size})
-                </button>
-              )}
-            </div>
-
-            {selectedRequirementIds.size > 0 && (
+          <div className="space-y-3 p-4 sm:p-5">
+            {selectedRequirementIds.size > 0 && rows.length > 0 && (
               <div className="sticky top-0 z-20 rounded-xl border border-slate-200 bg-white p-4 dark:border-slate-700 dark:bg-slate-900">
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                   <div>
@@ -3170,7 +3004,7 @@ export default function SignDocumentsPanel({
                   <button
                     type="button"
                     onClick={clearSelection}
-                    className="shrink-0 text-sm font-medium text-[#13538A] hover:text-[#0E426E]"
+                    className="shrink-0 text-sm font-medium text-[#4C78F5] hover:text-[#3B66E0]"
                   >
                     Clear
                   </button>
@@ -3182,7 +3016,7 @@ export default function SignDocumentsPanel({
                       type="button"
                       disabled={actionId === "bulk-send"}
                       onClick={() => void bulkSendSelectedToClient()}
-                      className="inline-flex items-center gap-2 rounded-lg bg-[#13538A] px-4 py-2 text-sm font-semibold text-white transition hover:bg-[#0E426E] disabled:opacity-60"
+                      className="inline-flex items-center gap-2 rounded-lg bg-[#4C78F5] px-4 py-2 text-sm font-semibold text-white transition hover:bg-[#3B66E0] disabled:opacity-60"
                     >
                       {actionId === "bulk-send" ? (
                         <Loader2 size={14} className="animate-spin" />
@@ -3191,7 +3025,7 @@ export default function SignDocumentsPanel({
                       )}
                       Send {selectedSendCount} to client
                     </button>
-                </div>
+                  </div>
                 )}
 
                 {selectedForwardCount > 0 && (
@@ -3254,18 +3088,246 @@ export default function SignDocumentsPanel({
               </div>
             )}
 
-            <div className="relative">
-              {listLoading && (
-                <div className="absolute inset-0 z-10 flex items-center justify-center rounded-xl bg-white/70 backdrop-blur-[1px] dark:bg-slate-900/70">
-                  <Loader2 className="h-7 w-7 animate-spin text-[#13538A]" />
-                </div>
-              )}
-            <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-                {rows.map((row) => renderBrokerDocumentCard(row))}
-            </div>
-          </div>
+            <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-none dark:border-slate-700 dark:bg-slate-950">
+              {!isInitialDocumentsLoad ? (
+                <div className="flex flex-col gap-3 border-b border-slate-200 bg-slate-50/50 px-3.5 py-3 dark:border-slate-800 dark:bg-slate-900/40 sm:flex-row sm:items-center sm:justify-between">
+                  <div className="flex min-w-0 flex-wrap items-center gap-3">
+                    <h3 className="text-sm font-semibold text-slate-900 dark:text-white">
+                      Documents
+                      <span className="ml-1.5 font-normal text-slate-500">
+                        ({totalDocuments}
+                        {hasActiveFilters ? " found" : ""})
+                      </span>
+                    </h3>
+                    {rows.length > 0 ? (
+                      <>
+                        <span className="hidden h-4 w-px bg-slate-200 dark:bg-slate-700 sm:inline-block" />
+                        <label className="inline-flex cursor-pointer items-center gap-2 text-sm font-medium text-slate-600 dark:text-slate-300">
+                          <input
+                            type="checkbox"
+                            checked={selectAllActive}
+                            ref={(input) => {
+                              if (input) {
+                                input.indeterminate = selectAllIndeterminate;
+                              }
+                            }}
+                            disabled={
+                              selectAllLoading || eligibleOnPage.length === 0
+                            }
+                            onChange={() => void handleSelectAllToggle()}
+                            className="h-4 w-4 rounded border-slate-300 text-[#4C78F5] accent-[#4C78F5] focus:ring-[#4C78F5] disabled:opacity-50"
+                          />
+                          {selectAllLoading ? (
+                            <span className="inline-flex items-center gap-1.5 text-slate-500">
+                              <Loader2 size={14} className="animate-spin" />
+                              Selecting…
+                            </span>
+                          ) : (
+                            <span>
+                              Select all
+                              {eligibleOnPage.length > 0 ? (
+                                <span className="ml-1 font-normal text-slate-400">
+                                  ({eligibleOnPage.length})
+                                </span>
+                              ) : null}
+                            </span>
+                          )}
+                        </label>
+                        {selectedRequirementIds.size > 0 ? (
+                          <button
+                            type="button"
+                            onClick={clearSelection}
+                            className="text-sm font-medium text-[#4C78F5] hover:text-[#3B66E0]"
+                          >
+                            Clear ({selectedRequirementIds.size})
+                          </button>
+                        ) : null}
+                      </>
+                    ) : null}
+                  </div>
 
-            {brokerPagination && brokerPagination.totalPages > 0 && (
+                  <div className="flex w-full flex-wrap items-center gap-2.5 sm:w-auto sm:justify-end">
+                    {(brokerLenderGroups.length > 0 ||
+                      selectedLenderKey !== "all") && (
+                      <div className="relative min-w-[180px] flex-1 sm:flex-none">
+                        <Building2
+                          size={15}
+                          className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
+                        />
+                        <select
+                          value={selectedLenderKey}
+                          onChange={(event) =>
+                            setSelectedLenderKey(event.target.value)
+                          }
+                          aria-label="Filter by source"
+                          className="h-10 w-full appearance-none rounded-lg border border-slate-200 bg-white py-2 pl-9 pr-8 text-sm text-slate-700 transition focus:border-[#4C78F5]/50 focus:outline-none focus:ring-2 focus:ring-[#4C78F5]/15 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100 sm:w-[220px]"
+                        >
+                          <option value="all">
+                            All forms ({allFormsCount || totalDocuments})
+                          </option>
+                          {brokerLenderGroups.map((group) => (
+                            <option key={group.key} value={group.key}>
+                              {group.lenderName} ({group.count})
+                            </option>
+                          ))}
+                        </select>
+                        <ChevronDown
+                          size={15}
+                          className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400"
+                        />
+                      </div>
+                    )}
+
+                    <div className="relative min-w-[200px] flex-1 sm:w-[240px] sm:flex-none">
+                      <Search
+                        size={15}
+                        className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
+                      />
+                      <input
+                        ref={brokerSearchInputRef}
+                        type="search"
+                        value={brokerSearchInput}
+                        onChange={(event) =>
+                          setBrokerSearchInput(event.target.value)
+                        }
+                        onFocus={() => {
+                          brokerSearchFocusedRef.current = true;
+                        }}
+                        onBlur={() => {
+                          brokerSearchFocusedRef.current = false;
+                        }}
+                        placeholder="Search documents..."
+                        aria-label="Search documents"
+                        className="h-10 w-full rounded-lg border border-slate-200 bg-white py-2 pl-9 pr-8 text-sm text-slate-700 transition placeholder:text-slate-400 focus:border-[#4C78F5]/50 focus:outline-none focus:ring-2 focus:ring-[#4C78F5]/15 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100 [&::-webkit-search-cancel-button]:hidden [&::-webkit-search-decoration]:hidden"
+                      />
+                      {brokerSearchInput.trim() ? (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setBrokerSearchInput("");
+                            setDebouncedBrokerSearch("");
+                            requestAnimationFrame(() => {
+                              brokerSearchInputRef.current?.focus({
+                                preventScroll: true,
+                              });
+                            });
+                          }}
+                          className="absolute right-2 top-1/2 -translate-y-1/2 rounded p-1 text-slate-400 transition hover:bg-slate-100 hover:text-slate-700 dark:hover:bg-slate-800"
+                          aria-label="Clear search"
+                          title="Clear search"
+                        >
+                          <X size={14} />
+                        </button>
+                      ) : null}
+                    </div>
+                  </div>
+                </div>
+              ) : null}
+
+              <div className="relative">
+                {listLoading ? (
+                  <div className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center bg-white/55 dark:bg-slate-950/55">
+                    <Loader2 className="h-6 w-6 animate-spin text-[#4C78F5]" />
+                  </div>
+                ) : null}
+
+                {isInitialDocumentsLoad ? (
+                  <div className="flex min-h-[220px] items-center justify-center">
+                    <div className="text-center">
+                      <Loader2 className="mx-auto h-7 w-7 animate-spin text-[#4C78F5]" />
+                      <p className="mt-3 text-sm text-slate-500">
+                        Loading documents...
+                      </p>
+                    </div>
+                  </div>
+                ) : rows.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center px-6 py-14 text-center">
+                    <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-[#4C78F5] text-white">
+                      {hasActiveFilters ? (
+                        <SearchX size={22} />
+                      ) : (
+                        <FileText size={22} />
+                      )}
+                    </div>
+                    <h3 className="text-base font-semibold text-slate-800 dark:text-slate-200">
+                      {hasActiveFilters
+                        ? "No matching documents"
+                        : "No sign documents yet"}
+                    </h3>
+                    <p className="mx-auto mt-1 max-w-md text-sm text-slate-500 dark:text-slate-400">
+                      {hasActiveFilters
+                        ? hasSearchQuery
+                          ? `Nothing matched “${debouncedBrokerSearch.trim()}”. Clear search or try another name.`
+                          : hasBucketFilter
+                            ? `No forms in “${activeBucketLabel}”. Try another status tab or clear filters.`
+                            : "Nothing matched this source filter. Switch back to All forms."
+                        : "Upload a PDF form, or wait for a lender to send one that needs a client signature."}
+                    </p>
+                    <div className="mt-4 flex flex-wrap items-center justify-center gap-2">
+                      {hasActiveFilters ? (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setBrokerSearchInput("");
+                            setDebouncedBrokerSearch("");
+                            setSelectedLenderKey("all");
+                            setBrokerBucket("all");
+                            requestAnimationFrame(() => {
+                              brokerSearchInputRef.current?.focus({
+                                preventScroll: true,
+                              });
+                            });
+                          }}
+                          className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3.5 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
+                        >
+                          <X size={14} />
+                          Clear filters
+                        </button>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => setBrokerViewTab("upload")}
+                          className="inline-flex items-center gap-2 rounded-lg bg-[#4C78F5] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-[#3B66E0]"
+                        >
+                          <Upload size={16} />
+                          Upload a form
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                ) : (
+                  <div className="custom-scrollbar overflow-x-auto">
+                    <table className="w-full min-w-[760px] table-fixed text-left text-sm">
+                      <colgroup>
+                        <col className="w-11" />
+                        <col className="w-[36%]" />
+                        <col className="w-[18%]" />
+                        <col className="w-[36%]" />
+                        <col className="w-14" />
+                      </colgroup>
+                      <thead className="sticky top-0 z-10 border-b border-slate-200 bg-slate-50/80 dark:border-slate-800 dark:bg-slate-900/60">
+                        <tr className="text-xs font-semibold uppercase tracking-[0.08em] text-slate-500 dark:text-slate-400">
+                          <th className="px-3.5 py-2.5 text-left">
+                            <span className="sr-only">Select</span>
+                          </th>
+                          <th className="px-3.5 py-2.5 text-left">Document</th>
+                          <th className="px-3.5 py-2.5 text-left">Status</th>
+                          <th className="px-3.5 py-2.5 text-left">Details</th>
+                          <th className="px-3.5 py-2.5 text-center"> </th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {rows.map((row) => renderBrokerDocumentRow(row))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {rows.length > 0 &&
+            brokerPagination &&
+            brokerPagination.totalPages > 0 ? (
               <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-slate-200 bg-slate-50/80 px-4 py-3 dark:border-slate-700 dark:bg-slate-900/60">
                 <p className="text-sm text-slate-500 dark:text-slate-400">
                   Page{" "}
@@ -3288,7 +3350,7 @@ export default function SignDocumentsPanel({
                 <div className="flex flex-wrap items-center gap-2">
                   <button
                     type="button"
-                    disabled={brokerPage === 1 || loading}
+                    disabled={brokerPage === 1 || listLoading}
                     onClick={() => setBrokerPage((current) => current - 1)}
                     className="inline-flex items-center gap-1.5 rounded-xl border border-slate-300 bg-white px-3.5 py-2 text-sm font-medium text-slate-700 transition hover:border-slate-400 hover:bg-slate-50 disabled:cursor-not-allowed disabled:border-slate-200 disabled:bg-slate-100 disabled:text-slate-400 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700 dark:disabled:border-slate-800 dark:disabled:bg-slate-800/50 dark:disabled:text-slate-600"
                   >
@@ -3306,11 +3368,11 @@ export default function SignDocumentsPanel({
                           <button
                             key={pageNum}
                             type="button"
-                            disabled={loading}
+                            disabled={listLoading}
                             onClick={() => setBrokerPage(pageNum)}
                             className={`h-9 min-w-9 rounded-xl px-2.5 text-sm font-semibold transition ${
                               brokerPage === pageNum
-                                ? "bg-[#13538A] text-white"
+                                ? "bg-[#4C78F5] text-white"
                                 : "border border-slate-300 bg-white text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700"
                             }`}
                           >
@@ -3323,7 +3385,7 @@ export default function SignDocumentsPanel({
                   <button
                     type="button"
                     disabled={
-                      brokerPage === brokerPagination.totalPages || loading
+                      brokerPage === brokerPagination.totalPages || listLoading
                     }
                     onClick={() => setBrokerPage((current) => current + 1)}
                     className="inline-flex items-center gap-1.5 rounded-xl border border-slate-300 bg-white px-3.5 py-2 text-sm font-medium text-slate-700 transition hover:border-slate-400 hover:bg-slate-50 disabled:cursor-not-allowed disabled:border-slate-200 disabled:bg-slate-100 disabled:text-slate-400 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700 dark:disabled:border-slate-800 dark:disabled:bg-slate-800/50 dark:disabled:text-slate-600"
@@ -3333,12 +3395,57 @@ export default function SignDocumentsPanel({
                   </button>
                 </div>
               </div>
-            )}
-              </>
-            )}
+            ) : null}
           </div>
         )}
 
+        {activeSignActionRow &&
+          signActionMenuPos &&
+          createPortal(
+            <div
+              ref={signActionMenuRef}
+              style={{
+                position: "fixed",
+                top: signActionMenuPos.top,
+                left: signActionMenuPos.left,
+                zIndex: 9999,
+              }}
+              className="w-[230px] overflow-hidden rounded-lg border border-slate-200 bg-white shadow-none dark:border-slate-700 dark:bg-slate-950"
+            >
+              {getBrokerRowMenuItems(activeSignActionRow).map((item) => {
+                const toneClass =
+                  item.tone === "primary"
+                    ? "text-[#4C78F5]"
+                    : item.tone === "success"
+                      ? "text-emerald-600"
+                      : item.tone === "muted"
+                        ? "text-slate-400"
+                        : "text-slate-700 dark:text-slate-200";
+                return (
+                  <button
+                    key={item.key}
+                    type="button"
+                    disabled={item.disabled}
+                    title={
+                      item.disabled && item.key === "send-lender-locked"
+                        ? "Available after the client submits this form"
+                        : undefined
+                    }
+                    onClick={() => {
+                      if (item.disabled) return;
+                      closeSignActionMenu();
+                      item.onClick();
+                    }}
+                    className={`flex w-full items-center gap-2.5 px-3.5 py-2.5 text-left text-sm font-medium transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50 dark:hover:bg-slate-800 ${toneClass}`}
+                  >
+                    <span className="shrink-0">{item.icon}</span>
+                    <span className="truncate">{item.label}</span>
+                  </button>
+                );
+              })}
+            </div>,
+            document.body,
+          )}
         {renderTemplateViewModal()}
         {renderSignedCopyModal()}
         {fillingDoc && submissionId && (
@@ -3474,23 +3581,7 @@ export default function SignDocumentsPanel({
     }
   };
 
-  const clientCardAccent = (row: SignDocumentRow) => {
-    if (isBrokerTermSheetDoc(row) && row.signStatus === "SENT_TO_CLIENT") {
-      return "border-t-[#4C78F5]";
-    }
-    switch (row.signStatus) {
-      case "SENT_TO_CLIENT":
-        return "border-t-[#4C78F5]";
-      case "CLIENT_SIGNED":
-        return "border-t-emerald-500";
-      case "FORWARDED_TO_LENDER":
-        return "border-t-[#4C78F5]";
-      case "LENDER_SEEN":
-        return "border-t-teal-500";
-      default:
-        return "border-t-slate-300";
-    }
-  };
+  const clientCardAccent = (_row: SignDocumentRow) => "border-t-[#4C78F5]";
 
   const openClientSignedCopy = async (row: SignDocumentRow) => {
     // Open immediately, then refresh the stored signed PDF:
@@ -3612,19 +3703,11 @@ export default function SignDocumentsPanel({
     return (
       <article
         key={row.requirementId}
-        className={`flex h-full flex-col overflow-hidden rounded-2xl border border-slate-200 border-t-4 bg-white shadow-sm transition hover:shadow-md ${clientCardAccent(row)}`}
+        className={`flex h-full flex-col overflow-hidden rounded-xl border border-slate-200 border-t-[3px] bg-white shadow-none transition ${clientCardAccent(row)}`}
       >
         <div className="flex flex-1 flex-col gap-3 p-4">
           <div className="flex items-start gap-3">
-            <div
-              className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${
-                isPending
-                  ? "bg-[#4C78F5]/10 text-[#4C78F5]"
-                  : waitingBroker
-                    ? "bg-[#4C78F5]/10 text-[#4C78F5]"
-                    : "bg-emerald-100 text-emerald-700"
-              }`}
-            >
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#4C78F5]/10 text-[#4C78F5]">
               {isImageTemplate(row.templateMimeType, row.templateFileUrl) ? (
                 <FileImage size={18} />
               ) : (
@@ -3648,7 +3731,7 @@ export default function SignDocumentsPanel({
                 <span
                   className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${statusClass(row.signStatus)}`}
                 >
-                  {row.signStatusLabel || row.signStatus || "-"}
+                  {row.signStatusLabel || row.signStatus || "Pending"}
                 </span>
               </div>
 
@@ -3705,7 +3788,7 @@ export default function SignDocumentsPanel({
             <button
               type="button"
               onClick={() => openClientCardPrimaryAction(row)}
-              className="inline-flex w-full items-center justify-center gap-2 rounded-[8px] bg-[#4C78F5] px-3 py-2.5 text-[13px] font-semibold text-white shadow-sm transition hover:bg-[#3B66E0]"
+              className="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-[#4C78F5] px-3 py-2 text-[13px] font-semibold text-white shadow-none transition hover:bg-[#3B66E0]"
             >
               {isPending ? <PenLine size={15} /> : <Eye size={15} />}
               {isPending ? "Open form" : viewOnlyLabel}
@@ -4009,7 +4092,7 @@ export default function SignDocumentsPanel({
                   {previousSignedLoiVersions.map((version) => (
                     <div
                       key={version.versionNumber}
-                      className="flex items-center justify-between gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-sm"
+                      className="flex items-center justify-between gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-none"
                     >
                       <div className="min-w-0">
                         <p className="truncate text-sm font-semibold text-slate-800">
@@ -4109,7 +4192,7 @@ export default function SignDocumentsPanel({
             type="button"
             onClick={handleLenderUpload}
             disabled={uploading}
-            className="mt-3 inline-flex items-center gap-2 rounded-xl bg-[#13538A] px-4 py-2 text-sm font-semibold text-white disabled:opacity-60"
+            className="mt-3 inline-flex items-center gap-2 rounded-xl bg-[#4C78F5] px-4 py-2 text-sm font-semibold text-white disabled:opacity-60"
           >
             {uploading ? (
               <Loader2 size={16} className="animate-spin" />
@@ -4141,12 +4224,16 @@ export default function SignDocumentsPanel({
               {rows.map((row) => (
                 <tr key={row.requirementId}>
                   <td className="px-4 py-3 font-medium">{row.documentName}</td>
-                  <td className="px-4 py-3">{row.lenderName || "-"}</td>
+                  <td className="px-4 py-3">
+                    {row.lenderName || (
+                      <span className="text-slate-400">Not assigned</span>
+                    )}
+                  </td>
                   <td className="px-4 py-3">
                     <span
                       className={`rounded-full px-2.5 py-1 text-xs font-semibold ${statusClass(row.signStatus)}`}
                     >
-                      {row.signStatusLabel || row.signStatus || "-"}
+                      {row.signStatusLabel || row.signStatus || "Pending"}
                     </span>
                   </td>
                   <td className="px-4 py-3">

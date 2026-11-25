@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useLocation } from "react-router";
 import {
   Briefcase,
   Building2,
@@ -31,12 +32,12 @@ const STATE_OPTIONS = US_STATES.map((s) => ({
 }));
 
 const inputClass =
-  "min-w-0 w-full overflow-hidden text-ellipsis whitespace-nowrap rounded-xl border border-gray-200 bg-gray-50 px-4 py-2.5 text-sm text-gray-900 outline-none transition focus:border-[#13538A]/40 focus:bg-white focus:ring-2 focus:ring-[#13538A]/10 dark:border-gray-700 dark:bg-gray-800 dark:text-white";
+  "h-10 min-w-0 w-full overflow-hidden text-ellipsis whitespace-nowrap rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-800 outline-none transition focus:border-[#4C78F5]/50 focus:ring-2 focus:ring-[#4C78F5]/15 dark:border-slate-700 dark:bg-slate-950 dark:text-white";
 
 const displayClass =
-  "min-w-0 w-full overflow-hidden text-ellipsis whitespace-nowrap rounded-xl border border-gray-100 bg-gray-50 px-4 py-2.5 text-sm text-gray-800 dark:border-gray-700 dark:bg-gray-800/80 dark:text-gray-200";
+  "flex h-10 min-w-0 w-full items-center overflow-hidden text-ellipsis whitespace-nowrap rounded-lg border border-slate-200 bg-slate-50 px-3 text-sm text-slate-800 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200";
 
-const errorTextClass = "text-xs font-medium text-red-500";
+const errorTextClass = "text-sm font-medium text-rose-500";
 
 const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
 const MAX_IMAGE_EDGE = 1600;
@@ -366,6 +367,7 @@ export default function UserProfileCard() {
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
   const [touched, setTouched] = useState<Record<string, boolean>>({});
 
+  const location = useLocation();
   const [showPasswordSection, setShowPasswordSection] = useState(false);
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
@@ -376,6 +378,56 @@ export default function UserProfileCard() {
   const [passwordErrors, setPasswordErrors] = useState<Record<string, string>>(
     {},
   );
+
+  useEffect(() => {
+    if (!user) return;
+
+    const hash = (location.hash || "").replace(/^#/, "").toLowerCase();
+    const fromState = Boolean(
+      (location.state as { focusPassword?: boolean } | null)?.focusPassword,
+    );
+    const wantsPassword =
+      fromState ||
+      hash === "password" ||
+      hash === "security" ||
+      hash === "change-password";
+    if (!wantsPassword) return;
+
+    setShowPasswordSection(true);
+
+    let cancelled = false;
+    let attempts = 0;
+
+    const scrollToPassword = () => {
+      if (cancelled) return;
+      const el = document.getElementById("profile-password");
+      if (!el) {
+        attempts += 1;
+        if (attempts < 20) {
+          window.setTimeout(scrollToPassword, 50);
+        }
+        return;
+      }
+
+      el.scrollIntoView({ behavior: "smooth", block: "start" });
+
+      // Dashboard content scrolls inside <main>, not the window.
+      const scrollParent = el.closest("main");
+      if (scrollParent instanceof HTMLElement) {
+        const parentRect = scrollParent.getBoundingClientRect();
+        const elRect = el.getBoundingClientRect();
+        const top =
+          elRect.top - parentRect.top + scrollParent.scrollTop - 24;
+        scrollParent.scrollTo({ top: Math.max(0, top), behavior: "smooth" });
+      }
+    };
+
+    const timer = window.setTimeout(scrollToPassword, 120);
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timer);
+    };
+  }, [user, location.hash, location.pathname, location.state]);
 
   const setFieldError = (key: string, value: string) => {
     const message = getFieldError(key, value);
@@ -441,7 +493,7 @@ export default function UserProfileCard() {
   if (!user) {
     return (
       <div className="mx-auto max-w-6xl space-y-5 p-4 md:p-6">
-        <div className="h-40 animate-pulse rounded-2xl bg-gradient-to-br from-[#13538A]/40 to-[#2C92D5]/30" />
+        <div className="h-40 animate-pulse rounded-2xl bg-gradient-to-br from-[#4C78F5]/40 to-[#4C78F5]/30" />
         <div className="grid gap-5 lg:grid-cols-3">
           <div className="h-96 animate-pulse rounded-2xl border border-gray-100 bg-white dark:border-gray-800 dark:bg-gray-900 lg:col-span-2" />
           <div className="h-64 animate-pulse rounded-2xl border border-gray-100 bg-white dark:border-gray-800 dark:bg-gray-900" />
@@ -770,22 +822,17 @@ export default function UserProfileCard() {
     state ? US_STATES.find((s) => s.code === state)?.name || state : "";
 
   return (
-    <div className="mx-auto max-w-6xl space-y-5 p-4 md:p-6">
-      <section className="relative overflow-hidden rounded-2xl border border-[#13538A]/15 bg-gradient-to-br from-[#13538A] via-[#1a6aad] to-[#2C92D5] p-5 text-white shadow-sm sm:p-7">
-        <div className="pointer-events-none absolute inset-0 overflow-hidden">
-          <div className="absolute -right-12 -top-12 h-44 w-44 rounded-full bg-white/10 blur-2xl" />
-          <div className="absolute -bottom-20 left-1/4 h-40 w-40 rounded-full bg-cyan-300/20 blur-2xl" />
-        </div>
-
-        <div className="relative flex min-w-0 flex-col gap-6 sm:flex-row sm:items-end sm:justify-between">
-          <div className="flex min-w-0 flex-1 flex-col gap-5 sm:flex-row sm:items-end">
+    <div className="w-full space-y-4">
+      <section className="overflow-hidden rounded-xl border border-slate-200 bg-white p-4 shadow-none dark:border-slate-800 dark:bg-slate-950 sm:p-5">
+        <div className="flex min-w-0 flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex min-w-0 flex-1 flex-col gap-4 sm:flex-row sm:items-center">
             <div className="group relative shrink-0">
-              <div className="relative h-24 w-24 overflow-hidden rounded-2xl border-4 border-white/30 bg-white/10 shadow-lg sm:h-28 sm:w-28">
+              <div className="relative h-20 w-20 overflow-hidden rounded-xl border border-slate-200 bg-slate-50 dark:border-slate-700 dark:bg-slate-900 sm:h-24 sm:w-24">
                 <img
                   key={remoteAvatarSrcFresh || "avatar-fallback"}
                   src={avatarSrc}
                   alt={displayName}
-                  className="h-full w-full bg-white/20 object-contain"
+                  className="h-full w-full bg-slate-50 object-contain dark:bg-slate-900"
                   onError={(e) => {
                     const src =
                       e.currentTarget.currentSrc || e.currentTarget.src;
@@ -799,8 +846,8 @@ export default function UserProfileCard() {
                   }}
                 />
                 {editing && (
-                  <label className="absolute inset-0 flex cursor-pointer flex-col items-center justify-center bg-black/55 text-white opacity-0 transition group-hover:opacity-100">
-                    <Camera size={20} />
+                  <label className="absolute inset-0 flex cursor-pointer flex-col items-center justify-center bg-slate-900/55 text-white opacity-0 transition group-hover:opacity-100">
+                    <Camera size={18} />
                     <span className="mt-1 text-[10px] font-medium">Change</span>
                     <input
                       type="file"
@@ -821,7 +868,7 @@ export default function UserProfileCard() {
                     setRemoveProfileImage(true);
                     setAvatarLoadFailed(false);
                   }}
-                  className="absolute -bottom-1 -right-1 inline-flex items-center justify-center rounded-full border border-white bg-red-500 p-1.5 text-white shadow-md transition hover:bg-red-600"
+                  className="absolute -bottom-1 -right-1 inline-flex items-center justify-center rounded-full border border-white bg-rose-500 p-1.5 text-white transition hover:bg-rose-600"
                   title="Remove photo"
                   aria-label="Remove profile photo"
                 >
@@ -831,33 +878,33 @@ export default function UserProfileCard() {
             </div>
 
             <div className="min-w-0 flex-1 overflow-hidden">
-              <p className="text-xs font-semibold uppercase tracking-widest text-white/70">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[#4C78F5]">
                 Broker Profile
               </p>
               <h1
-                className="mt-1 max-w-full overflow-hidden text-ellipsis whitespace-nowrap text-2xl font-bold tracking-tight sm:text-3xl"
+                className="mt-1 max-w-full overflow-hidden text-ellipsis whitespace-nowrap text-lg font-semibold tracking-tight text-slate-900 dark:text-white sm:text-xl"
                 title={displayName}
               >
                 {displayName}
               </h1>
-              <div className="mt-2 space-y-1 text-sm text-white/85">
+              <div className="mt-2 space-y-1 text-sm text-slate-500">
                 <p className="flex min-w-0 items-center gap-1.5 overflow-hidden">
-                  <Briefcase size={14} className="shrink-0" />
+                  <Briefcase size={14} className="shrink-0 text-slate-400" />
                   <span className="truncate" title={roleLabel}>
                     {roleLabel}
                   </span>
                 </p>
                 {companyLabel ? (
                   <p className="flex min-w-0 items-center gap-1.5 overflow-hidden">
-                    <Building2 size={14} className="shrink-0" />
+                    <Building2 size={14} className="shrink-0 text-slate-400" />
                     <span className="truncate" title={companyLabel}>
                       {companyLabel}
                     </span>
                   </p>
                 ) : null}
                 {user.email ? (
-                  <p className="flex min-w-0 items-center gap-1.5 overflow-hidden text-white/75">
-                    <Mail size={14} className="shrink-0" />
+                  <p className="flex min-w-0 items-center gap-1.5 overflow-hidden">
+                    <Mail size={14} className="shrink-0 text-slate-400" />
                     <span className="truncate" title={user.email}>
                       {user.email}
                     </span>
@@ -872,20 +919,20 @@ export default function UserProfileCard() {
                   removeProfileImage) && (
                   <div className="mt-3 max-w-md space-y-1">
                     {imageProcessing && (
-                      <p className="flex items-center gap-2 text-xs text-cyan-100">
-                        <span className="h-2 w-2 animate-pulse rounded-full bg-cyan-200" />
+                      <p className="flex items-center gap-2 text-sm text-[#4C78F5]">
+                        <span className="h-2 w-2 animate-pulse rounded-full bg-[#4C78F5]" />
                         Processing image…
                       </p>
                     )}
                     {!imageProcessing &&
                       removeProfileImage &&
                       !profileImage && (
-                        <p className="text-xs font-medium text-amber-200">
+                        <p className="text-sm font-medium text-amber-700 dark:text-amber-300">
                           Photo will be removed when you save.
                         </p>
                       )}
                     {!imageProcessing && profileImage && (
-                      <p className="text-xs text-white/80">
+                      <p className="text-sm text-slate-500">
                         {formatBytes(profileImage.size)}
                         {originalImageSize > MAX_IMAGE_BYTES
                           ? ` · compressed from ${formatBytes(originalImageSize)}`
@@ -893,7 +940,7 @@ export default function UserProfileCard() {
                       </p>
                     )}
                     {!imageProcessing && imageError && (
-                      <p className="text-xs font-medium text-amber-200">
+                      <p className="text-sm font-medium text-amber-700 dark:text-amber-300">
                         {imageError}
                       </p>
                     )}
@@ -905,10 +952,10 @@ export default function UserProfileCard() {
           <button
             type="button"
             onClick={() => (editing ? cancelEdit() : setEditing(true))}
-            className={`inline-flex shrink-0 items-center gap-2 self-start rounded-xl px-4 py-2.5 text-sm font-semibold transition ${
+            className={`inline-flex h-10 shrink-0 items-center gap-2 self-start rounded-lg px-3.5 text-sm font-semibold transition ${
               editing
-                ? "border border-white/25 bg-white/10 text-white hover:bg-white/20"
-                : "bg-white text-[#13538A] shadow-sm hover:bg-white/90"
+                ? "border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-200"
+                : "bg-[#4C78F5] text-white hover:bg-[#3B66E0]"
             }`}
           >
             {editing ? (
@@ -926,8 +973,8 @@ export default function UserProfileCard() {
         </div>
       </section>
 
-      <div className="grid gap-5 lg:grid-cols-3">
-        <div className="space-y-5 lg:col-span-2">
+      <div className="grid gap-4 lg:grid-cols-3">
+        <div className="space-y-4 lg:col-span-2">
           <SectionCard
             title="Personal Information"
             description="Your name and phone as shown across the broker portal."
@@ -1045,7 +1092,7 @@ export default function UserProfileCard() {
                     fieldKey="company"
                   />
                   {editing ? (
-                    <p className="mt-1.5 text-xs text-gray-500 dark:text-gray-400">
+                    <p className="mt-1.5 text-sm text-slate-500">
                       Updates your organization name and fee agreement branding
                       across the platform.
                     </p>
@@ -1206,14 +1253,17 @@ export default function UserProfileCard() {
             title="Security"
             description="Keep your broker account secure with a strong password."
           >
-              <div className="rounded-xl border border-gray-100 bg-gray-50/80 p-4 dark:border-gray-800 dark:bg-gray-800/40">
-                <div className="flex flex-wrap items-start justify-between gap-4">
+              <div
+                id="profile-password"
+                className="scroll-mt-24 rounded-xl border border-slate-200 p-3.5 dark:border-slate-700"
+              >
+                <div className="flex flex-wrap items-start justify-between gap-3">
                   <div>
-                    <p className="flex items-center gap-2 text-sm font-medium text-gray-900 dark:text-white">
+                    <p className="flex items-center gap-2 text-sm font-semibold text-slate-900 dark:text-white">
                       <LockKeyhole size={16} />
                       Password
                     </p>
-                    <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                    <p className="mt-1 text-sm text-slate-500">
                       Use at least 8 characters with upper, lower, number, and
                       special character.
                     </p>
@@ -1224,14 +1274,14 @@ export default function UserProfileCard() {
                       setShowPasswordSection((prev) => !prev);
                       resetPasswordForm();
                     }}
-                    className="rounded-xl border border-[#13538A]/20 bg-[#13538A]/5 px-4 py-2 text-sm font-medium text-[#13538A] transition hover:bg-[#13538A]/10 dark:border-cyan-500/30 dark:bg-cyan-500/10 dark:text-cyan-300"
+                    className="inline-flex h-9 items-center rounded-lg border border-slate-200 bg-white px-3.5 text-sm font-semibold text-[#4C78F5] transition hover:bg-[#4C78F5]/[0.06] dark:border-slate-700 dark:bg-slate-950 dark:text-sky-300"
                   >
                     {showPasswordSection ? "Cancel" : "Change Password"}
                   </button>
                 </div>
 
                 {showPasswordSection && (
-                  <div className="mt-5 grid gap-4 border-t border-gray-100 pt-5 dark:border-gray-800 md:grid-cols-2">
+                  <div className="mt-4 grid gap-3 border-t border-slate-200 pt-4 dark:border-slate-700 md:grid-cols-2">
                     <PasswordField
                       label="Current password"
                       value={currentPassword}
@@ -1298,9 +1348,9 @@ export default function UserProfileCard() {
                         type="button"
                         onClick={handleChangePassword}
                         disabled={changingPassword}
-                        className="rounded-xl bg-[#13538A] px-5 py-2.5 text-sm font-medium text-white hover:bg-[#1a6aad] disabled:opacity-50"
+                        className="inline-flex h-10 items-center rounded-lg bg-[#4C78F5] px-4 text-sm font-semibold text-white transition hover:bg-[#3B66E0] disabled:opacity-50"
                       >
-                        {changingPassword ? "Saving..." : "Update Password"}
+                        {changingPassword ? "Saving…" : "Update Password"}
                       </button>
                     </div>
                   </div>
@@ -1309,22 +1359,22 @@ export default function UserProfileCard() {
           </SectionCard>
         </div>
 
-        <aside className="space-y-5 lg:sticky lg:top-6 lg:self-start">
-          <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm dark:border-gray-800 dark:bg-gray-900">
-            <div className="border-b border-gray-100 px-5 py-4 dark:border-gray-800">
-              <h4 className="text-sm font-semibold text-gray-900 dark:text-white">
+        <aside className="space-y-4 lg:sticky lg:top-6 lg:self-start">
+          <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-none dark:border-slate-800 dark:bg-slate-950">
+            <div className="border-b border-slate-200 px-4 py-3.5 dark:border-slate-800">
+              <h4 className="text-sm font-semibold text-slate-900 dark:text-white">
                 Account Overview
               </h4>
-              <p className="mt-0.5 text-xs text-gray-500 dark:text-gray-400">
+              <p className="mt-0.5 text-sm text-slate-500">
                 Your broker portal at a glance.
               </p>
             </div>
-            <div className="space-y-4 p-5">
+            <div className="space-y-3 p-4">
               <div
-                className={`flex items-center gap-2 rounded-xl px-3 py-2.5 text-sm font-medium ${
+                className={`flex items-center gap-2 rounded-lg border px-3 py-2.5 text-sm font-semibold ${
                   user.status === "DISABLED"
-                    ? "border border-amber-100 bg-amber-50 text-amber-700 dark:border-amber-800/50 dark:bg-amber-900/20 dark:text-amber-300"
-                    : "border border-emerald-100 bg-emerald-50 text-emerald-700 dark:border-emerald-800/50 dark:bg-emerald-900/20 dark:text-emerald-400"
+                    ? "border-amber-200 bg-amber-50 text-amber-800 dark:border-amber-800/50 dark:bg-amber-900/20 dark:text-amber-300"
+                    : "border-emerald-200 bg-emerald-50 text-emerald-800 dark:border-emerald-800/50 dark:bg-emerald-900/20 dark:text-emerald-300"
                 }`}
               >
                 <span className="relative flex h-2 w-2">
@@ -1342,7 +1392,7 @@ export default function UserProfileCard() {
                 {user.status === "DISABLED" ? "Inactive Account" : "Active Account"}
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-2 gap-2.5">
                 <StatTile
                   label="Applications"
                   value={String(user.applicationCount ?? 0)}
@@ -1350,13 +1400,13 @@ export default function UserProfileCard() {
                 <StatTile label="Role" value={roleLabel} compact />
               </div>
 
-              <div className="rounded-xl border border-gray-100 bg-gray-50 px-3 py-3 dark:border-gray-800 dark:bg-gray-800/50">
-                <p className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wider text-gray-400">
+              <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-3 dark:border-slate-700 dark:bg-slate-900">
+                <p className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-slate-500">
                   <ShieldCheck size={12} />
                   Sign-in email
                 </p>
                 <p
-                  className="mt-1 overflow-hidden text-ellipsis whitespace-nowrap text-sm font-medium text-gray-800 dark:text-gray-200"
+                  className="mt-1 overflow-hidden text-ellipsis whitespace-nowrap text-sm font-semibold text-slate-800 dark:text-slate-200"
                   title={user.email}
                 >
                   {user.email}
@@ -1365,11 +1415,11 @@ export default function UserProfileCard() {
             </div>
           </div>
 
-          <div className="rounded-2xl border border-[#13538A]/15 bg-gradient-to-br from-[#13538A]/8 to-transparent p-5 dark:border-[#13538A]/25 dark:from-[#13538A]/15">
-            <p className="text-xs font-semibold uppercase tracking-wider text-[#13538A]">
+          <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-none dark:border-slate-800 dark:bg-slate-950">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[#4C78F5]">
               Tip
             </p>
-            <p className="mt-2 text-sm leading-relaxed text-gray-600 dark:text-gray-300">
+            <p className="mt-2 text-sm leading-relaxed text-slate-600 dark:text-slate-300">
               Keep your company name, license, and contact details updated so
               lenders and clients see accurate information across the platform.
             </p>
@@ -1378,23 +1428,23 @@ export default function UserProfileCard() {
       </div>
 
       {editing && (
-        <div className="sticky bottom-4 z-20 mt-2 rounded-2xl border border-gray-200 bg-white/95 p-4 shadow-lg backdrop-blur dark:border-gray-800 dark:bg-gray-950/95">
+        <div className="sticky bottom-4 z-20 mt-1 rounded-xl border border-slate-200 bg-white p-3.5 shadow-none dark:border-slate-800 dark:bg-slate-950">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div className="min-w-0">
-              <p className="text-sm font-medium text-gray-900 dark:text-white">
+              <p className="text-sm font-semibold text-slate-900 dark:text-white">
                 {isChanged ? "Unsaved changes" : "Editing profile"}
               </p>
-              <p className="mt-0.5 text-xs text-gray-500 dark:text-gray-400">
+              <p className="mt-0.5 text-sm text-slate-500">
                 {isChanged
                   ? "Save to update your broker profile across the portal."
                   : "Make a change to enable Save."}
               </p>
             </div>
-            <div className="flex shrink-0 items-center gap-3">
+            <div className="flex shrink-0 items-center gap-2">
               <button
                 type="button"
                 onClick={cancelEdit}
-                className="rounded-xl border border-gray-200 px-5 py-2.5 text-sm font-medium text-gray-700 transition hover:bg-gray-50 dark:border-gray-700 dark:text-gray-200 dark:hover:bg-gray-800"
+                className="inline-flex h-10 items-center rounded-lg border border-slate-200 px-4 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800"
               >
                 Discard
               </button>
@@ -1402,10 +1452,10 @@ export default function UserProfileCard() {
                 type="button"
                 onClick={handleSave}
                 disabled={saving || !isChanged}
-                className="inline-flex items-center gap-2 rounded-xl bg-[#13538A] px-6 py-2.5 text-sm font-semibold text-white transition hover:bg-[#1a6aad] disabled:cursor-not-allowed disabled:bg-gray-300 disabled:text-gray-500 dark:disabled:bg-gray-800 dark:disabled:text-gray-500"
+                className="inline-flex h-10 items-center gap-2 rounded-lg bg-[#4C78F5] px-4 text-sm font-semibold text-white transition hover:bg-[#3B66E0] disabled:cursor-not-allowed disabled:bg-slate-300 disabled:text-slate-500 dark:disabled:bg-slate-800 dark:disabled:text-slate-500"
               >
                 {saving ? (
-                  "Saving..."
+                  "Saving…"
                 ) : (
                   <>
                     <Check size={16} />
@@ -1431,18 +1481,16 @@ function SectionCard({
   children: React.ReactNode;
 }) {
   return (
-    <section className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm dark:border-gray-800 dark:bg-gray-900">
-      <div className="border-b border-gray-100 px-5 py-4 dark:border-gray-800">
-        <h2 className="text-sm font-semibold text-gray-900 dark:text-white">
+    <section className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-none dark:border-slate-800 dark:bg-slate-950">
+      <div className="border-b border-slate-200 px-4 py-3.5 dark:border-slate-800">
+        <h2 className="text-sm font-semibold text-slate-900 dark:text-white">
           {title}
         </h2>
         {description ? (
-          <p className="mt-0.5 text-xs text-gray-500 dark:text-gray-400">
-            {description}
-          </p>
+          <p className="mt-0.5 text-sm text-slate-500">{description}</p>
         ) : null}
       </div>
-      <div className="p-5">{children}</div>
+      <div className="p-4">{children}</div>
     </section>
   );
 }
@@ -1481,14 +1529,14 @@ function ProfileField({
   const counter = fieldKey ? getFieldCounter(fieldKey, value || "") : null;
   const hasError = Boolean(error);
   const errorBorderClass = hasError
-    ? "border-red-400 bg-red-50/60 focus:border-red-500 focus:ring-red-500/10 dark:bg-red-950/20"
+    ? "border-rose-400 bg-rose-50/60 focus:border-rose-500 focus:ring-rose-500/10 dark:bg-rose-950/20"
     : "";
   const shownValue = displayValue ?? value;
 
   return (
     <div className="min-w-0 space-y-1.5">
-      <label className="flex items-center gap-2 text-xs font-medium text-gray-500 dark:text-gray-400">
-        <span className="shrink-0">{icon}</span>
+      <label className="flex items-center gap-2 text-sm font-semibold text-slate-600 dark:text-slate-300">
+        <span className="shrink-0 text-slate-400">{icon}</span>
         <span className="truncate">{label}</span>
       </label>
       {editing && onChange ? (
@@ -1501,7 +1549,7 @@ function ProfileField({
               aria-invalid={hasError}
               title={value || undefined}
               className={`${inputClass} ${errorBorderClass} ${
-                !value ? "text-gray-400" : ""
+                !value ? "text-slate-400" : ""
               }`}
             >
               <option value="">{placeholder || "Select"}</option>
@@ -1513,13 +1561,13 @@ function ProfileField({
             </select>
           ) : prefix ? (
             <div
-              className={`flex min-w-0 overflow-hidden rounded-xl border bg-gray-50 transition focus-within:ring-2 dark:bg-gray-800 ${
+              className={`flex h-10 min-w-0 overflow-hidden rounded-lg border bg-white transition focus-within:ring-2 dark:bg-slate-950 ${
                 hasError
-                  ? "border-red-400 focus-within:border-red-500 focus-within:ring-red-500/10"
-                  : "border-gray-200 focus-within:border-[#13538A]/40 focus-within:ring-[#13538A]/10 dark:border-gray-700"
+                  ? "border-rose-400 focus-within:border-rose-500 focus-within:ring-rose-500/10"
+                  : "border-slate-200 focus-within:border-[#4C78F5]/50 focus-within:ring-[#4C78F5]/15 dark:border-slate-700"
               }`}
             >
-              <span className="flex shrink-0 items-center border-r border-gray-200 bg-gray-100 px-3 text-sm text-gray-500 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-400">
+              <span className="flex shrink-0 items-center border-r border-slate-200 bg-slate-50 px-3 text-sm text-slate-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-400">
                 {prefix}
               </span>
               <input
@@ -1531,7 +1579,7 @@ function ProfileField({
                 onChange={(e) => onChange(e.target.value)}
                 onBlur={onBlur}
                 aria-invalid={hasError}
-                className="min-w-0 w-full overflow-hidden text-ellipsis whitespace-nowrap bg-transparent px-3 py-2.5 text-sm text-gray-900 outline-none dark:text-white"
+                className="min-w-0 w-full overflow-hidden text-ellipsis whitespace-nowrap bg-transparent px-3 text-sm text-slate-800 outline-none dark:text-white"
               />
             </div>
           ) : (
@@ -1550,18 +1598,18 @@ function ProfileField({
           )}
           <div className="flex min-w-0 items-start justify-between gap-2">
             <p
-              className={`min-h-[1rem] min-w-0 flex-1 break-words ${hasError ? errorTextClass : "text-transparent text-xs"}`}
+              className={`min-h-[1rem] min-w-0 flex-1 break-words ${hasError ? errorTextClass : "text-transparent text-sm"}`}
             >
               {error || "·"}
             </p>
             {counter && !options && (
               <p
-                className={`shrink-0 text-xs ${
+                className={`shrink-0 text-sm ${
                   hasError
-                    ? "text-red-400"
+                    ? "text-rose-400"
                     : value.length === maxLength
                       ? "text-amber-500"
-                      : "text-gray-400 dark:text-gray-500"
+                      : "text-slate-400 dark:text-slate-500"
                 }`}
               >
                 {counter}
@@ -1570,8 +1618,15 @@ function ProfileField({
           </div>
         </>
       ) : (
-        <div className={displayClass} title={shownValue || undefined}>
-          {shownValue?.trim() ? shownValue : "—"}
+        <div
+          className={displayClass}
+          title={shownValue?.trim() || undefined}
+        >
+          {shownValue?.trim() ? (
+            shownValue
+          ) : (
+            <span className="font-normal text-slate-400">Not provided</span>
+          )}
         </div>
       )}
     </div>
@@ -1590,20 +1645,24 @@ function InfoCard({
   hint?: string;
 }) {
   return (
-    <div className="flex min-w-0 items-start gap-3 rounded-xl border border-gray-100 bg-gray-50/80 p-4 dark:border-gray-800 dark:bg-gray-800/40">
-      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#13538A]/10 text-[#13538A]">
+    <div className="flex min-w-0 items-start gap-3 rounded-xl border border-slate-200 p-3.5 dark:border-slate-700">
+      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[#4C78F5]/10 text-[#4C78F5]">
         {icon}
       </div>
       <div className="min-w-0 flex-1 overflow-hidden">
-        <p className="text-xs font-medium text-gray-400">{label}</p>
+        <p className="text-sm font-semibold text-slate-500">{label}</p>
         <p
-          className="mt-0.5 overflow-hidden text-ellipsis whitespace-nowrap text-sm font-medium text-gray-900 dark:text-white"
-          title={value || undefined}
+          className="mt-0.5 overflow-hidden text-ellipsis whitespace-nowrap text-sm font-semibold text-slate-900 dark:text-white"
+          title={value?.trim() || undefined}
         >
-          {value || "—"}
+          {value?.trim() ? (
+            value
+          ) : (
+            <span className="font-normal text-slate-400">Not provided</span>
+          )}
         </p>
         {hint ? (
-          <p className="mt-1 text-[11px] leading-snug text-gray-400 dark:text-gray-500">
+          <p className="mt-1 text-sm leading-snug text-slate-400 dark:text-slate-500">
             {hint}
           </p>
         ) : null}
@@ -1622,13 +1681,13 @@ function StatTile({
   compact?: boolean;
 }) {
   return (
-    <div className="min-w-0 rounded-xl border border-gray-100 bg-white p-3 dark:border-gray-700 dark:bg-gray-900">
-      <p className="text-[10px] font-medium uppercase tracking-wider text-gray-400">
+    <div className="min-w-0 rounded-lg border border-slate-200 bg-white p-3 dark:border-slate-700 dark:bg-slate-950">
+      <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
         {label}
       </p>
       <p
-        className={`mt-1 overflow-hidden text-ellipsis whitespace-nowrap font-bold text-gray-900 dark:text-white ${
-          compact ? "text-sm" : "text-2xl"
+        className={`mt-1 overflow-hidden text-ellipsis whitespace-nowrap font-semibold text-slate-900 dark:text-white ${
+          compact ? "text-sm" : "text-xl"
         }`}
         title={value}
       >
@@ -1656,7 +1715,9 @@ function PasswordField({
   const hasError = Boolean(error);
   return (
     <div className="space-y-1.5">
-      <label className="text-xs text-gray-500 dark:text-gray-400">{label}</label>
+      <label className="text-sm font-semibold text-slate-600 dark:text-slate-300">
+        {label}
+      </label>
       <div className="relative">
         <input
           type={show ? "text" : "password"}
@@ -1665,14 +1726,14 @@ function PasswordField({
           aria-invalid={hasError}
           className={`${inputClass} pr-11 ${
             hasError
-              ? "border-red-400 bg-red-50/60 focus:border-red-500 focus:ring-red-500/10 dark:bg-red-950/20"
+              ? "border-rose-400 bg-rose-50/60 focus:border-rose-500 focus:ring-rose-500/10 dark:bg-rose-950/20"
               : ""
           }`}
         />
         <button
           type="button"
           onClick={onToggle}
-          className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+          className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300"
         >
           {show ? <EyeOff size={16} /> : <Eye size={16} />}
         </button>

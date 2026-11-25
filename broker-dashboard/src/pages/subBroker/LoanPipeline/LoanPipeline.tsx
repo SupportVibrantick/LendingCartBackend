@@ -74,7 +74,7 @@ function AssigneePills({
 }) {
   if (!people.length) {
     return (
-      <div className="inline-flex items-center gap-1.5 rounded-full border border-dashed border-[#13538A]/25 px-2 py-0.5 text-[11px] text-[#13538A]/55">
+      <div className="inline-flex items-center gap-1.5 rounded-full border border-dashed border-[#4C78F5]/25 px-2 py-0.5 text-[11px] text-[#4C78F5]/55">
         <Users className="h-3 w-3" />
         Unassigned
       </div>
@@ -160,7 +160,7 @@ function getStatusColor(status?: string) {
 
   switch (s) {
     case "new":
-      return "bg-[#13538A] text-white";
+      return "bg-[#4C78F5] text-white";
     case "pending":
       return "bg-amber-500 text-white";
     case "client_pending":
@@ -168,9 +168,9 @@ function getStatusColor(status?: string) {
     case "submitted":
       return "bg-[#1a6aad] text-white";
     case "sent":
-      return "bg-[#13538A] text-white";
+      return "bg-[#4C78F5] text-white";
     case "updated":
-      return "bg-[#0e3d66] text-white";
+      return "bg-[#3B66E0] text-white";
     case "approved":
       return "bg-emerald-600 text-white";
     case "lender_approved":
@@ -180,7 +180,7 @@ function getStatusColor(status?: string) {
     case "lender_declined":
       return "bg-rose-700 text-white";
     case "in_review":
-      return "bg-[#13538A] text-white";
+      return "bg-[#4C78F5] text-white";
     case "draft":
       return "bg-slate-500 text-white";
     case "incomplete":
@@ -658,7 +658,7 @@ export default function LoanApplicationsPage() {
   const Stat = ({ label, value }: { label: string; value: string }) => (
     <div>
       <p className="text-xs text-slate-500 uppercase">{label}</p>
-      <p className="text-[14px] font-semibold text-[#2C92D5]">{value}</p>
+      <p className="text-[14px] font-semibold text-[#4C78F5]">{value}</p>
     </div>
   );
 
@@ -863,7 +863,7 @@ export default function LoanApplicationsPage() {
       />
 
       <div className="mx-auto w-full min-w-0 max-w-[1400px] space-y-6 text-gray-900 dark:text-gray-100">
-        <div className="relative overflow-hidden rounded-2xl border border-[#13538A]/20 bg-[#13538A] p-6 text-white shadow-sm dark:border-[#13538A]/40 lg:p-8">
+        <div className="relative overflow-hidden rounded-2xl border border-[#4C78F5]/20 bg-[#4C78F5] p-6 text-white shadow-sm dark:border-[#4C78F5]/40 lg:p-8">
           <div className="pointer-events-none absolute -right-16 -top-20 h-56 w-56 rounded-full bg-white/10" />
           <div className="pointer-events-none absolute -bottom-24 right-28 h-44 w-44 rounded-full bg-white/5" />
           <div className="relative flex flex-col gap-6 xl:flex-row xl:items-start xl:gap-10">
@@ -901,22 +901,22 @@ export default function LoanApplicationsPage() {
           </div>
         </div>
 
-        <div className="rounded-2xl border border-[#13538A]/15 bg-white p-4 shadow-sm dark:border-[#13538A]/30 dark:bg-gray-900 lg:p-5">
+        <div className="rounded-2xl border border-[#4C78F5]/15 bg-white p-4 shadow-sm dark:border-[#4C78F5]/30 dark:bg-gray-900 lg:p-5">
           <div className="flex flex-col gap-4">
             <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
               <div className="relative min-w-0 flex-1">
-                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#13538A]/60" />
+                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#4C78F5]/60" />
                 <input
                   placeholder="Search name, email, phone, app #, address, entity, SSN..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  className="h-10 w-full rounded-xl border border-[#13538A]/20 bg-[#13538A]/[0.03] pl-10 pr-10 text-sm outline-none transition focus:border-[#13538A] focus:bg-white focus:ring-2 focus:ring-[#13538A]/15 dark:border-[#13538A]/30 dark:bg-gray-950 dark:text-gray-100"
+                  className="h-10 w-full rounded-xl border border-[#4C78F5]/20 bg-[#4C78F5]/[0.03] pl-10 pr-10 text-sm outline-none transition focus:border-[#4C78F5] focus:bg-white focus:ring-2 focus:ring-[#4C78F5]/15 dark:border-[#4C78F5]/30 dark:bg-gray-950 dark:text-gray-100"
                 />
                 {searchTerm && (
                   <button
                     type="button"
                     onClick={() => setSearchTerm("")}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-[#13538A]"
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-[#4C78F5]"
                   >
                     <X className="h-4 w-4" />
                   </button>
@@ -927,7 +927,7 @@ export default function LoanApplicationsPage() {
                 <button
                   type="button"
                   onClick={() => navigate("/sub-broker/loan-application")}
-                  className="inline-flex h-10 flex-1 items-center justify-center gap-1.5 rounded-xl bg-[#13538A] px-4 text-sm font-medium text-white shadow-sm transition hover:bg-[#0e3d66] sm:flex-none"
+                  className="inline-flex h-10 flex-1 items-center justify-center gap-1.5 rounded-xl bg-[#4C78F5] px-4 text-sm font-medium text-white shadow-sm transition hover:bg-[#3B66E0] sm:flex-none"
                 >
                   <Plus className="h-4 w-4" />
                   New Application
@@ -937,7 +937,7 @@ export default function LoanApplicationsPage() {
                   type="button"
                   onClick={handleRefresh}
                   disabled={loading}
-                  className="inline-flex h-10 items-center gap-2 rounded-xl border border-[#13538A]/25 bg-white px-4 text-sm font-medium text-[#13538A] transition hover:bg-[#13538A]/5 disabled:opacity-60 dark:border-[#13538A]/40 dark:bg-gray-950 dark:text-[#9fd0f0]"
+                  className="inline-flex h-10 items-center gap-2 rounded-xl border border-[#4C78F5]/25 bg-white px-4 text-sm font-medium text-[#4C78F5] transition hover:bg-[#4C78F5]/5 disabled:opacity-60 dark:border-[#4C78F5]/40 dark:bg-gray-950 dark:text-[#9fd0f0]"
                 >
                   <RefreshCw
                     className={`h-4 w-4 ${loading ? "animate-spin" : ""}`}
@@ -948,7 +948,7 @@ export default function LoanApplicationsPage() {
             </div>
 
             <div className="flex flex-wrap items-center gap-2">
-              <span className="text-xs font-semibold uppercase tracking-wide text-[#13538A]/70">
+              <span className="text-xs font-semibold uppercase tracking-wide text-[#4C78F5]/70">
                 Status
               </span>
               {STATUS_FILTERS.map((filter) => {
@@ -964,8 +964,8 @@ export default function LoanApplicationsPage() {
                     }}
                     className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium transition ${
                       active
-                        ? "bg-[#13538A] text-white shadow-sm"
-                        : "border border-[#13538A]/15 bg-[#13538A]/[0.04] text-[#13538A] hover:bg-[#13538A]/10 dark:border-[#13538A]/30 dark:bg-[#13538A]/10 dark:text-[#9fd0f0]"
+                        ? "bg-[#4C78F5] text-white shadow-sm"
+                        : "border border-[#4C78F5]/15 bg-[#4C78F5]/[0.04] text-[#4C78F5] hover:bg-[#4C78F5]/10 dark:border-[#4C78F5]/30 dark:bg-[#4C78F5]/10 dark:text-[#9fd0f0]"
                     }`}
                   >
                     {filter.label}
@@ -973,7 +973,7 @@ export default function LoanApplicationsPage() {
                       className={`rounded-full px-1.5 py-0.5 text-[10px] ${
                         active
                           ? "bg-white/20"
-                          : "bg-white text-[#13538A] dark:bg-gray-900 dark:text-[#9fd0f0]"
+                          : "bg-white text-[#4C78F5] dark:bg-gray-900 dark:text-[#9fd0f0]"
                       }`}
                     >
                       {count}
@@ -985,13 +985,13 @@ export default function LoanApplicationsPage() {
           </div>
         </div>
 
-        <div className="overflow-hidden rounded-2xl border border-[#13538A]/15 bg-white shadow-sm dark:border-[#13538A]/30 dark:bg-gray-900">
-          <div className="flex items-center justify-between gap-3 border-b border-[#13538A]/10 bg-[#13538A]/[0.04] px-5 py-3.5 dark:border-[#13538A]/20 dark:bg-[#13538A]/10 lg:px-6">
+        <div className="overflow-hidden rounded-2xl border border-[#4C78F5]/15 bg-white shadow-sm dark:border-[#4C78F5]/30 dark:bg-gray-900">
+          <div className="flex items-center justify-between gap-3 border-b border-[#4C78F5]/10 bg-[#4C78F5]/[0.04] px-5 py-3.5 dark:border-[#4C78F5]/20 dark:bg-[#4C78F5]/10 lg:px-6">
             <div className="min-w-0">
-              <h2 className="text-sm font-semibold text-[#13538A] dark:text-[#9fd0f0]">
+              <h2 className="text-sm font-semibold text-[#4C78F5] dark:text-[#9fd0f0]">
                 Applications
               </h2>
-              <p className="text-xs text-[#13538A]/70 dark:text-[#9fd0f0]/80">
+              <p className="text-xs text-[#4C78F5]/70 dark:text-[#9fd0f0]/80">
                 {loading && rows.length === 0
                   ? "Loading pipeline…"
                   : `${filteredRows.length} shown`}
@@ -999,7 +999,7 @@ export default function LoanApplicationsPage() {
                 {statusFilter ? ` · ${formatStatusLabel(statusFilter)}` : ""}
               </p>
             </div>
-            <span className="inline-flex shrink-0 items-center rounded-full bg-[#13538A] px-2.5 py-1 text-[11px] font-semibold text-white">
+            <span className="inline-flex shrink-0 items-center rounded-full bg-[#4C78F5] px-2.5 py-1 text-[11px] font-semibold text-white">
               {loading && rows.length === 0 ? "…" : filteredRows.length}
             </span>
           </div>
@@ -1016,7 +1016,7 @@ export default function LoanApplicationsPage() {
                 <col className="w-[12%]" />
                 <col className="w-[10%]" />
               </colgroup>
-              <thead className="sticky top-0 z-[1] bg-[#13538A] text-white">
+              <thead className="sticky top-0 z-[1] bg-[#4C78F5] text-white">
                 <tr>
                   {[
                     "Borrower",
@@ -1042,13 +1042,13 @@ export default function LoanApplicationsPage() {
                 </tr>
               </thead>
 
-              <tbody className="divide-y divide-[#13538A]/10 dark:divide-[#13538A]/20">
+              <tbody className="divide-y divide-[#4C78F5]/10 dark:divide-[#4C78F5]/20">
                 {loading && rows.length === 0 ? (
                   Array.from({ length: 5 }).map((_, i) => (
                     <tr key={i}>
                       {Array.from({ length: 8 }).map((__, cell) => (
                         <td key={cell} className="px-4 py-4">
-                          <div className="h-8 animate-pulse rounded-lg bg-[#13538A]/10 dark:bg-[#13538A]/20" />
+                          <div className="h-8 animate-pulse rounded-lg bg-[#4C78F5]/10 dark:bg-[#4C78F5]/20" />
                         </td>
                       ))}
                     </tr>
@@ -1057,7 +1057,7 @@ export default function LoanApplicationsPage() {
                   filteredRows.map((row) => (
                     <tr
                       key={row.submissionId}
-                      className="group cursor-pointer border-l-2 border-transparent transition hover:border-l-[#13538A] hover:bg-[#13538A]/[0.045] dark:hover:bg-[#13538A]/15"
+                      className="group cursor-pointer border-l-2 border-transparent transition hover:border-l-[#4C78F5] hover:bg-[#4C78F5]/[0.045] dark:hover:bg-[#4C78F5]/15"
                     >
                       <td
                         onClick={() => openApplicationRow(row)}
@@ -1065,7 +1065,7 @@ export default function LoanApplicationsPage() {
                         title={row.borrowerName}
                       >
                         <div className="flex min-w-0 items-center gap-3">
-                          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#13538A] text-[11px] font-semibold text-white shadow-sm">
+                          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#4C78F5] text-[11px] font-semibold text-white shadow-sm">
                             {getInitials(row.borrowerName)}
                           </div>
                           <div className="min-w-0">
@@ -1086,7 +1086,7 @@ export default function LoanApplicationsPage() {
                         className="px-4 py-3.5 align-middle"
                         title={row.applicationNumber}
                       >
-                        <span className="inline-flex max-w-full truncate rounded-md bg-[#13538A]/10 px-2 py-0.5 font-mono text-[12px] font-medium text-[#13538A] dark:bg-[#13538A]/20 dark:text-[#9fd0f0]">
+                        <span className="inline-flex max-w-full truncate rounded-md bg-[#4C78F5]/10 px-2 py-0.5 font-mono text-[12px] font-medium text-[#4C78F5] dark:bg-[#4C78F5]/20 dark:text-[#9fd0f0]">
                           {row.applicationNumber || "—"}
                         </span>
                       </td>
@@ -1099,7 +1099,7 @@ export default function LoanApplicationsPage() {
                           .join(", ")}
                       >
                         <div className="flex min-w-0 items-center gap-1.5 text-sm text-slate-600 dark:text-slate-300">
-                          <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-[#13538A]/10 text-[#13538A]">
+                          <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-[#4C78F5]/10 text-[#4C78F5]">
                             <MapPin className="h-3.5 w-3.5" />
                           </span>
                           <span className="truncate">
@@ -1149,7 +1149,7 @@ export default function LoanApplicationsPage() {
                       >
                         <AssigneePills
                           people={row.assignedLoanOfficers || []}
-                          pillClassName="bg-[#13538A]/10 text-[#13538A] dark:bg-[#13538A]/20 dark:text-[#9fd0f0]"
+                          pillClassName="bg-[#4C78F5]/10 text-[#4C78F5] dark:bg-[#4C78F5]/20 dark:text-[#9fd0f0]"
                           onShowAll={() =>
                             setPeopleModal({
                               open: true,
@@ -1173,7 +1173,7 @@ export default function LoanApplicationsPage() {
                               e.stopPropagation();
                               openApplicationRow(row);
                             }}
-                            className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-[#13538A] text-white shadow-sm transition hover:bg-[#0e3d66]"
+                            className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-[#4C78F5] text-white shadow-sm transition hover:bg-[#3B66E0]"
                           >
                             <Eye size={15} />
                           </button>
@@ -1200,8 +1200,8 @@ export default function LoanApplicationsPage() {
                             }}
                             className={`inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-white shadow-sm transition ${
                               activeDropdown === row.submissionId
-                                ? "bg-[#0e3d66]"
-                                : "bg-[#13538A] hover:bg-[#0e3d66]"
+                                ? "bg-[#3B66E0]"
+                                : "bg-[#4C78F5] hover:bg-[#3B66E0]"
                             }`}
                           >
                             <MoreHorizontal size={16} />
@@ -1218,7 +1218,7 @@ export default function LoanApplicationsPage() {
                                 left: dropdownPos.left,
                               }}
                               onMouseDown={(e) => e.stopPropagation()}
-                              className="z-[9999] w-48 overflow-hidden rounded-xl bg-[#13538A] shadow-xl"
+                              className="z-[9999] w-48 overflow-hidden rounded-xl bg-[#4C78F5] shadow-xl"
                             >
                               {row.status === "INCOMPLETE" ? (
                                 <button
@@ -1229,7 +1229,7 @@ export default function LoanApplicationsPage() {
                                     setActiveDropdown(null);
                                     resumeIncomplete(row.applicationId);
                                   }}
-                                  className="flex w-full items-center gap-3 px-4 py-3 text-sm font-medium text-white hover:bg-[#0e3d66]"
+                                  className="flex w-full items-center gap-3 px-4 py-3 text-sm font-medium text-white hover:bg-[#3B66E0]"
                                 >
                                   <MdEdit size={14} />
                                   Continue Application
@@ -1243,7 +1243,7 @@ export default function LoanApplicationsPage() {
                                     setActiveDropdown(null);
                                     openPreview(row.submissionId, row);
                                   }}
-                                  className="flex w-full items-center gap-3 px-4 py-3 text-sm font-medium text-white hover:bg-[#0e3d66]"
+                                  className="flex w-full items-center gap-3 px-4 py-3 text-sm font-medium text-white hover:bg-[#3B66E0]"
                                 >
                                   <Eye size={14} />
                                   Open Application
@@ -1259,7 +1259,7 @@ export default function LoanApplicationsPage() {
                   <tr>
                     <td colSpan={8} className="px-6 py-20 text-center">
                       <div className="mx-auto flex max-w-sm flex-col items-center">
-                        <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-[#13538A]/10 text-[#13538A]">
+                        <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-[#4C78F5]/10 text-[#4C78F5]">
                           <SearchX className="h-6 w-6" />
                         </div>
                         <h3 className="text-base font-semibold text-gray-900 dark:text-white">
@@ -1282,8 +1282,8 @@ export default function LoanApplicationsPage() {
             {(pagination.totalPages > 1 ||
               pagination.hasNextPage ||
               pagination.hasPreviousPage) && (
-              <div className="flex flex-col gap-3 border-t border-[#13538A]/10 px-5 py-3.5 sm:flex-row sm:items-center sm:justify-between dark:border-[#13538A]/20 lg:px-6">
-                <p className="text-xs text-[#13538A]/70">
+              <div className="flex flex-col gap-3 border-t border-[#4C78F5]/10 px-5 py-3.5 sm:flex-row sm:items-center sm:justify-between dark:border-[#4C78F5]/20 lg:px-6">
+                <p className="text-xs text-[#4C78F5]/70">
                   Page {pagination.page} of {pagination.totalPages} ·{" "}
                   {pagination.total} total
                 </p>
@@ -1292,7 +1292,7 @@ export default function LoanApplicationsPage() {
                     type="button"
                     disabled={!pagination.hasPreviousPage || loading}
                     onClick={() => setCurrentPage((prev) => prev - 1)}
-                    className="inline-flex h-9 items-center rounded-xl border border-[#13538A]/25 bg-white px-4 text-xs font-medium text-[#13538A] transition hover:bg-[#13538A]/5 disabled:cursor-not-allowed disabled:opacity-40 dark:border-[#13538A]/40 dark:bg-gray-950 dark:text-[#9fd0f0]"
+                    className="inline-flex h-9 items-center rounded-xl border border-[#4C78F5]/25 bg-white px-4 text-xs font-medium text-[#4C78F5] transition hover:bg-[#4C78F5]/5 disabled:cursor-not-allowed disabled:opacity-40 dark:border-[#4C78F5]/40 dark:bg-gray-950 dark:text-[#9fd0f0]"
                   >
                     Previous
                   </button>
@@ -1300,7 +1300,7 @@ export default function LoanApplicationsPage() {
                     type="button"
                     disabled={!pagination.hasNextPage || loading}
                     onClick={() => setCurrentPage((prev) => prev + 1)}
-                    className="inline-flex h-9 items-center rounded-xl bg-[#13538A] px-4 text-xs font-semibold text-white transition hover:bg-[#0e3d66] disabled:cursor-not-allowed disabled:opacity-40"
+                    className="inline-flex h-9 items-center rounded-xl bg-[#4C78F5] px-4 text-xs font-semibold text-white transition hover:bg-[#3B66E0] disabled:cursor-not-allowed disabled:opacity-40"
                   >
                     Next
                   </button>
@@ -1309,8 +1309,8 @@ export default function LoanApplicationsPage() {
             )}
 
             {loading && rows.length > 0 && (
-              <div className="border-t border-[#13538A]/10 px-6 py-3 text-center dark:border-[#13538A]/20">
-                <Loader2 className="mx-auto h-5 w-5 animate-spin text-[#13538A]" />
+              <div className="border-t border-[#4C78F5]/10 px-6 py-3 text-center dark:border-[#4C78F5]/20">
+                <Loader2 className="mx-auto h-5 w-5 animate-spin text-[#4C78F5]" />
               </div>
             )}
           </div>

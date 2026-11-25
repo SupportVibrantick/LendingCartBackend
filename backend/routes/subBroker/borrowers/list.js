@@ -165,7 +165,8 @@ module.exports = async function subBrokerListBorrowersRoute(fastify) {
             orderBy = { createdAt: sortOrder };
         }
 
-        const [applications, total] = await prisma.$transaction([
+        const [applications, total, portalReadyCount, pendingLinkCount] =
+          await prisma.$transaction([
           prisma.loanApplication.findMany({
             where,
             orderBy,
@@ -219,6 +220,12 @@ module.exports = async function subBrokerListBorrowersRoute(fastify) {
             },
           }),
           prisma.loanApplication.count({ where }),
+          prisma.loanApplication.count({
+            where: { ...where, clientId: { not: null } },
+          }),
+          prisma.loanApplication.count({
+            where: { ...where, clientId: null },
+          }),
         ]);
 
         const data = applications.map((app) => {
@@ -243,6 +250,11 @@ module.exports = async function subBrokerListBorrowersRoute(fastify) {
         return reply.send({
           success: true,
           data,
+          stats: {
+            total,
+            portalReady: portalReadyCount,
+            pendingLink: pendingLinkCount,
+          },
           pagination: {
             total,
             page,

@@ -18,10 +18,10 @@ export default function ConversionRatesChart({ stats, loading }: Props) {
 
   const options: ApexOptions = {
     chart: {
-      fontFamily: "Outfit, sans-serif",
+      fontFamily: "Inter, sans-serif",
       toolbar: { show: false },
     },
-    colors: ["#13538A"],
+    colors: ["#4C78F5"],
     plotOptions: {
       radialBar: {
         startAngle: 0,

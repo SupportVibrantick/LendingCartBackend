@@ -1,4 +1,4 @@
-@import url("https://fonts.googleapis.com/css2?family=Outfit:wght@100..900&display=swap")
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap")
 layer(base);
 
 @import "tailwindcss";
@@ -6,12 +6,14 @@ layer(base);
 @custom-variant dark (&:is(.dark *));
 
 :root {
-  --primary-color: #2C92D5;
+  --primary-color: #4C78F5;
 }
 
 @theme {
   --font-*: initial;
-  --font-outfit: Outfit, sans-serif;
+  --font-inter: Inter, ui-sans-serif, system-ui, sans-serif;
+  --font-outfit: Inter, ui-sans-serif, system-ui, sans-serif;
+  --font-sans: Inter, ui-sans-serif, system-ui, sans-serif;
 
   --breakpoint-*: initial;
   --breakpoint-2xsm: 375px;
@@ -43,20 +45,29 @@ layer(base);
   --color-current: currentColor;
   --color-transparent: transparent;
   --color-white: #ffffff;
-  --color-black: #101828;
+  --color-black: #111827;
 
-  --color-brand-25: #f2f7ff;
-  --color-brand-50: #ecf3ff;
-  --color-brand-100: #dde9ff;
-  --color-brand-200: #c2d6ff;
-  --color-brand-300: #9cb9ff;
-  --color-brand-400: #7592ff;
-  --color-brand-500: #465fff;
-  --color-brand-600: #3641f5;
-  --color-brand-700: #2a31d8;
-  --color-brand-800: #252dae;
-  --color-brand-900: #262e89;
-  --color-brand-950: #161950;
+  /* Primary blue palette (aligned with lender dashboard: #4C78F5) */
+  --color-brand-25: #f5f8ff;
+  --color-brand-50: #eef3fe;
+  --color-brand-100: #dce6fd;
+  --color-brand-200: #b9c9fb;
+  --color-brand-300: #8aa6f8;
+  --color-brand-400: #6b8df6;
+  --color-brand-500: #4c78f5;
+  --color-brand-600: #3a5fd4;
+  --color-brand-700: #2e4bb0;
+  --color-brand-800: #253c8c;
+  --color-brand-900: #1f3273;
+  --color-brand-950: #141f4a;
+
+  /* Surface / shell tokens */
+  --color-sidebar: #0d172b;
+  --color-surface: #f7f9fc;
+  --color-card: #ffffff;
+  --color-border: #e2e8f0;
+  --color-text-primary: #111827;
+  --color-text-secondary: #64748b;
 
   --color-blue-light-25: #f5fbff;
   --color-blue-light-50: #f0f9ff;
@@ -72,18 +83,18 @@ layer(base);
   --color-blue-light-950: #062c41;
 
   --color-gray-25: #fcfcfd;
-  --color-gray-50: #f9fafb;
-  --color-gray-100: #f2f4f7;
-  --color-gray-200: #e4e7ec;
-  --color-gray-300: #d0d5dd;
-  --color-gray-400: #98a2b3;
-  --color-gray-500: #667085;
-  --color-gray-600: #475467;
-  --color-gray-700: #344054;
-  --color-gray-800: #1d2939;
-  --color-gray-900: #101828;
-  --color-gray-950: #0c111d;
-  --color-gray-dark: #1a2231;
+  --color-gray-50: #f7f9fc;
+  --color-gray-100: #eef2f7;
+  --color-gray-200: #e2e8f0;
+  --color-gray-300: #cbd5e1;
+  --color-gray-400: #94a3b8;
+  --color-gray-500: #64748b;
+  --color-gray-600: #475569;
+  --color-gray-700: #334155;
+  --color-gray-800: #1e293b;
+  --color-gray-900: #111827;
+  --color-gray-950: #0d172b;
+  --color-gray-dark: #0d172b;
 
   --color-orange-25: #fffaf5;
   --color-orange-50: #fff6ed;
@@ -190,19 +201,59 @@ layer(base);
     cursor: pointer;
   }
   body {
-    @apply relative font-normal font-outfit z-1 bg-gray-50;
+    @apply relative z-1 bg-surface font-normal font-sans text-text-primary;
+  }
+
+  /* Global thin scrollbars */
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: #c5cedb transparent;
+  }
+
+  *::-webkit-scrollbar {
+    width: 4px;
+    height: 4px;
+  }
+
+  *::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  *::-webkit-scrollbar-thumb {
+    background-color: #c5cedb;
+    border-radius: 999px;
+    border: 1px solid transparent;
+    background-clip: content-box;
+  }
+
+  *::-webkit-scrollbar-thumb:hover {
+    background-color: #4c78f5;
+  }
+
+  *::-webkit-scrollbar-corner {
+    background: transparent;
+  }
+
+  .dark * {
+    scrollbar-color: #475569 transparent;
+  }
+
+  .dark *::-webkit-scrollbar-thumb {
+    background-color: #475569;
+  }
+
+  .dark *::-webkit-scrollbar-thumb:hover {
+    background-color: #4c78f5;
   }
 }
 
-/* .menu-item:hover {
-  color: white !important;
-  background: #064d6c !important;
-} */
-
-/* .menu-item:hover svg {
-  color: white !important;
-} */
-
+/* Dashboard shell: one scrollbar only (main content pane). */
+html.dashboard-scroll-lock,
+html.dashboard-scroll-lock body,
+html.dashboard-scroll-lock #root {
+  height: 100%;
+  overflow: hidden;
+}
 
 @utility menu-item {
   @apply relative flex w-full items-center gap-3 rounded-lg px-3 py-2 text-[13px] font-medium;
@@ -279,7 +330,8 @@ layer(base);
 
 @utility sidebar-scrollbar-light {
   &::-webkit-scrollbar {
-    width: 5px;
+    width: 3px;
+    height: 3px;
   }
 
   &::-webkit-scrollbar-track {
@@ -287,32 +339,43 @@ layer(base);
   }
 
   &::-webkit-scrollbar-thumb {
-    @apply rounded-full bg-gray-200;
+    @apply rounded-full bg-gray-300;
   }
 
   &::-webkit-scrollbar-thumb:hover {
-    @apply bg-gray-300;
+    @apply bg-brand-500;
   }
 
   scrollbar-width: thin;
-  scrollbar-color: rgb(229 231 235) transparent;
+  scrollbar-color: #c5cedb transparent;
 }
 
 @utility custom-scrollbar {
   &::-webkit-scrollbar {
-    @apply size-1.5;
+    width: 4px;
+    height: 4px;
   }
 
   &::-webkit-scrollbar-track {
-    @apply rounded-full;
+    @apply rounded-full bg-transparent;
   }
 
   &::-webkit-scrollbar-thumb {
-    @apply bg-gray-200 rounded-full dark:bg-gray-700;
+    @apply rounded-full bg-gray-300;
   }
+
+  &::-webkit-scrollbar-thumb:hover {
+    @apply bg-brand-500;
+  }
+
+  scrollbar-width: thin;
+  scrollbar-color: #c5cedb transparent;
 }
 .dark .custom-scrollbar::-webkit-scrollbar-thumb {
-  background-color: #344054;
+  background-color: #475569;
+}
+.dark .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background-color: #4c78f5;
 }
 
 @utility auth-form-scrollbar {
@@ -860,7 +923,8 @@ span.flatpickr-weekday,
 
 /* ===== Custom Beautiful Scrollbar ===== */
 .custom-scrollbar::-webkit-scrollbar {
-  width: 8px;
+  width: 4px;
+  height: 4px;
 }
 
 .custom-scrollbar::-webkit-scrollbar-track {
@@ -868,21 +932,21 @@ span.flatpickr-weekday,
 }
 
 .custom-scrollbar::-webkit-scrollbar-thumb {
-  background-color: #cbd5f5; /* slate-300 */
+  background-color: #c5cedb;
   border-radius: 9999px;
 }
 
 .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-  background-color: #94a3b8; /* slate-400 */
+  background-color: #4c78f5;
 }
 
 /* Dark mode */
 .dark .custom-scrollbar::-webkit-scrollbar-thumb {
-  background-color: #475569; /* slate-600 */
+  background-color: #475569;
 }
 
 .dark .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-  background-color: #64748b; /* slate-500 */
+  background-color: #4c78f5;
 }
 
 /* ===== Chat panel scrollbar (loan preview, messaging) ===== */
@@ -937,16 +1001,16 @@ span.flatpickr-weekday,
 }
 
 .menu-item-active {
-  @apply bg-[#13538A]/10 text-[#13538A] dark:bg-[#13538A]/20 dark:text-cyan-300;
-  box-shadow: inset 3px 0 0 0 #13538A;
+  @apply bg-brand-50 text-brand-600 dark:bg-brand-500/20 dark:text-brand-300;
+  box-shadow: inset 3px 0 0 0 #4c78f5;
 }
 
 .menu-item-inactive {
-  @apply text-gray-600 dark:text-gray-300;
+  @apply text-text-secondary dark:text-gray-300;
 }
 
 .menu-item-inactive:hover {
-  @apply bg-gray-50 text-gray-900 dark:bg-gray-800 dark:text-white;
+  @apply bg-surface text-text-primary dark:bg-gray-800 dark:text-white;
 }
 
 .menu-item-nested {
@@ -958,15 +1022,15 @@ span.flatpickr-weekday,
 }
 
 .menu-item-icon-active {
-  color: #13538A !important;
+  color: #4c78f5 !important;
 }
 
 .menu-item-icon-inactive {
-  color: #13538A !important;
+  color: #4c78f5 !important;
 }
 
 .menu-item-inactive:hover .menu-item-icon-inactive {
-  color: #13538A !important;
+  color: #4c78f5 !important;
 }
 
 .menu-item-icon-active svg,
@@ -991,15 +1055,15 @@ span.flatpickr-weekday,
 }
 
 .menu-dropdown-item-active {
-  @apply bg-blue-50 text-[#13538A];
+  @apply bg-brand-50 text-brand-600;
 }
 
 .menu-dropdown-item-inactive {
-  @apply text-gray-600;
+  @apply text-text-secondary;
 }
 
 .menu-dropdown-item-inactive:hover {
-  @apply bg-gray-50 text-[#13538A];
+  @apply bg-surface text-brand-600;
 }
 
 /* ================= BADGES ================= */
@@ -1032,7 +1096,8 @@ body.modal-open {
 
 /* ===== Custom Horizontal Scrollbar ===== */
 .custom-scrollbar::-webkit-scrollbar {
-  height: 8px;
+  width: 4px;
+  height: 4px;
 }
 
 .custom-scrollbar::-webkit-scrollbar-track {
@@ -1040,25 +1105,17 @@ body.modal-open {
 }
 
 .custom-scrollbar::-webkit-scrollbar-thumb {
-  background: linear-gradient(
-    90deg,
-    #2563eb,
-    #3b82f6
-  ); /* blue gradient */
+  background-color: #c5cedb;
   border-radius: 9999px;
 }
 
 .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-  background: linear-gradient(
-    90deg,
-    #1d4ed8,
-    #2563eb
-  );
+  background-color: #4c78f5;
 }
 
 /* Firefox */
 .custom-scrollbar {
-  scrollbar-color: #3b82f6 transparent;
+  scrollbar-color: #c5cedb transparent;
   scrollbar-width: thin;
 }
 
@@ -1125,8 +1182,8 @@ body.modal-open {
 .flatpickr-day.selected,
 .flatpickr-day.startRange,
 .flatpickr-day.endRange {
-  background: #2c92d5 !important;
-  border-color: #2c92d5 !important;
+  background: #4C78F5 !important;
+  border-color: #4C78F5 !important;
 }
 
 .flatpickr-day.selected:hover,
@@ -1137,10 +1194,91 @@ body.modal-open {
 }
 
 .flatpickr-day.today {
-  border-color: #2c92d5;
+  border-color: #4C78F5;
 }
 
 .flatpickr-months .flatpickr-prev-month:hover svg,
 .flatpickr-months .flatpickr-next-month:hover svg {
-  fill: #2c92d5;
+  fill: #4C78F5;
+}
+
+/* ================= DESIGN SYSTEM UTILITIES (lender-aligned) ================= */
+.ds-page-title {
+  @apply text-[24px] font-semibold leading-tight tracking-tight text-text-primary;
+}
+
+.ds-page-subtitle {
+  @apply mt-1 text-[13px] font-normal text-text-secondary;
+}
+
+.ds-section-title {
+  @apply text-[16px] font-semibold text-text-primary;
+}
+
+.ds-card {
+  @apply rounded-2xl border border-border bg-card;
+}
+
+.ds-table-wrap {
+  @apply overflow-hidden rounded-xl border border-border bg-white shadow-none dark:border-slate-800 dark:bg-slate-950;
+}
+
+.ds-table-toolbar {
+  @apply flex flex-col gap-3 border-b border-border px-4 py-3.5 sm:flex-row sm:items-center sm:justify-between dark:border-slate-800;
+}
+
+.ds-table {
+  @apply w-full min-w-full border-collapse text-left text-sm;
+}
+
+.ds-table thead {
+  @apply bg-slate-50/70 dark:bg-slate-900/40;
+}
+
+.ds-table th {
+  @apply border-b border-border bg-slate-50/70 px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-text-secondary sm:px-5 dark:border-slate-800 dark:bg-slate-900/40 dark:text-slate-400;
+}
+
+.ds-table td {
+  @apply border-b border-border px-4 py-3.5 align-middle text-sm text-text-primary sm:px-5 dark:border-slate-800;
+}
+
+.ds-table tbody tr {
+  @apply transition-colors hover:bg-[#4C78F5]/[0.03] dark:hover:bg-slate-900/50;
+}
+
+.ds-table tbody tr:last-child td {
+  @apply border-b-0;
+}
+
+.ds-table-title {
+  @apply truncate text-sm font-semibold text-text-primary dark:text-white;
+}
+
+.ds-table-meta {
+  @apply mt-0.5 truncate text-sm text-text-secondary;
+}
+
+.ds-table-amount {
+  @apply text-sm font-semibold tabular-nums text-text-primary dark:text-white;
+}
+
+.ds-table-muted {
+  @apply text-text-secondary;
+}
+
+.ds-table-empty {
+  @apply text-text-secondary;
+}
+
+.ds-btn-primary {
+  @apply inline-flex h-10 items-center justify-center gap-2 rounded-xl bg-brand-500 px-4 text-sm font-semibold text-white transition hover:bg-brand-600;
+}
+
+.ds-btn-secondary {
+  @apply inline-flex h-10 items-center justify-center gap-2 rounded-xl border border-border bg-white px-4 text-sm font-semibold text-text-primary transition hover:bg-surface;
+}
+
+.ds-input {
+  @apply h-10 w-full rounded-xl border border-border bg-white px-3.5 text-sm text-text-primary placeholder:text-text-secondary/70 focus:border-brand-400 focus:outline-none focus:ring-2 focus:ring-brand-500/20;
 }

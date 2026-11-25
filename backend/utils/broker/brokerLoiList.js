@@ -52,12 +52,103 @@ const APPLICATION_LENDER_LOI_INCLUDE = {
   },
 };
 
+const LOI_SORT_OPTIONS = new Set([
+  "newest",
+  "oldest",
+  "amount_desc",
+  "amount_asc",
+  "rate_asc",
+  "rate_desc",
+  "lender_az",
+]);
+
 function parseLoiListQuery(query = {}) {
   const page = Math.max(1, parseInt(query.page, 10) || 1);
   const limit = Math.min(20, Math.max(1, parseInt(query.limit, 10) || 5));
   const search = String(query.search || "").trim();
+  const rawSort = String(query.sort || "newest").trim().toLowerCase();
+  const sort = LOI_SORT_OPTIONS.has(rawSort) ? rawSort : "newest";
 
-  return { page, limit, search, skip: (page - 1) * limit };
+  return { page, limit, search, sort, skip: (page - 1) * limit };
+}
+
+/** Prisma orderBy for sorts that don't need review field values. */
+function buildLoiPrismaOrderBy(sort = "newest") {
+  switch (sort) {
+    case "oldest":
+      return [{ sentAt: "asc" }, { lastUpdatedAt: "asc" }];
+    case "lender_az":
+      return [{ lender: { name: "asc" } }, { sentAt: "desc" }];
+    case "newest":
+    default:
+      return [{ sentAt: "desc" }, { lastUpdatedAt: "desc" }];
+  }
+}
+
+function needsLoiReviewFieldSort(sort = "newest") {
+  return (
+    sort === "amount_desc" ||
+    sort === "amount_asc" ||
+    sort === "rate_asc" ||
+    sort === "rate_desc"
+  );
+}
+
+/**
+ * Sort formatted LOI records (parity with broker-dashboard sortBrokerLois).
+ * Used when rate/amount require latest LenderReview values.
+ */
+function sortFormattedLois(lois, sort = "newest") {
+  const copy = [...(lois || [])];
+
+  copy.sort((a, b) => {
+    switch (sort) {
+      case "oldest":
+        return (
+          new Date(a.generatedAt || a.sentAt || 0).getTime() -
+          new Date(b.generatedAt || b.sentAt || 0).getTime()
+        );
+      case "amount_desc":
+        return (b.approvedAmount ?? -1) - (a.approvedAmount ?? -1);
+      case "amount_asc":
+        return (a.approvedAmount ?? Number.POSITIVE_INFINITY) -
+          (b.approvedAmount ?? Number.POSITIVE_INFINITY);
+      case "rate_asc":
+        return (a.interestRate ?? Number.POSITIVE_INFINITY) -
+          (b.interestRate ?? Number.POSITIVE_INFINITY);
+      case "rate_desc":
+        return (b.interestRate ?? -1) - (a.interestRate ?? -1);
+      case "lender_az":
+        return String(a.lenderName || "").localeCompare(
+          String(b.lenderName || ""),
+        );
+      case "newest":
+      default:
+        return (
+          new Date(b.generatedAt || b.sentAt || 0).getTime() -
+          new Date(a.generatedAt || a.sentAt || 0).getTime()
+        );
+    }
+  });
+
+  return copy;
+}
+
+/**
+ * List + sort + paginate LOIs for an application.
+ * LOI counts per application are typically small, so we sort after formatting
+ * to keep rate/amount/date behavior consistent with the dashboard.
+ */
+async function queryBrokerLois(prisma, { where, sort, skip, limit }) {
+  const lenders = await prisma.applicationLender.findMany({
+    where,
+    include: APPLICATION_LENDER_LOI_INCLUDE,
+    orderBy: buildLoiPrismaOrderBy(
+      sort === "lender_az" ? "lender_az" : "newest",
+    ),
+  });
+  const sorted = sortFormattedLois(lenders.map(formatBrokerLoiRecord), sort);
+  return sorted.slice(skip, skip + limit);
 }
 
 function formatReviewerName(user) {
@@ -178,7 +269,12 @@ function buildLoiPagination(page, limit, total) {
 
 module.exports = {
   APPLICATION_LENDER_LOI_INCLUDE,
+  LOI_SORT_OPTIONS,
   parseLoiListQuery,
+  buildLoiPrismaOrderBy,
+  needsLoiReviewFieldSort,
+  sortFormattedLois,
+  queryBrokerLois,
   formatBrokerLoiRecord,
   buildLoiSearchFilter,
   buildLoiPagination,

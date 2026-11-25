@@ -38,10 +38,10 @@ const FEATURES = [
 ];
 
 function inputWrap(hasError: boolean) {
-  return `flex items-center gap-3 rounded-xl border px-4 py-3.5 transition focus-within:ring-2 focus-within:ring-[#13538A]/30 ${
+  return `flex items-center gap-3 rounded-xl border px-4 py-3.5 transition focus-within:ring-2 focus-within:ring-[#4C78F5]/30 ${
     hasError
       ? "border-red-300 bg-red-50 dark:border-red-500/50 dark:bg-red-950/20"
-      : "border-gray-200 bg-gray-50 focus-within:border-[#13538A] focus-within:bg-white dark:border-gray-700 dark:bg-gray-900 dark:focus-within:border-cyan-500 dark:focus-within:bg-gray-900"
+      : "border-gray-200 bg-gray-50 focus-within:border-[#4C78F5] focus-within:bg-white dark:border-gray-700 dark:bg-gray-900 dark:focus-within:border-cyan-500 dark:focus-within:bg-gray-900"
   }`;
 }
 
@@ -142,7 +142,7 @@ export default function Login() {
       <div className="flex h-full min-h-0 flex-col lg:flex-row">
         {/* Brand panel — fixed */}
         <div className="relative hidden h-full min-h-0 overflow-hidden bg-[#0b1f3a] lg:flex lg:w-[48%] xl:w-[52%]">
-          <div className="absolute inset-0 bg-[linear-gradient(135deg,#0b1f3a_0%,#13538A_45%,#1a6aad_100%)]" />
+          <div className="absolute inset-0 bg-[linear-gradient(135deg,#0b1f3a_0%,#4C78F5_45%,#1a6aad_100%)]" />
           <div className="absolute -top-24 right-0 h-72 w-72 rounded-full bg-cyan-400/20 blur-[100px]" />
           <div className="absolute bottom-0 left-0 h-64 w-64 rounded-full bg-blue-500/20 blur-[80px]" />
           <GridShape />
@@ -214,10 +214,10 @@ export default function Login() {
                 <img
                   src={logoSrc}
                   alt="Loan Automation"
-                  className="h-12 w-12 rounded-full ring-2 ring-[#13538A]/20 object-cover"
+                  className="h-12 w-12 rounded-full ring-2 ring-[#4C78F5]/20 object-cover"
                 />
                 <div>
-                  <p className="text-lg font-bold text-[#13538A] dark:text-cyan-400">
+                  <p className="text-lg font-bold text-[#4C78F5] dark:text-cyan-400">
                     Loan Automation
                   </p>
                   <p className="text-[10px] font-medium uppercase tracking-wider text-gray-400">
@@ -226,7 +226,7 @@ export default function Login() {
                 </div>
               </div>
 
-              <span className="mb-4 inline-flex rounded-full border border-[#13538A]/20 bg-[#13538A]/5 px-3 py-1 text-xs font-semibold text-[#13538A] dark:border-cyan-500/30 dark:bg-cyan-500/10 dark:text-cyan-300">
+              <span className="mb-4 inline-flex rounded-full border border-[#4C78F5]/20 bg-[#4C78F5]/5 px-3 py-1 text-xs font-semibold text-[#4C78F5] dark:border-cyan-500/30 dark:bg-cyan-500/10 dark:text-cyan-300">
                 {CO_BROKER_PORTAL_LABEL}
               </span>
 
@@ -318,7 +318,7 @@ export default function Login() {
                 <div className="flex justify-end">
                   <Link
                     to="/reset-password?portal=sub-broker"
-                    className="text-sm font-medium text-[#13538A] transition hover:underline dark:text-cyan-400"
+                    className="text-sm font-medium text-[#4C78F5] transition hover:underline dark:text-cyan-400"
                   >
                     Forgot password?
                   </Link>

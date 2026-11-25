@@ -10,22 +10,24 @@ import toast from "react-hot-toast";
 import { createPortal } from "react-dom";
 import { useNavigate, useSearchParams } from "react-router";
 import {
-  MapPin,
   Eye,
   Search,
   FileText,
   Loader2,
-  TrendingUp,
   RefreshCw,
   Building2,
   SearchX,
   ChevronLeft,
   ChevronRight,
+  ExternalLink,
   MoreHorizontal,
   Plus,
   Send,
-  Users,
+  UserRound,
   X,
+  DollarSign,
+  Clock3,
+  CheckCircle,
 } from "lucide-react";
 
 import Swal from "sweetalert2";
@@ -136,9 +138,25 @@ function getInitials(name?: string) {
 }
 
 function formatShortDate(value?: string) {
-  if (!value) return "—";
-  const formatted = formatUsDate(value);
-  return formatted || "—";
+  if (!value) return "Not provided";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    const formatted = formatUsDate(value);
+    return formatted || "Not provided";
+  }
+
+  const today = new Date();
+  const yesterday = new Date();
+  yesterday.setDate(today.getDate() - 1);
+
+  if (date.toDateString() === today.toDateString()) return "Today";
+  if (date.toDateString() === yesterday.toDateString()) return "Yesterday";
+
+  return date.toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  });
 }
 
 function formatStatusLabel(status?: string) {
@@ -147,6 +165,35 @@ function formatStatusLabel(status?: string) {
   if (status === "CLIENT_PENDING") return "Client Pending";
   if (status === "IN_REVIEW") return "In Review";
   return status.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
+/** Full program label — same expansion as Recent Applications on Home. */
+function formatLoanProduct(code?: string | null) {
+  if (!code) return "Not provided";
+  return code
+    .replace(/_/g, " ")
+    .toLowerCase()
+    .replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
+function displayName(value?: string | null) {
+  const v = (value || "").trim();
+  if (!v || v.toUpperCase() === "N/A") return "Untitled";
+  return v;
+}
+
+function dealInitials(value?: string | null) {
+  const name = displayName(value);
+  const parts = name.split(/\s+/).filter(Boolean);
+  if (!parts.length) return "A";
+  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+  return `${parts[0][0]}${parts[parts.length - 1][0]}`.toUpperCase();
+}
+
+function displayPlace(value?: string | null) {
+  const v = (value || "").trim();
+  if (!v || v.toUpperCase() === "N/A") return "";
+  return v;
 }
 
 const STATUS_FILTERS = [
@@ -169,47 +216,97 @@ function AssigneePills({
   people,
   pillClassName,
   onShowAll,
+  onAssign,
+  compact = false,
 }: {
   people: AssignedPerson[];
   pillClassName: string;
   onShowAll?: (event: MouseEvent) => void;
+  onAssign?: (event: MouseEvent) => void;
+  compact?: boolean;
 }) {
   if (!people.length) {
+    if (onAssign) {
+      return (
+        <button
+          type="button"
+          title="Assign team members"
+          onClick={(event) => {
+            event.stopPropagation();
+            onAssign(event);
+          }}
+          className="inline-flex items-center gap-1.5 rounded-full border border-dashed border-border bg-surface/60 px-2.5 py-1 text-[11px] font-medium text-text-secondary transition hover:border-brand-200 hover:bg-brand-50 hover:text-brand-600 dark:border-slate-700 dark:bg-slate-800/60"
+        >
+          <UserRound className="h-3.5 w-3.5 shrink-0 opacity-70" />
+          Assign
+        </button>
+      );
+    }
+
     return (
-      <div className="inline-flex items-center gap-1.5 rounded-full border border-dashed border-[#13538A]/25 px-2 py-0.5 text-[11px] text-[#13538A]/55">
-        <Users className="h-3 w-3" />
+      <span className="inline-flex items-center gap-1.5 rounded-full border border-dashed border-border bg-surface/60 px-2.5 py-1 text-[11px] font-medium text-text-secondary dark:border-slate-700 dark:bg-slate-800/60">
+        <UserRound className="h-3.5 w-3.5 shrink-0 opacity-70" />
         Unassigned
-      </div>
+      </span>
     );
   }
 
-  const extra = people.length - 1;
-  const first = people[0];
+  const shown = people.slice(0, compact ? 3 : 1);
+  const extra = people.length - shown.length;
 
   return (
     <div
-      className="flex min-w-0 items-center gap-1.5"
+      className="flex min-w-0 items-center gap-1"
       title={people.map((person) => person.name).join(", ")}
     >
-      <span
-        className={`inline-flex max-w-[9.5rem] items-center gap-1.5 truncate rounded-full px-1.5 py-0.5 text-xs font-medium ${pillClassName}`}
-      >
-        <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-white/70 text-[9px] font-bold">
-          {getInitials(first.name)}
-        </span>
-        <span className="truncate">{first.name}</span>
-      </span>
-      {extra > 0 && (
-        <button
-          type="button"
-          onClick={(event) => {
-            event.stopPropagation();
-            onShowAll?.(event);
-          }}
-          className={`inline-flex h-5 min-w-5 shrink-0 items-center justify-center rounded-full px-1.5 text-[10px] font-semibold ${pillClassName}`}
-        >
-          +{extra}
-        </button>
+      {compact ? (
+        <>
+          <div className="flex -space-x-1.5">
+            {shown.map((person) => (
+              <span
+                key={person.id}
+                className={`flex h-7 w-7 items-center justify-center rounded-full text-[10px] font-semibold ring-2 ring-white dark:ring-slate-900 ${pillClassName}`}
+              >
+                {getInitials(person.name)}
+              </span>
+            ))}
+          </div>
+          {extra > 0 ? (
+            <button
+              type="button"
+              onClick={(event) => {
+                event.stopPropagation();
+                onShowAll?.(event);
+              }}
+              className={`inline-flex h-7 min-w-7 items-center justify-center rounded-full px-1.5 text-[10px] font-semibold ${pillClassName}`}
+            >
+              +{extra}
+            </button>
+          ) : null}
+        </>
+      ) : (
+        <>
+          <span
+            className={`inline-flex max-w-[9.5rem] items-center gap-1.5 truncate rounded-full px-1.5 py-0.5 text-xs font-medium ${pillClassName}`}
+          >
+            <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-white/70 text-[9px] font-bold">
+              {getInitials(shown[0].name)}
+            </span>
+            <span className="truncate">{shown[0].name}</span>
+          </span>
+          {extra > 0 ? (
+            <button
+              type="button"
+              onClick={(event) => {
+                event.stopPropagation();
+                onShowAll?.(event);
+              }}
+              className={`inline-flex h-5 min-w-5 shrink-0 items-center justify-center rounded-full px-1.5 text-[10px] font-semibold ${pillClassName}`}
+            >
+              +{extra}
+            </button>
+          ) : null}
+        </>
       )}
     </div>
   );
@@ -401,55 +498,39 @@ export default function LoanApplicationsPage() {
 
     switch (s) {
       case "new":
-        return "bg-[#13538A] text-white";
-
-      case "pending":
-        return "bg-amber-500 text-white";
-
-      case "client_pending":
-        return "bg-rose-500 text-white";
-
-      case "submitted":
-        return "bg-[#1a6aad] text-white";
-
       case "sent":
-        return "bg-[#13538A] text-white";
-
-      case "updated":
-        return "bg-[#0e3d66] text-white";
-
-      case "approved":
-        return "bg-emerald-600 text-white";
-
-      case "lender_approved":
-        return "bg-green-600 text-white";
-
-      case "declined":
-        return "bg-red-600 text-white";
-
-      case "lender_declined":
-        return "bg-rose-700 text-white";
-
+      case "selected":
       case "in_review":
-        return "bg-[#13538A] text-white";
-
+      case "submitted":
+        return "bg-sky-100 text-sky-700 ring-sky-200";
+      case "pending":
+      case "conditional":
+        return "bg-amber-100 text-amber-700 ring-amber-200";
+      case "client_pending":
+        return "bg-rose-100 text-rose-700 ring-rose-200";
+      case "updated":
+        return "bg-[#4C78F5]/10 text-[#3B66E0] ring-[#4C78F5]/25";
+      case "approved":
+      case "auto_approved":
+      case "lender_approved":
+        return "bg-emerald-100 text-emerald-700 ring-emerald-200";
+      case "declined":
+      case "rejected":
+      case "auto_declined":
+      case "withdrawn":
+      case "lender_declined":
+        return "bg-rose-100 text-rose-700 ring-rose-200";
       case "draft":
-        return "bg-slate-500 text-white";
-
+        return "bg-slate-100 text-slate-600 ring-slate-200";
       case "incomplete":
-        return "bg-orange-500 text-white";
-
-      case "completed":
-        return "bg-teal-600 text-white";
-
       case "superseded":
-        return "bg-orange-500 text-white";
-
+      case "suspended":
+        return "bg-orange-100 text-orange-700 ring-orange-200";
+      case "completed":
       case "funded":
-        return "bg-emerald-700 text-white";
-
+        return "bg-emerald-100 text-emerald-700 ring-emerald-200";
       default:
-        return "bg-slate-600 text-white";
+        return "bg-slate-100 text-slate-600 ring-slate-200";
     }
   };
 
@@ -837,7 +918,6 @@ export default function LoanApplicationsPage() {
           company: "-",
           loanType: item.loanInfo,
           cityState: item.location?.split(",")[0]?.trim() || "N/A",
-
           country: item.location?.split(",")[1]?.trim() || "",
           amount: Number(item.amount) || 0,
           status: item.status,
@@ -974,18 +1054,18 @@ export default function LoanApplicationsPage() {
   const Stat = ({ label, value }: { label: string; value: string }) => (
     <div>
       <p className="text-xs text-slate-500 uppercase">{label}</p>
-      <p className="text-[14px] font-semibold text-[#13538A]">{value}</p>
+      <p className="text-[14px] font-semibold text-[#4C78F5]">{value}</p>
     </div>
   );
 
   const getStatusChip = (status?: string) => {
     switch (status) {
       case "NEW":
-        return "bg-[#13538A]/10 text-[#13538A] dark:bg-[#13538A]/20 dark:text-[#9fd0f0]";
+        return "bg-[#4C78F5]/10 text-[#4C78F5] dark:bg-[#4C78F5]/20 dark:text-[#9fd0f0]";
 
       case "SENT":
       case "SUBMITTED":
-        return "bg-[#13538A]/10 text-[#13538A] dark:bg-[#13538A]/20 dark:text-[#8ec4ea]";
+        return "bg-[#4C78F5]/10 text-[#4C78F5] dark:bg-[#4C78F5]/20 dark:text-[#8ec4ea]";
 
       case "APPROVED":
       case "LENDER_APPROVED":
@@ -996,7 +1076,7 @@ export default function LoanApplicationsPage() {
         return "bg-red-100 text-red-700 dark:bg-red-500/10 dark:text-red-400";
 
       case "IN_REVIEW":
-        return "bg-[#13538A]/15 text-[#13538A] dark:bg-[#13538A]/25 dark:text-[#9fd0f0]";
+        return "bg-[#4C78F5]/15 text-[#4C78F5] dark:bg-[#4C78F5]/25 dark:text-[#9fd0f0]";
 
       case "CLIENT_PENDING":
         return "bg-pink-100 text-pink-700 dark:bg-pink-500/10 dark:text-pink-400";
@@ -1493,23 +1573,22 @@ export default function LoanApplicationsPage() {
         description="Track and manage broker loan applications"
       />
 
-      <div className="mx-auto w-full min-w-0 max-w-[1400px] space-y-3">
-        {/* Compact page header */}
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+      <div className="w-full min-w-0 space-y-4 text-text-primary dark:text-slate-100">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
           <div className="min-w-0">
-            <div className="mb-1 flex items-center gap-2">
-              <span className="inline-flex items-center gap-1 rounded-md bg-[#13538A]/10 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-[#13538A] dark:bg-[#13538A]/20 dark:text-cyan-300">
-                <TrendingUp className="h-3 w-3" />
-                Pipeline
-              </span>
-            </div>
-            <h1 className="text-xl font-semibold tracking-tight text-gray-900 dark:text-white">
-              Loan Pipeline
-            </h1>
-            <p className="mt-0.5 text-sm text-gray-500 dark:text-gray-400">
-              {pipelineStats.totalApplications} total application
-              {pipelineStats.totalApplications === 1 ? "" : "s"} ·{" "}
-              {formatCompactAmount(pipelineStats.totalVolume)} pipeline volume
+            <h1 className="ds-page-title">Loan Pipeline</h1>
+            <p className="ds-page-subtitle">
+              Review and open every deal in your broker pipeline.
+              {pipelineStats.totalApplications > 0 ? (
+                <>
+                  {" "}
+                  <span className="font-semibold text-brand-500">
+                    {pipelineStats.totalApplications}
+                  </span>{" "}
+                  total application
+                  {pipelineStats.totalApplications === 1 ? "" : "s"}.
+                </>
+              ) : null}
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
@@ -1517,7 +1596,7 @@ export default function LoanApplicationsPage() {
               type="button"
               onClick={handleRefresh}
               disabled={loading}
-              className="inline-flex h-9 items-center justify-center gap-1.5 rounded-lg border border-gray-200 bg-white px-3 text-xs font-semibold text-gray-700 transition hover:bg-gray-50 disabled:opacity-60 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-200 dark:hover:bg-gray-800"
+              className="ds-btn-secondary h-9 px-3 text-xs disabled:opacity-60"
             >
               <RefreshCw
                 className={`h-3.5 w-3.5 ${loading ? "animate-spin" : ""}`}
@@ -1527,7 +1606,7 @@ export default function LoanApplicationsPage() {
             <button
               type="button"
               onClick={() => navigate("/loan-application")}
-              className="inline-flex h-9 items-center justify-center gap-1.5 rounded-lg bg-[#13538A] px-3 text-xs font-semibold text-white shadow-sm transition hover:bg-[#0e3d66]"
+              className="ds-btn-primary h-9 px-3 text-xs"
             >
               <Plus className="h-3.5 w-3.5" />
               New Application
@@ -1535,42 +1614,68 @@ export default function LoanApplicationsPage() {
           </div>
         </div>
 
-        {/* KPIs */}
-        <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+        <div className="grid grid-cols-2 gap-2.5 md:grid-cols-4">
           {[
-            { label: "Total Apps", value: pipelineStats.totalApplications },
-            { label: "Submitted", value: pipelineStats.submitted },
-            { label: "In Review", value: pipelineStats.inReview },
-            { label: "Approved", value: pipelineStats.approved },
-          ].map(({ label, value }) => (
+            {
+              label: "Total Volume",
+              value: formatCompactAmount(pipelineStats.totalVolume),
+              icon: DollarSign,
+              tone: "bg-emerald-50 text-emerald-600",
+            },
+            {
+              label: "Needs Review",
+              value: pipelineStats.inReview + pipelineStats.submitted,
+              icon: Clock3,
+              tone: "bg-amber-50 text-amber-600",
+            },
+            {
+              label: "Approved",
+              value: pipelineStats.approved,
+              icon: CheckCircle,
+              tone: "bg-brand-50 text-brand-600",
+            },
+            {
+              label: "In Pipeline",
+              value: pipelineStats.totalApplications,
+              icon: FileText,
+              tone: "bg-sky-50 text-sky-600",
+            },
+          ].map((card) => (
             <div
-              key={label}
-              className="rounded-xl border border-gray-200/80 bg-white px-3.5 py-2.5 shadow-[0_1px_2px_rgba(15,23,42,0.04)] dark:border-gray-800 dark:bg-gray-900"
+              key={card.label}
+              className="rounded-xl border border-border bg-white px-3.5 py-3 dark:border-slate-700 dark:bg-slate-900"
             >
-              <p className="text-[11px] font-medium uppercase tracking-wide text-gray-400 dark:text-gray-500">
-                {label}
-              </p>
-              <p className="text-lg font-semibold leading-tight tabular-nums text-gray-900 dark:text-white">
-                {value}
-              </p>
+              <div className="flex items-center justify-between gap-2">
+                <div className="min-w-0">
+                  <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-text-secondary">
+                    {card.label}
+                  </p>
+                  <p className="mt-1 truncate text-xl font-bold tabular-nums leading-none text-text-primary dark:text-white">
+                    {card.value}
+                  </p>
+                </div>
+                <span
+                  className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${card.tone}`}
+                >
+                  <card.icon className="h-3.5 w-3.5" />
+                </span>
+              </div>
             </div>
           ))}
         </div>
 
-        {/* Toolbar */}
-        <div className="rounded-xl border border-gray-200/80 bg-white p-3 shadow-[0_1px_3px_rgba(15,23,42,0.06)] dark:border-gray-800 dark:bg-gray-900 sm:p-3.5">
-          <div className="flex flex-col gap-3">
-            <div className="flex flex-col gap-2.5 lg:flex-row lg:items-center">
-              <div className="relative min-w-0 flex-1">
-                <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-[#13538A]/60" />
+        <div className="overflow-hidden rounded-2xl border border-border bg-white dark:border-slate-700 dark:bg-slate-900">
+          <div className="flex flex-col gap-2.5 border-b border-border px-4 py-3.5 dark:border-slate-800 sm:flex-row sm:items-center sm:justify-between sm:px-5">
+            <div className="flex w-full flex-col gap-2.5 sm:flex-row sm:items-center lg:min-w-0 lg:flex-1">
+              <div className="group relative w-full sm:max-w-sm">
+                <Search className="pointer-events-none absolute top-1/2 left-3 z-10 h-4 w-4 -translate-y-1/2 text-text-secondary transition-colors group-focus-within:text-[#4C78F5]" />
                 <input
-                  placeholder="Search name, email, phone, app #, address, entity, SSN..."
+                  placeholder="Search applications…"
                   value={searchTerm}
                   onChange={(e) => {
                     const value = e.target.value;
                     setSearchTerm(value);
                     searchTermRef.current = value;
-                    // Kill in-flight unfiltered pages during the debounce window.
                     invalidateListSession();
 
                     if (searchTimeoutRef.current) {
@@ -1581,9 +1686,9 @@ export default function LoanApplicationsPage() {
                       loadSubmissions(undefined, value, statusFilterRef.current);
                     }, 500);
                   }}
-                  className="h-9 w-full rounded-lg border border-gray-200 bg-white pl-8 pr-8 text-sm outline-none transition focus:border-[#13538A] focus:ring-2 focus:ring-[#13538A]/15 dark:border-gray-700 dark:bg-gray-950 dark:text-gray-100"
+                  className="h-10 w-full rounded-xl border border-border bg-white py-2 pr-9 pl-10 text-sm text-text-primary outline-none transition placeholder:text-text-secondary/70 focus:border-[#4C78F5]/50 focus:ring-2 focus:ring-[#4C78F5]/15 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
                 />
-                {searchTerm && (
+                {searchTerm ? (
                   <button
                     type="button"
                     onClick={() => {
@@ -1594,205 +1699,193 @@ export default function LoanApplicationsPage() {
                       }
                       loadSubmissions(undefined, "", statusFilterRef.current);
                     }}
-                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-[#13538A]"
+                    className="absolute top-1/2 right-2.5 -translate-y-1/2 rounded-md p-1 text-text-secondary hover:bg-surface hover:text-text-primary"
+                    aria-label="Clear search"
                   >
-                    <X className="h-3.5 w-3.5" />
+                    <X size={14} />
                   </button>
-                )}
+                ) : null}
               </div>
+
+              <button
+                type="button"
+                onClick={handleRefresh}
+                disabled={loading}
+                className="inline-flex h-10 items-center justify-center gap-2 rounded-xl border border-border bg-white px-3 text-sm font-medium text-text-secondary transition hover:bg-surface disabled:opacity-50 dark:border-slate-700 dark:bg-slate-950"
+                title="Refresh"
+              >
+                <RefreshCw
+                  size={14}
+                  className={loading ? "animate-spin" : ""}
+                />
+                Refresh
+              </button>
             </div>
 
-            <div className="flex flex-wrap items-center gap-2">
-              <span className="text-xs font-semibold uppercase tracking-wide text-[#13538A]/70">
-                Status
-              </span>
-              {STATUS_FILTERS.map((filter) => {
-                const count = pipelineStats[filter.statKey] ?? 0;
-                const active = statusFilter === filter.value;
-                return (
-                  <button
-                    key={filter.value || "all"}
-                    type="button"
-                    onClick={() => {
-                      statusFilterRef.current = filter.value;
-                      setStatusFilter(filter.value);
-                    }}
-                    className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium transition ${
+            <p className="shrink-0 text-[13px] font-medium text-text-secondary">
+              {loading && rows.length === 0
+                ? "…"
+                : `${filteredRows.length} shown${hasMore ? "+" : ""}`}
+            </p>
+          </div>
+
+          <div className="flex items-center gap-1.5 overflow-x-auto border-b border-border px-4 py-2.5 scrollbar-hide sm:px-5 dark:border-slate-800">
+            <span className="mr-1 shrink-0 text-[11px] font-semibold uppercase tracking-[0.08em] text-text-secondary">
+              Status
+            </span>
+            {STATUS_FILTERS.map((filter) => {
+              const count = pipelineStats[filter.statKey] ?? 0;
+              const active = statusFilter === filter.value;
+              return (
+                <button
+                  key={filter.value || "all"}
+                  type="button"
+                  onClick={() => {
+                    statusFilterRef.current = filter.value;
+                    setStatusFilter(filter.value);
+                  }}
+                  className={`inline-flex shrink-0 items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-semibold transition ${
+                    active
+                      ? "bg-[#4C78F5] text-white"
+                      : "border border-border bg-white text-text-secondary hover:border-[#4C78F5]/40 hover:text-[#4C78F5] dark:border-slate-700 dark:bg-slate-950"
+                  }`}
+                >
+                  {filter.label}
+                  <span
+                    className={`rounded-full px-1.5 py-0.5 text-[10px] tabular-nums ${
                       active
-                        ? "bg-[#13538A] text-white shadow-sm"
-                        : "border border-[#13538A]/15 bg-[#13538A]/[0.04] text-[#13538A] hover:bg-[#13538A]/10 dark:border-[#13538A]/30 dark:bg-[#13538A]/10 dark:text-[#9fd0f0]"
+                        ? "bg-white/20"
+                        : "bg-slate-100 text-text-secondary dark:bg-slate-800"
                     }`}
                   >
-                    {filter.label}
-                    <span
-                      className={`rounded-full px-1.5 py-0.5 text-[10px] ${
-                        active
-                          ? "bg-white/20"
-                          : "bg-white text-[#13538A] dark:bg-gray-900 dark:text-[#9fd0f0]"
-                      }`}
-                    >
-                      {count}
-                    </span>
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-        </div>
-
-        {/* Table */}
-        <div className="overflow-hidden rounded-2xl border border-[#13538A]/15 bg-white shadow-sm dark:border-[#13538A]/30 dark:bg-gray-900">
-          <div className="flex items-center justify-between gap-3 border-b border-[#13538A]/10 bg-[#13538A]/[0.04] px-5 py-3.5 dark:border-[#13538A]/20 dark:bg-[#13538A]/10 lg:px-6">
-            <div className="min-w-0">
-              <h2 className="text-sm font-semibold text-[#13538A] dark:text-[#9fd0f0]">
-                Applications
-              </h2>
-              <p className="text-xs text-[#13538A]/70 dark:text-[#9fd0f0]/80">
-                {loading && rows.length === 0
-                  ? "Loading pipeline…"
-                  : `${filteredRows.length} shown${hasMore ? "+" : ""}${
-                      searchTerm ? " matching" : ""
-                    }`}
-                {statusFilter ? ` · ${formatStatusLabel(statusFilter)}` : ""}
-              </p>
-            </div>
-            <span className="inline-flex shrink-0 items-center rounded-full bg-[#13538A] px-2.5 py-1 text-[11px] font-semibold text-white">
-              {loading && rows.length === 0 ? "…" : filteredRows.length}
-            </span>
+                    {count}
+                  </span>
+                </button>
+              );
+            })}
+            {searchTerm || statusFilter ? (
+              <button
+                type="button"
+                onClick={() => {
+                  setSearchTerm("");
+                  searchTermRef.current = "";
+                  statusFilterRef.current = "";
+                  setStatusFilter("");
+                  if (searchTimeoutRef.current) {
+                    clearTimeout(searchTimeoutRef.current);
+                  }
+                  loadSubmissions(undefined, "", "");
+                }}
+                className="ml-1 shrink-0 text-xs font-semibold text-[#4C78F5] hover:underline"
+              >
+                Clear
+              </button>
+            ) : null}
           </div>
 
-          <div className="min-w-0 overflow-hidden">
-            <table className="w-full table-fixed text-left">
-              <colgroup>
-                <col className="w-[17%]" />
-                <col className="w-[13%]" />
-                <col className="w-[12%]" />
-                <col className="w-[8%]" />
-                <col className="w-[9%]" />
-                <col className="w-[10%]" />
-                <col className="w-[12%]" />
-                <col className="w-[9%]" />
-                <col className="w-[10%]" />
-              </colgroup>
-              <thead className="sticky top-0 z-[1] bg-[#13538A] text-white">
+          <div className="w-full overflow-x-auto">
+            <table className="ds-table min-w-[980px] w-full">
+              <thead>
                 <tr>
                   {[
-                    "Borrower",
-                    "Application",
-                    "Location",
+                    "Deal",
+                    "Program",
                     "Amount",
-                    "Submitted",
-                    "Status",
-                    "Loan Officer",
-                    "Co Brokers",
-                    "Actions",
+                    "Stage",
+                    "Team",
+                    "Received",
+                    "Portal",
                   ].map((label) => (
                     <th
                       key={label}
-                      className={`px-3 py-3 text-[11px] font-semibold uppercase tracking-wider first:pl-5 last:pr-5 lg:first:pl-6 lg:last:pr-6 ${
-                        label === "Amount"
-                          ? "text-right"
-                          : label === "Actions"
-                            ? "text-right"
-                            : "text-left"
-                      }`}
+                      className={label === "Portal" ? "!text-right" : undefined}
                     >
-                      <span className="block truncate">{label}</span>
+                      {label}
                     </th>
                   ))}
                 </tr>
               </thead>
 
-              <tbody className="divide-y divide-[#13538A]/10 dark:divide-[#13538A]/20">
+              <tbody>
                 {loading && rows.length === 0 ? (
-                  Array.from({ length: 5 }).map((_, i) => (
+                  Array.from({ length: 6 }).map((_, i) => (
                     <tr key={i}>
-                      {Array.from({ length: 9 }).map((__, cell) => (
-                        <td key={cell} className="px-4 py-4">
-                          <div className="h-8 animate-pulse rounded-lg bg-[#13538A]/10 dark:bg-[#13538A]/20" />
+                      {Array.from({ length: 7 }).map((__, cell) => (
+                        <td key={cell}>
+                          <div className="h-4 animate-pulse rounded bg-surface dark:bg-slate-800" />
                         </td>
                       ))}
                     </tr>
                   ))
                 ) : Array.isArray(filteredRows) && filteredRows.length > 0 ? (
-                  filteredRows.map((row) => (
+                  filteredRows.map((row) => {
+                    const place = [
+                      displayPlace(row.cityState),
+                      displayPlace(row.country),
+                    ]
+                      .filter(Boolean)
+                      .join(", ");
+                    const teamPeople = [
+                      ...(row.assignedLoanOfficers || []),
+                      ...(row.assignedSubBrokers || []),
+                    ];
+                    const dealMeta = [
+                      row.applicationNumber || null,
+                      place || null,
+                    ]
+                      .filter(Boolean)
+                      .join(" · ");
+                    const programLabel = formatLoanProduct(
+                      row.loanType || row.company,
+                    );
+
+                    return (
                     <tr
                       key={row.submissionId}
-                      className="group cursor-pointer border-l-2 border-transparent transition hover:border-l-[#13538A] hover:bg-[#13538A]/[0.045] dark:hover:bg-[#13538A]/15"
+                      className="cursor-pointer"
+                      onClick={() => openApplicationRow(row)}
                     >
-                      <td
-                        onClick={() => openApplicationRow(row)}
-                        className="px-4 py-3.5 align-middle first:pl-5 lg:first:pl-6"
-                        title={row.borrowerName}
-                      >
-                        <div className="flex min-w-0 items-center gap-3">
-                          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#13538A] text-[11px] font-semibold text-white shadow-sm">
-                            {getInitials(row.borrowerName)}
-                          </div>
+                      <td title={displayName(row.borrowerName)}>
+                        <div className="flex items-center gap-3">
+                          <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#4C78F5] text-[11px] font-bold tracking-wide text-white">
+                            {dealInitials(row.borrowerName)}
+                          </span>
                           <div className="min-w-0">
-                            <p className="truncate text-sm font-semibold text-slate-900 dark:text-white">
-                              {row.borrowerName || "Untitled"}
+                            <p className="ds-table-title">
+                              {displayName(row.borrowerName)}
                             </p>
-                            <p className="truncate text-[11px] text-slate-500">
-                              {formatFieldKey(
-                                row.loanType || row.company || "Loan application",
+                            <p className="ds-table-meta">
+                              {dealMeta || (
+                                <span className="italic text-text-secondary/70">
+                                  Not provided
+                                </span>
                               )}
                             </p>
                           </div>
                         </div>
                       </td>
 
-                      <td
-                        onClick={() => openApplicationRow(row)}
-                        className="px-4 py-3.5 align-middle"
-                        title={row.applicationNumber}
-                      >
-                        <span className="inline-flex max-w-full truncate rounded-md bg-[#13538A]/10 px-2 py-0.5 font-mono text-[12px] font-medium text-[#13538A] dark:bg-[#13538A]/20 dark:text-[#9fd0f0]">
-                          {row.applicationNumber || "—"}
-                        </span>
+                      <td title={programLabel}>
+                        {programLabel === "Not provided" ? (
+                          <span className="text-[12px] font-medium italic text-text-secondary/70">
+                            Not set
+                          </span>
+                        ) : (
+                          <span className="inline-flex max-w-[200px] truncate rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-[11px] font-medium lowercase text-slate-600 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300">
+                            {programLabel}
+                          </span>
+                        )}
                       </td>
 
-                      <td
-                        onClick={() => openApplicationRow(row)}
-                        className="px-4 py-3.5 align-middle"
-                        title={[row.cityState, row.country]
-                          .filter(Boolean)
-                          .join(", ")}
-                      >
-                        <div className="flex min-w-0 items-center gap-1.5 text-sm text-slate-600 dark:text-slate-300">
-                          <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-[#13538A]/10 text-[#13538A]">
-                            <MapPin className="h-3.5 w-3.5" />
-                          </span>
-                          <span className="truncate">
-                            {[row.cityState, row.country]
-                              .filter(Boolean)
-                              .join(", ") || "—"}
-                          </span>
-                        </div>
-                      </td>
-
-                      <td
-                        onClick={() => openApplicationRow(row)}
-                        className="px-4 py-3.5 align-middle text-right"
-                      >
-                        <span className="text-sm font-semibold tabular-nums text-slate-900 dark:text-white">
+                      <td>
+                        <span className="ds-table-amount">
                           {formatCompactAmount(Number(row.amount || 0))}
                         </span>
                       </td>
 
-                      <td
-                        onClick={() => openApplicationRow(row)}
-                        className="whitespace-nowrap px-4 py-3.5 align-middle text-sm text-slate-500 dark:text-slate-400"
-                      >
-                        {formatShortDate(row.date)}
-                      </td>
-
-                      <td
-                        onClick={() => openApplicationRow(row)}
-                        className="px-4 py-3.5 align-middle"
-                      >
+                      <td>
                         <span
-                          className={`inline-flex max-w-full items-center truncate rounded-full px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide ${getStatusColor(row.status)}`}
+                          className={`inline-flex max-w-full items-center truncate rounded-full px-2.5 py-1 text-[11px] font-semibold ring-1 ring-inset ${getStatusColor(row.status)}`}
                           title={formatStatusLabel(row.status)}
                         >
                           {formatStatusLabel(row.status)}
@@ -1800,46 +1893,56 @@ export default function LoanApplicationsPage() {
                       </td>
 
                       <td
-                        onClick={() => openApplicationRow(row)}
-                        className="px-4 py-3.5 align-middle"
+                        onClick={(e) => {
+                          if (teamPeople.length || canBrokerReassignApplication({
+                            status: row.status,
+                          })) {
+                            e.stopPropagation();
+                          }
+                        }}
                       >
                         <AssigneePills
-                          people={row.assignedLoanOfficers || []}
-                          pillClassName="bg-[#13538A]/10 text-[#13538A] dark:bg-[#13538A]/20 dark:text-[#9fd0f0]"
+                          people={teamPeople}
+                          compact
+                          pillClassName="bg-[#4C78F5]/8 text-[#3B66E0]"
                           onShowAll={() =>
                             setPeopleModal({
                               open: true,
-                              title: "Assigned Loan Officers",
-                              roleLabel: "Loan Officer",
-                              people: row.assignedLoanOfficers || [],
+                              title: "Assigned Team",
+                              roleLabel: "Team member",
+                              people: teamPeople,
                             })
+                          }
+                          onAssign={
+                            canBrokerReassignApplication({ status: row.status })
+                              ? () =>
+                                  openAssignModal(
+                                    row.applicationId,
+                                    (row.assignedLoanOfficers || []).map(
+                                      (officer) => officer.id,
+                                    ),
+                                    row.status,
+                                  )
+                              : undefined
                           }
                         />
                       </td>
 
-                      <td
-                        onClick={() => openApplicationRow(row)}
-                        className="px-4 py-3.5 align-middle"
-                      >
-                        <AssigneePills
-                          people={row.assignedSubBrokers || []}
-                          pillClassName="bg-[#13538A]/[0.07] text-[#0e3d66] dark:bg-[#13538A]/15 dark:text-[#c5e4f6]"
-                          onShowAll={() =>
-                            setPeopleModal({
-                              open: true,
-                              title: "Assigned Co-Brokers",
-                              roleLabel: "Co-Broker",
-                              people: row.assignedSubBrokers || [],
-                            })
-                          }
-                        />
+                      <td className="ds-table-muted whitespace-nowrap">
+                        {formatShortDate(row.date) === "Not provided" ? (
+                          <span className="italic text-text-secondary/70">
+                            —
+                          </span>
+                        ) : (
+                          formatShortDate(row.date)
+                        )}
                       </td>
 
                       <td
-                        className="overflow-visible px-2 py-3.5 pr-5 text-right align-middle lg:pr-6"
+                        className="text-right"
                         onClick={(e) => e.stopPropagation()}
                       >
-                        <div className="flex shrink-0 items-center justify-end gap-1.5">
+                        <div className="inline-flex shrink-0 items-center justify-end gap-2">
                           <button
                             type="button"
                             title={
@@ -1851,9 +1954,10 @@ export default function LoanApplicationsPage() {
                               e.stopPropagation();
                               openApplicationRow(row);
                             }}
-                            className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-[#13538A] text-white shadow-sm transition hover:bg-[#0e3d66]"
+                            className="inline-flex items-center gap-1 text-[13px] font-semibold text-[#4C78F5] transition hover:text-[#3B66E0] hover:underline"
                           >
-                            <Eye size={15} />
+                            Open
+                            <ExternalLink size={13} />
                           </button>
                           <button
                             type="button"
@@ -1866,8 +1970,8 @@ export default function LoanApplicationsPage() {
                                 e.currentTarget.getBoundingClientRect();
                               setDropdownPos(
                                 getFixedMenuPosition(rect, {
-                                  width: 192,
-                                  height: 200,
+                                  width: 220,
+                                  height: 220,
                                 }),
                               );
                               setActiveDropdown(
@@ -1876,10 +1980,10 @@ export default function LoanApplicationsPage() {
                                   : row.submissionId,
                               );
                             }}
-                            className={`inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-white shadow-sm transition ${
+                            className={`inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-border text-text-secondary transition hover:bg-surface ${
                               activeDropdown === row.submissionId
-                                ? "bg-[#0e3d66]"
-                                : "bg-[#13538A] hover:bg-[#0e3d66]"
+                                ? "border-[#4C78F5]/30 bg-[#4C78F5]/8 text-[#4C78F5]"
+                                : ""
                             }`}
                           >
                             <MoreHorizontal size={16} />
@@ -1896,7 +2000,7 @@ export default function LoanApplicationsPage() {
                                 left: dropdownPos.left,
                               }}
                               onMouseDown={(e) => e.stopPropagation()}
-                              className="z-[9999] w-48 overflow-hidden rounded-xl bg-[#13538A] shadow-xl"
+                              className="z-[9999] w-[220px] overflow-hidden rounded-xl border border-border bg-white py-1 shadow-none dark:border-slate-700 dark:bg-slate-950"
                             >
                               {row.status === "INCOMPLETE" ? (
                                 <button
@@ -1907,10 +2011,15 @@ export default function LoanApplicationsPage() {
                                     setActiveDropdown(null);
                                     resumeIncomplete(row.applicationId);
                                   }}
-                                  className="flex w-full items-center gap-3 px-4 py-3 text-sm font-medium text-white hover:bg-[#0e3d66]"
+                                  className="flex w-full items-center gap-2.5 px-3.5 py-2.5 text-left text-[13px] font-medium whitespace-nowrap text-text-primary transition hover:bg-brand-50 hover:text-brand-600"
                                 >
-                                  <MdEdit size={14} />
-                                  Continue Application
+                                  <MdEdit
+                                    size={15}
+                                    className="h-[15px] w-[15px] shrink-0 text-brand-500"
+                                  />
+                                  <span className="min-w-0 flex-1 truncate text-left">
+                                    Continue Application
+                                  </span>
                                 </button>
                               ) : (
                                 <button
@@ -1921,10 +2030,15 @@ export default function LoanApplicationsPage() {
                                     setActiveDropdown(null);
                                     openPreview(row.submissionId);
                                   }}
-                                  className="flex w-full items-center gap-3 px-4 py-3 text-sm font-medium text-white hover:bg-[#0e3d66]"
+                                  className="flex w-full items-center gap-2.5 px-3.5 py-2.5 text-left text-[13px] font-medium whitespace-nowrap text-text-primary transition hover:bg-brand-50 hover:text-brand-600"
                                 >
-                                  <Eye size={14} />
-                                  Open Application
+                                  <Eye
+                                    size={15}
+                                    className="h-[15px] w-[15px] shrink-0 text-brand-500"
+                                  />
+                                  <span className="min-w-0 flex-1 truncate text-left">
+                                    Open Application
+                                  </span>
                                 </button>
                               )}
                               {row.status === "DRAFT" && (
@@ -1936,10 +2050,15 @@ export default function LoanApplicationsPage() {
                                     setActiveDropdown(null);
                                     handleSendClientLink(row.applicationId);
                                   }}
-                                  className="flex w-full items-center gap-3 px-4 py-3 text-sm font-medium text-white hover:bg-orange-600"
+                                  className="flex w-full items-center gap-2.5 px-3.5 py-2.5 text-left text-[13px] font-medium whitespace-nowrap text-text-primary transition hover:bg-brand-50 hover:text-brand-600"
                                 >
-                                  <Send size={14} />
-                                  Send Client Link
+                                  <Send
+                                    size={15}
+                                    className="h-[15px] w-[15px] shrink-0 text-amber-600"
+                                  />
+                                  <span className="min-w-0 flex-1 truncate text-left">
+                                    Send Client Link
+                                  </span>
                                 </button>
                               )}
                               {canBrokerReassignApplication({
@@ -1960,12 +2079,17 @@ export default function LoanApplicationsPage() {
                                         row.status,
                                       );
                                     }}
-                                    className="flex w-full items-center gap-3 px-4 py-3 text-sm font-medium text-white hover:bg-[#0e3d66]"
+                                    className="flex w-full items-center gap-2.5 px-3.5 py-2.5 text-left text-[13px] font-medium whitespace-nowrap text-text-primary transition hover:bg-brand-50 hover:text-brand-600"
                                   >
-                                    <MdEdit size={14} />
-                                    {row.assignedLoanOfficers?.length
-                                      ? "Change Officers"
-                                      : "Assign Officers"}
+                                    <UserRound
+                                      size={15}
+                                      className="h-[15px] w-[15px] shrink-0 text-brand-500"
+                                    />
+                                    <span className="min-w-0 flex-1 truncate text-left">
+                                      {row.assignedLoanOfficers?.length
+                                        ? "Change Officers"
+                                        : "Assign Officers"}
+                                    </span>
                                   </button>
                                   <button
                                     type="button"
@@ -1998,12 +2122,17 @@ export default function LoanApplicationsPage() {
                                       });
                                       fetchSubBrokers();
                                     }}
-                                    className="flex w-full items-center gap-3 px-4 py-3 text-sm font-medium text-white hover:bg-[#0e3d66]"
+                                    className="flex w-full items-center gap-2.5 px-3.5 py-2.5 text-left text-[13px] font-medium whitespace-nowrap text-text-primary transition hover:bg-brand-50 hover:text-brand-600"
                                   >
-                                    <MdEdit size={14} />
-                                    {(row.assignedSubBrokers || []).length
-                                      ? "Change Co Brokers"
-                                      : "Assign Co Brokers"}
+                                    <UserRound
+                                      size={15}
+                                      className="h-[15px] w-[15px] shrink-0 text-brand-500"
+                                    />
+                                    <span className="min-w-0 flex-1 truncate text-left">
+                                      {(row.assignedSubBrokers || []).length
+                                        ? "Change Co Brokers"
+                                        : "Assign Co Brokers"}
+                                    </span>
                                   </button>
                                 </>
                               )}
@@ -2012,29 +2141,48 @@ export default function LoanApplicationsPage() {
                           )}
                       </td>
                     </tr>
-                  ))
+                    );
+                  })
                 ) : (
                   <tr>
-                    <td colSpan={9} className="px-6 py-20 text-center">
+                    <td colSpan={7} className="px-6 py-14 text-center">
                       <div className="mx-auto flex max-w-sm flex-col items-center">
-                        <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-[#13538A]/10 text-[#13538A] dark:bg-[#13538A]/20">
-                          <SearchX className="h-6 w-6" />
+                        <div className="mb-3 flex h-11 w-11 items-center justify-center rounded-full bg-slate-100 text-slate-400 dark:bg-slate-800">
+                          {searchTerm || statusFilter ? (
+                            <SearchX className="h-5 w-5" />
+                          ) : (
+                            <FileText className="h-5 w-5" />
+                          )}
                         </div>
-                        <h3 className="text-base font-semibold text-[#13538A] dark:text-[#9fd0f0]">
+                        <h3 className="text-sm font-semibold text-text-primary dark:text-slate-100">
                           {searchTerm || statusFilter
-                            ? "No matching applications"
-                            : "No applications yet"}
+                            ? "No matches for this filter"
+                            : "No applications in your pipeline yet"}
                         </h3>
-                        <p className="mt-2 text-sm text-gray-500">
+                        <p className="mt-1.5 text-sm leading-relaxed text-text-secondary">
                           {searchTerm || statusFilter
-                            ? "Try a different search or clear your filters."
+                            ? "Try another search term or clear the active filter."
                             : "Create your first loan application to get started."}
                         </p>
-                        {!searchTerm && !statusFilter && (
+                        {searchTerm || statusFilter ? (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setSearchTerm("");
+                              searchTermRef.current = "";
+                              statusFilterRef.current = "";
+                              setStatusFilter("");
+                              loadSubmissions(undefined, "", "");
+                            }}
+                            className="ds-btn-primary mt-4 h-9 rounded-lg px-4 text-sm"
+                          >
+                            Clear filters
+                          </button>
+                        ) : (
                           <button
                             type="button"
                             onClick={() => navigate("/loan-application")}
-                            className="mt-4 inline-flex items-center gap-1.5 rounded-xl bg-[#13538A] px-4 py-2 text-sm font-medium text-white hover:bg-[#0e3d66]"
+                            className="ds-btn-primary mt-4 h-9 rounded-lg px-4 text-sm"
                           >
                             <Plus className="h-4 w-4" />
                             Create Application
@@ -2056,7 +2204,7 @@ export default function LoanApplicationsPage() {
               }
             >
               {loading && rows.length > 0 ? (
-                <Loader2 className="mx-auto h-5 w-5 animate-spin text-[#13538A]" />
+                <Loader2 className="mx-auto h-5 w-5 animate-spin text-brand-500" />
               ) : null}
             </div>
           </div>
@@ -2600,7 +2748,7 @@ text-sm text-slate-600 dark:text-slate-400 flex justify-between"
                       <div
                         className="
       h-12 w-12 rounded-2xl
-      bg-[#13538A]
+      bg-[#4C78F5]
       flex items-center justify-center
       text-white
       font-bold text-base
@@ -2703,7 +2851,7 @@ text-sm text-slate-600 dark:text-slate-400 flex justify-between"
                   borrowerSummary.borrowerMaxTerm &&
                   borrowerSummary.creditScore && (
                     <div className="mb-6 bg-blue-50 dark:bg-blue-500/10 border border-blue-200 dark:border-blue-500/20 p-4 rounded-xl">
-                      <div className="text-sm font-semibold text-[#13538A] dark:text-[#9fd0f0] mb-2">
+                      <div className="text-sm font-semibold text-[#4C78F5] dark:text-[#9fd0f0] mb-2">
                         Borrower Summary
                       </div>
                       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
@@ -2882,7 +3030,7 @@ text-sm text-slate-600 dark:text-slate-400 flex justify-between"
       ${
         sentLenders[l.lenderProductId]
           ? "bg-emerald-500 text-white cursor-not-allowed"
-          : "bg-[#13538A] hover:bg-[#0e3d66] text-white"
+          : "bg-[#4C78F5] hover:bg-[#3B66E0] text-white"
       }
       disabled:opacity-60 disabled:cursor-not-allowed
     `}
@@ -3352,7 +3500,7 @@ dark:scrollbar-thumb-slate-700 w-full
                           {loi.lenderName}
                         </h3>
 
-                        <span className="text-xs px-3 py-1 rounded-full bg-[#13538A]/10 text-[#13538A]">
+                        <span className="text-xs px-3 py-1 rounded-full bg-[#4C78F5]/10 text-[#4C78F5]">
                           {loi.status}
                         </span>
                       </div>
@@ -3676,7 +3824,7 @@ dark:scrollbar-thumb-slate-700 w-full
             className="w-full max-w-lg overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl dark:border-slate-700 dark:bg-slate-900"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="border-b border-slate-100 bg-gradient-to-r from-[#13538A]/10 to-transparent px-6 py-5 dark:border-slate-800 dark:from-sky-500/10">
+            <div className="border-b border-slate-100 bg-gradient-to-r from-[#4C78F5]/10 to-transparent px-6 py-5 dark:border-slate-800 dark:from-sky-500/10">
               <h3 className="text-lg font-semibold text-slate-900 dark:text-white">
                 {assignModal.currentOfficerIds.length
                   ? "Change Loan Officers"
@@ -3738,7 +3886,7 @@ dark:scrollbar-thumb-slate-700 w-full
                   type="button"
                   onClick={handleAssignLoanOfficer}
                   disabled={assignLoading}
-                  className="rounded-xl bg-[#13538A] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-[#0e3d66] disabled:opacity-50"
+                  className="rounded-xl bg-[#4C78F5] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-[#3B66E0] disabled:opacity-50"
                 >
                   {assignLoading
                     ? "Saving..."
@@ -3770,7 +3918,7 @@ dark:scrollbar-thumb-slate-700 w-full
             className="w-full max-w-lg overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl dark:border-slate-700 dark:bg-slate-900"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="border-b border-slate-100 bg-gradient-to-r from-[#13538A]/10 to-transparent px-6 py-5 dark:border-slate-800 dark:from-sky-500/10">
+            <div className="border-b border-slate-100 bg-gradient-to-r from-[#4C78F5]/10 to-transparent px-6 py-5 dark:border-slate-800 dark:from-sky-500/10">
               <h3 className="text-lg font-semibold text-slate-900 dark:text-white">
                 Assign Co-Brokers
               </h3>
@@ -3832,7 +3980,7 @@ dark:scrollbar-thumb-slate-700 w-full
                   type="button"
                   onClick={handleAssignSubBroker}
                   disabled={assigningSubBroker}
-                  className="rounded-xl bg-[#13538A] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-[#0e3d66] disabled:opacity-50"
+                  className="rounded-xl bg-[#4C78F5] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-[#3B66E0] disabled:opacity-50"
                 >
                   {assigningSubBroker ? "Saving..." : "Save Assignments"}
                 </button>

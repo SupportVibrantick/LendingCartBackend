@@ -202,7 +202,7 @@ const CreateApplication: React.FC = () => {
     <div className="px-6 py-6 text-gray-900 dark:text-gray-100">
       {/* Header */}
       <div className="mb-6">
-        <h1 className="text-2xl font-bold text-[#2C92D5]">
+        <h1 className="text-2xl font-bold text-[#4C78F5]">
           Application Builder 
         </h1>
         <p className="text-sm text-gray-500 dark:text-slate-400">
@@ -231,7 +231,7 @@ const CreateApplication: React.FC = () => {
             <div className="flex gap-2">
               <button
                 type="submit"
-                className="bg-[#2C92D5] hover:bg-[#1f77b2] text-white text-sm px-4 py-2 rounded-md"
+                className="bg-[#4C78F5] hover:bg-[#1f77b2] text-white text-sm px-4 py-2 rounded-md"
               >
                 {editingId ? "Update Application" : "Create Application"}
               </button>
@@ -290,7 +290,7 @@ const CreateApplication: React.FC = () => {
                       <td className="py-3 text-right">
                         <button
                           onClick={() => handleEdit(item)}
-                          className="inline-flex h-8 w-8 items-center justify-center rounded-full border text-[#2C92D5]"
+                          className="inline-flex h-8 w-8 items-center justify-center rounded-full border text-[#4C78F5]"
                         >
                           <MdModeEdit />
                         </button>

@@ -38,7 +38,7 @@ export default function StatusDistributionChart({
 
   const options: ApexOptions = {
     chart: {
-      fontFamily: "Outfit, sans-serif",
+      fontFamily: "Inter, sans-serif",
       toolbar: { show: false },
       events: {
         dataPointSelection: (_event, _ctx, config) => {

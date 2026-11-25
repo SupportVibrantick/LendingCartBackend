@@ -115,7 +115,7 @@ function SummaryCard({
       onClick={onClick}
       className={`rounded-2xl border p-4 text-left transition-all ${
         active
-          ? "border-[#13538A] bg-[#13538A]/5 shadow-sm"
+          ? "border-[#4C78F5] bg-[#4C78F5]/5 shadow-sm"
           : "border-slate-200 bg-white hover:border-slate-300 hover:shadow-sm"
       }`}
     >
@@ -364,7 +364,7 @@ export default function CommissionsPage() {
             Track funded-deal commissions, then send a US ACH from your{" "}
             <Link
               to="/payments/banking"
-              className="font-medium text-[#13538A] underline-offset-2 hover:underline"
+              className="font-medium text-[#4C78F5] underline-offset-2 hover:underline"
             >
               firm bank account
             </Link>{" "}
@@ -436,14 +436,14 @@ export default function CommissionsPage() {
                 value={searchInput}
                 onChange={(e) => setSearchInput(e.target.value)}
                 placeholder="Search deal, recipient, invoice..."
-                className="w-full rounded-xl border border-slate-200 bg-white py-2.5 pl-9 pr-3 text-sm text-slate-900 outline-none transition focus:border-[#13538A]/40 focus:ring-2 focus:ring-[#13538A]/10"
+                className="w-full rounded-xl border border-slate-200 bg-white py-2.5 pl-9 pr-3 text-sm text-slate-900 outline-none transition focus:border-[#4C78F5]/40 focus:ring-2 focus:ring-[#4C78F5]/10"
               />
             </div>
 
             <select
               value={statusFilter}
               onChange={(e) => setStatusAndResetPage(e.target.value as StatusFilter)}
-              className="rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-700 outline-none focus:border-[#13538A]/40"
+              className="rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-700 outline-none focus:border-[#4C78F5]/40"
             >
               <option value="ALL">All statuses</option>
               <option value="PENDING">Pending payout</option>
@@ -494,7 +494,7 @@ export default function CommissionsPage() {
                       <td colSpan={5} className="border-y border-slate-100 px-6 py-2.5">
                         <div className="flex flex-wrap items-center justify-between gap-2">
                           <div className="flex min-w-0 flex-wrap items-center gap-2">
-                            <span className="rounded-md bg-white px-2 py-0.5 text-xs font-semibold text-[#13538A] ring-1 ring-slate-200">
+                            <span className="rounded-md bg-white px-2 py-0.5 text-xs font-semibold text-[#4C78F5] ring-1 ring-slate-200">
                               {group.applicationNumber}
                             </span>
                             <span className="truncate text-sm font-medium text-slate-800">

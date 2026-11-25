@@ -1,5 +1,6 @@
 import {
   ArrowUpDown,
+  CheckCircle2,
   ChevronDown,
   ChevronLeft,
   ChevronRight,
@@ -7,16 +8,18 @@ import {
   ExternalLink,
   Eye,
   Link2,
-  Mail,
+  Lock,
   Pencil,
   Phone,
   Plus,
   Power,
   RefreshCw,
   Search,
+  Shield,
+  ShieldOff,
   MoreVertical,
-  UserCheck,
   Users,
+  UserCheck,
   UserX,
   X,
 } from "lucide-react";
@@ -26,6 +29,7 @@ import { createPortal } from "react-dom";
 import toast from "react-hot-toast";
 // import Swal from "sweetalert2";
 import PageMeta from "../../components/common/PageMeta";
+import StatPill from "../../components/common/StatPill";
 import CoBrokerFormModal from "../../components/coBroker/CoBrokerFormModal";
 import CoBrokerDetailsModal from "../../components/coBroker/CoBrokerDetailsModal";
 import type { CoBrokerDetail } from "../../lib/coBrokerForm";
@@ -42,13 +46,6 @@ interface SubBrokerUser extends CoBrokerDetail {
   createdById: string | null;
 }
 
-const AVATAR_TONES = [
-  "bg-blue-100 text-blue-700",
-  "bg-violet-100 text-violet-700",
-  "bg-emerald-100 text-emerald-700",
-  "bg-amber-100 text-amber-700",
-];
-
 function getAuthHeaders(options?: { json?: boolean }): Record<string, string> {
   return getBrokerAuthHeaders(Boolean(options?.json));
 }
@@ -64,22 +61,6 @@ function getInitials(first?: string, last?: string) {
   return (
     `${first?.charAt(0) || ""}${last?.charAt(0) || ""}`.toUpperCase() || "?"
   );
-}
-
-function getAvatarTone(seed: string) {
-  const index = seed
-    .split("")
-    .reduce((acc, char) => acc + char.charCodeAt(0), 0);
-  return AVATAR_TONES[index % AVATAR_TONES.length];
-}
-
-function formatDate(value?: string) {
-  if (!value) return "";
-  return new Date(value).toLocaleDateString(undefined, {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-  });
 }
 
 function formatTeamAssignments(
@@ -156,102 +137,69 @@ function SortHeader({
     <button
       type="button"
       onClick={onClick}
-      className={`group inline-flex w-full items-center gap-1.5 text-xs font-semibold uppercase tracking-wide transition ${
+      className={`group inline-flex w-full items-center gap-1 text-[11px] font-semibold uppercase tracking-[0.08em] transition ${
         align === "right" ? "justify-end" : "justify-start"
-      } ${active ? "text-[#13538A]" : "text-gray-500 hover:text-[#13538A] dark:text-gray-400"}`}
+      } ${active ? "text-[#4C78F5]" : "text-text-secondary hover:text-[#4C78F5] dark:text-slate-400"}`}
     >
       {label}
       {active ? (
         direction === "asc" ? (
-          <ChevronUp className="h-4 w-4 shrink-0" />
+          <ChevronUp className="h-3.5 w-3.5 shrink-0" />
         ) : (
-          <ChevronDown className="h-4 w-4 shrink-0" />
+          <ChevronDown className="h-3.5 w-3.5 shrink-0" />
         )
       ) : (
-        <ArrowUpDown className="h-3.5 w-3.5 shrink-0 opacity-0 transition group-hover:opacity-50" />
+        <ArrowUpDown className="h-3 w-3 shrink-0 opacity-0 transition group-hover:opacity-50" />
       )}
     </button>
   );
 }
 
-function CoBrokerStatusBadge({
-  active,
-  loading,
-  onClick,
-}: {
-  active: boolean;
-  loading?: boolean;
-  onClick?: () => void;
-}) {
+function StatusPill({ active }: { active: boolean }) {
   return (
-    <button
-      type="button"
-      disabled={loading || !onClick}
-      onClick={onClick}
-      title={onClick ? "Click to toggle status" : undefined}
-      className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold transition disabled:opacity-50 ${
+    <span
+      className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-semibold ring-1 ring-inset ${
         active
-          ? "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200/80 hover:bg-emerald-100 dark:bg-emerald-500/10 dark:text-emerald-300 dark:ring-emerald-500/30"
-          : "bg-slate-100 text-slate-600 ring-1 ring-slate-200 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:ring-slate-700"
+          ? "bg-emerald-100 text-emerald-700 ring-emerald-200 dark:bg-emerald-500/10 dark:text-emerald-300 dark:ring-emerald-500/30"
+          : "bg-rose-100 text-rose-700 ring-rose-200 dark:bg-rose-500/10 dark:text-rose-300 dark:ring-rose-500/30"
       }`}
     >
-      <span
-        className={`h-1.5 w-1.5 rounded-full ${
-          active ? "bg-emerald-500" : "bg-slate-400"
-        }`}
-      />
-      {loading ? "Updating..." : active ? "Active" : "Disabled"}
-    </button>
+      {active ? (
+        <CheckCircle2 className="h-3.5 w-3.5" />
+      ) : (
+        <ShieldOff className="h-3.5 w-3.5" />
+      )}
+      {active ? "Active" : "Suspended"}
+    </span>
   );
 }
 
-function LoanOfficerBadge({ label, title }: { label: string; title?: string }) {
+function LoanOfficerCell({
+  label,
+  title,
+}: {
+  label: string;
+  title?: string;
+}) {
   if (!label) {
-    return null;
+    return (
+      <span className="text-[12px] font-medium italic text-text-secondary/70">
+        None
+      </span>
+    );
   }
 
   return (
     <span
       title={title}
-      className="inline-flex max-w-[140px] items-center rounded-md bg-gray-100 px-2 py-1 text-xs font-medium text-gray-700 dark:bg-gray-800 dark:text-gray-300"
+      className="block max-w-[180px] truncate text-sm text-text-primary dark:text-slate-200"
     >
-      <Users className="mr-1 h-3 w-3 shrink-0 text-gray-400" />
-      <span className="truncate">{label}</span>
+      {label}
     </span>
   );
 }
 
-function StatCard({
-  icon: Icon,
-  label,
-  value,
-  iconWrap,
-}: {
-  icon: typeof Users;
-  label: string;
-  value: number | string;
-  iconWrap: string;
-}) {
-  return (
-    <div className="flex items-center gap-2.5 rounded-xl border border-gray-200/80 bg-white px-3.5 py-2.5 shadow-[0_1px_2px_rgba(15,23,42,0.04)] dark:border-gray-800 dark:bg-gray-900">
-      <div
-        className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${iconWrap}`}
-      >
-        <Icon className="h-4 w-4" />
-      </div>
-      <div className="min-w-0">
-        <p className="text-[11px] font-medium uppercase tracking-wide text-gray-400 dark:text-gray-500">
-          {label}
-        </p>
-        <p className="text-lg font-semibold leading-tight tabular-nums text-gray-900 dark:text-white">
-          {value}
-        </p>
-      </div>
-    </div>
-  );
-}
-
-const PAGE_SIZE_OPTIONS = [5, 8, 10, 20] as const;
+const PAGE_SIZE_OPTIONS = [10, 15, 25] as const;
 
 export default function SubBroker() {
   const isLoPortal = isLoanOfficerPortalPath();
@@ -269,7 +217,7 @@ export default function SubBroker() {
   const [officers, setOfficers] = useState<SubBrokerUser[]>([]);
   const [loading, setLoading] = useState(false);
   const [page, setPage] = useState(1);
-  const [limit, setLimit] = useState(8);
+  const [limit, setLimit] = useState(10);
   const [total, setTotal] = useState(0);
   const [totalPages, setTotalPages] = useState(1);
   const [listStats, setListStats] = useState({
@@ -331,20 +279,18 @@ export default function SubBroker() {
         setOfficers([]);
         setTotal(0);
         setTotalPages(1);
+        setListStats({ total: 0, active: 0, disabled: 0 });
         return;
       }
 
       setOfficers(json.data || []);
       setTotal(json.total ?? 0);
       setTotalPages(json.totalPages || 1);
-
-      if (json.stats) {
-        setListStats({
-          total: json.stats.total ?? 0,
-          active: json.stats.active ?? 0,
-          disabled: json.stats.disabled ?? 0,
-        });
-      }
+      setListStats({
+        total: json.stats?.total ?? json.total ?? 0,
+        active: json.stats?.active ?? 0,
+        disabled: json.stats?.disabled ?? 0,
+      });
 
       if (page > (json.totalPages || 1) && (json.totalPages || 1) >= 1) {
         setPage(json.totalPages || 1);
@@ -471,8 +417,6 @@ export default function SubBroker() {
     [officers, activeMenuId],
   );
 
-  const stats = listStats;
-
   const toggleSort = (key: SortKey) => {
     if (sortKey === key) {
       setSortDir((d) => (d === "asc" ? "desc" : "asc"));
@@ -567,7 +511,7 @@ export default function SubBroker() {
       }
 
       toast.success(
-        `Co Brokers ${newStatus === "ACTIVE" ? "activated" : "disabled"}`,
+        `Co broker ${newStatus === "ACTIVE" ? "activated" : "suspended"}`,
       );
       closeRowMenu();
       fetchOfficers();
@@ -738,472 +682,404 @@ export default function SubBroker() {
         description="Manage Co Brokers"
       />
 
-      <div className="space-y-3 pb-4">
-        {/* Compact page header */}
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+      <div className="w-full min-w-0 space-y-4 pb-4 text-text-primary dark:text-slate-100">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
           <div className="min-w-0">
-            <div className="mb-1 flex items-center gap-2">
-              <span className="inline-flex items-center gap-1 rounded-md bg-[#13538A]/10 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-[#13538A] dark:bg-[#13538A]/20 dark:text-cyan-300">
-                <Users className="h-3 w-3" />
-                User management
-              </span>
-            </div>
-            <h1 className="text-xl font-semibold tracking-tight text-gray-900 dark:text-white">
-              Co Brokers
-            </h1>
-            <p className="mt-0.5 text-sm text-gray-500 dark:text-gray-400">
+            <h1 className="ds-page-title">Co Brokers</h1>
+            <p className="ds-page-subtitle">
               Manage co-brokers, control access, and monitor their activity.
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
-            <button
-              type="button"
-              onClick={() => fetchOfficers()}
-              disabled={loading || isSearching}
-              className="inline-flex h-9 items-center justify-center gap-1.5 rounded-lg border border-gray-200 bg-white px-3 text-xs font-semibold text-gray-700 transition hover:bg-gray-50 disabled:opacity-60 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-200 dark:hover:bg-gray-800"
-            >
-              <RefreshCw
-                className={`h-3.5 w-3.5 ${loading ? "animate-spin" : ""}`}
-              />
-              Refresh
-            </button>
             {canEditCoBrokers ? (
               <>
                 <button
                   type="button"
                   onClick={handleCopyInviteLink}
                   disabled={copyingInvite}
-                  className="group relative inline-flex h-9 items-center justify-center gap-1.5 rounded-lg bg-[#13538A] px-3 text-xs font-semibold text-white shadow-sm transition hover:bg-[#1a6aad] disabled:opacity-60"
+                  className="ds-btn-secondary h-10 px-4 text-sm disabled:opacity-60"
                 >
-                  <span className="absolute -right-1 -top-1 rounded bg-emerald-500 px-1 py-px text-[8px] font-bold uppercase tracking-wide text-white shadow-sm">
-                    Share
-                  </span>
                   <Link2
-                    className={`h-3.5 w-3.5 ${copyingInvite ? "animate-pulse" : ""}`}
+                    className={`h-4 w-4 ${copyingInvite ? "animate-pulse" : ""}`}
                   />
                   {copyingInvite ? "Creating..." : "Copy invite link"}
                 </button>
                 <button
                   type="button"
                   onClick={openCreateModal}
-                  className="inline-flex h-9 items-center justify-center gap-1.5 rounded-lg border border-[#13538A]/25 bg-white px-3 text-xs font-semibold text-[#13538A] transition hover:bg-[#13538A]/5 dark:border-[#13538A]/40 dark:bg-gray-900 dark:hover:bg-[#13538A]/10"
+                  className="ds-btn-primary shrink-0"
                 >
-                  <Plus className="h-3.5 w-3.5" />
-                  Create co broker
+                  <Plus size={16} />
+                  Add co broker
                 </button>
               </>
             ) : null}
           </div>
         </div>
 
-        {/* KPIs */}
-        <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
-          <StatCard
-            icon={Users}
-            label="Total co brokers"
-            value={loading ? "—" : stats.total}
-            iconWrap="bg-sky-50 text-sky-700 dark:bg-sky-500/15 dark:text-sky-300"
+        <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3">
+          <StatPill
+            icon={<Users size={14} />}
+            label="Total"
+            value={listStats.total}
+            color="blue"
+            loading={loading && listStats.total === 0}
+            active={statusFilter === ""}
+            onClick={() => {
+              setStatusFilter("");
+              setPage(1);
+            }}
           />
-          <StatCard
-            icon={UserCheck}
+          <StatPill
+            icon={<UserCheck size={14} />}
             label="Active"
-            value={loading ? "—" : stats.active}
-            iconWrap="bg-emerald-50 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300"
+            value={listStats.active}
+            color="emerald"
+            loading={loading && listStats.total === 0}
+            active={statusFilter === "ACTIVE"}
+            onClick={() => {
+              setStatusFilter("ACTIVE");
+              setPage(1);
+            }}
           />
-          <StatCard
-            icon={UserX}
-            label="Disabled"
-            value={loading ? "—" : stats.disabled}
-            iconWrap="bg-amber-50 text-amber-700 dark:bg-amber-500/15 dark:text-amber-300"
+          <StatPill
+            icon={<UserX size={14} />}
+            label="Suspended"
+            value={listStats.disabled}
+            color="rose"
+            loading={loading && listStats.total === 0}
+            active={statusFilter === "DISABLED"}
+            onClick={() => {
+              setStatusFilter("DISABLED");
+              setPage(1);
+            }}
           />
         </div>
 
-        {/* Toolbar + table */}
-        <div className="overflow-hidden rounded-xl border border-gray-200/80 bg-white shadow-[0_1px_3px_rgba(15,23,42,0.06)] dark:border-gray-800 dark:bg-gray-900">
-          <div className="border-b border-gray-100 px-3 py-2.5 dark:border-gray-800 sm:px-4">
-            <div className="flex flex-col gap-2.5 lg:flex-row lg:items-center lg:justify-between">
-              <div className="min-w-0">
-                <h2 className="text-sm font-semibold text-gray-900 dark:text-white">
-                  All co brokers
-                </h2>
-                <p className="text-xs text-gray-500 dark:text-gray-400">
-                  {loading || isSearching
-                    ? isSearching
-                      ? "Searching..."
-                      : "Loading co-brokers..."
-                    : `${total} co broker${total === 1 ? "" : "s"}${
-                        debouncedSearch ? ` matching "${debouncedSearch}"` : ""
-                      }${
-                        statusFilter
-                          ? ` · ${statusFilter === "ACTIVE" ? "Active" : "Disabled"}`
-                          : ""
-                      }`}
-                </p>
-              </div>
-
-              <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:justify-end">
-                <div className="relative w-full sm:w-56">
-                  <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-gray-400" />
-                  <input
-                    type="text"
-                    placeholder="Search co brokers..."
-                    className="h-9 w-full rounded-lg border border-gray-200 bg-white py-1.5 pl-8 pr-8 text-sm outline-none transition focus:border-[#13538A] focus:ring-2 focus:ring-[#13538A]/15 dark:border-gray-700 dark:bg-gray-950 dark:text-gray-100"
-                    value={search}
-                    onChange={(e) => setSearch(e.target.value)}
-                  />
-                  {search ? (
-                    <button
-                      type="button"
-                      onClick={() => setSearch("")}
-                      className="absolute right-2 top-1/2 -translate-y-1/2 rounded-md p-0.5 text-gray-400 hover:text-gray-600"
-                      aria-label="Clear search"
-                    >
-                      <X className="h-3.5 w-3.5" />
-                    </button>
-                  ) : null}
-                </div>
-
-                <div className="flex items-center gap-1">
-                  {(["", "ACTIVE", "DISABLED"] as const).map((value) => (
-                    <button
-                      key={value || "all"}
-                      type="button"
-                      onClick={() => setStatusFilter(value)}
-                      className={`rounded-md px-2.5 py-1.5 text-xs font-semibold transition ${
-                        statusFilter === value
-                          ? "bg-[#13538A] text-white"
-                          : "border border-gray-200 bg-white text-gray-600 hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-950 dark:text-gray-300"
-                      }`}
-                    >
-                      {value === ""
-                        ? "All"
-                        : value === "ACTIVE"
-                          ? "Active"
-                          : "Disabled"}
-                    </button>
-                  ))}
-                </div>
-
-                <label className="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
-                  Per page
-                  <select
-                    value={limit}
-                    onChange={(e) => {
-                      setLimit(Number(e.target.value));
-                      setPage(1);
-                    }}
-                    className="h-9 rounded-lg border border-gray-200 bg-white px-2 text-sm font-medium text-gray-700 outline-none transition focus:border-[#13538A] focus:ring-2 focus:ring-[#13538A]/15 dark:border-gray-700 dark:bg-gray-950 dark:text-gray-200"
-                  >
-                    {PAGE_SIZE_OPTIONS.map((size) => (
-                      <option key={size} value={size}>
-                        {size}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-              </div>
-            </div>
-          </div>
-
-          {loading && !isSearching ? (
-            <div className="divide-y divide-gray-100 dark:divide-gray-800">
-              {Array.from({ length: 6 }).map((_, i) => (
-                <div
-                  key={i}
-                  className="flex animate-pulse items-center gap-4 px-5 py-4"
-                >
-                  <div className="h-4 w-6 rounded bg-gray-100 dark:bg-gray-800" />
-                  <div className="h-10 w-10 rounded-xl bg-gray-100 dark:bg-gray-800" />
-                  <div className="h-4 flex-1 max-w-[180px] rounded bg-gray-100 dark:bg-gray-800" />
-                  <div className="hidden h-4 w-40 rounded bg-gray-100 dark:bg-gray-800 md:block" />
-                  <div className="hidden h-6 w-20 rounded-full bg-gray-100 dark:bg-gray-800 sm:block" />
-                  <div className="ml-auto h-8 w-8 rounded-lg bg-gray-100 dark:bg-gray-800" />
-                </div>
-              ))}
-            </div>
-          ) : !loading && officers.length === 0 ? (
-            <div className="flex flex-col items-center py-20 text-center">
-              <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-[#13538A]/10 text-[#13538A]">
-                <Users size={24} />
-              </div>
-              <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
-                {search || debouncedSearch || statusFilter
-                  ? "No matching co-brokers"
-                  : "No co-brokers yet"}
-              </h3>
-              <p className="mt-1 max-w-md text-sm text-gray-500">
-                {search || debouncedSearch || statusFilter
-                  ? "Try adjusting your search or status filter."
-                  : "Create your first co-broker to delegate loan pipeline work."}
-              </p>
-              {!search &&
-                !debouncedSearch &&
-                !statusFilter &&
-                canEditCoBrokers && (
+        <div className="overflow-hidden rounded-2xl border border-border bg-white dark:border-slate-700 dark:bg-slate-900">
+          <div className="flex flex-col gap-2.5 border-b border-border px-4 py-3.5 dark:border-slate-800 sm:flex-row sm:items-center sm:justify-between sm:px-5">
+            <div className="flex w-full flex-col gap-2.5 sm:flex-row sm:items-center lg:min-w-0 lg:flex-1">
+              <div className="group relative w-full sm:max-w-sm">
+                <Search className="pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-text-secondary transition-colors group-focus-within:text-[#4C78F5]" />
+                <input
+                  type="text"
+                  placeholder="Search co brokers..."
+                  className="h-10 w-full rounded-xl border border-border bg-white py-2 pr-9 pl-10 text-sm text-text-primary outline-none transition placeholder:text-text-secondary/70 focus:border-[#4C78F5]/50 focus:ring-2 focus:ring-[#4C78F5]/15 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                />
+                {search ? (
                   <button
                     type="button"
-                    onClick={openCreateModal}
-                    className="mt-4 inline-flex items-center gap-2 rounded-xl bg-[#13538A] px-4 py-2 text-sm font-medium text-white hover:bg-[#1a6aad]"
+                    onClick={() => setSearch("")}
+                    className="absolute top-1/2 right-2.5 -translate-y-1/2 rounded-md p-1 text-text-secondary hover:bg-surface"
+                    aria-label="Clear search"
                   >
-                    <Plus className="h-4 w-4" />
-                    Create Co Broker
+                    <X size={14} />
                   </button>
-                )}
+                ) : null}
+              </div>
+
+              <select
+                value={statusFilter}
+                onChange={(e) =>
+                  setStatusFilter(e.target.value as "" | "ACTIVE" | "DISABLED")
+                }
+                className="h-10 w-full rounded-xl border border-border bg-white px-3 text-sm text-text-primary outline-none transition focus:border-[#4C78F5]/50 focus:ring-2 focus:ring-[#4C78F5]/15 sm:w-[160px] dark:border-slate-700 dark:bg-slate-950"
+              >
+                <option value="">All statuses</option>
+                <option value="ACTIVE">Active</option>
+                <option value="DISABLED">Suspended</option>
+              </select>
+
+              <button
+                type="button"
+                onClick={() => fetchOfficers()}
+                disabled={loading || isSearching}
+                className="inline-flex h-10 items-center justify-center gap-2 rounded-xl border border-border bg-white px-3 text-sm font-medium text-text-secondary transition hover:bg-surface disabled:opacity-60 dark:border-slate-700 dark:bg-slate-950"
+              >
+                <RefreshCw
+                  className={`h-4 w-4 ${loading ? "animate-spin" : ""}`}
+                />
+                Refresh
+              </button>
             </div>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full min-w-[900px] border-collapse text-left">
-                <thead className="sticky top-0 z-[1] bg-slate-50/95 backdrop-blur dark:bg-gray-800/90">
-                  <tr className="border-b border-gray-200 dark:border-gray-700">
-                    <th className="w-10 px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-400">
-                      #
-                    </th>
-                    <th className="px-4 py-3 text-left">
-                      <SortHeader
-                        label="Name"
-                        active={sortKey === "name"}
-                        direction={sortDir}
-                        onClick={() => toggleSort("name")}
-                      />
-                    </th>
-                    <th className="px-4 py-3 text-left">
-                      <SortHeader
-                        label="Email"
-                        active={sortKey === "email"}
-                        direction={sortDir}
-                        onClick={() => toggleSort("email")}
-                      />
-                    </th>
-                    <th className="hidden px-4 py-3 text-left md:table-cell">
-                      <SortHeader
-                        label="Phone"
-                        active={sortKey === "phone"}
-                        direction={sortDir}
-                        onClick={() => toggleSort("phone")}
-                      />
-                    </th>
-                    <th className="px-4 py-3 text-left">
-                      <SortHeader
-                        label="Status"
-                        active={sortKey === "status"}
-                        direction={sortDir}
-                        onClick={() => toggleSort("status")}
-                      />
-                    </th>
-                    <th className="hidden px-4 py-3 text-left lg:table-cell">
-                      <span className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
-                        Loan Officers
-                      </span>
-                    </th>
-                    <th className="hidden px-4 py-3 text-left sm:table-cell">
-                      <SortHeader
-                        label="Created"
-                        active={sortKey === "createdAt"}
-                        direction={sortDir}
-                        onClick={() => toggleSort("createdAt")}
-                      />
-                    </th>
-                    <th className="w-[72px] px-4 py-3 text-right">
-                      <span className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
-                        Actions
-                      </span>
-                    </th>
+
+            <select
+              value={limit}
+              onChange={(e) => {
+                setLimit(Number(e.target.value));
+                setPage(1);
+              }}
+              className="h-10 w-full shrink-0 rounded-xl border border-border bg-white px-3 text-sm text-text-primary outline-none transition focus:border-[#4C78F5]/50 focus:ring-2 focus:ring-[#4C78F5]/15 sm:ml-auto sm:w-[120px] lg:ml-0 dark:border-slate-700 dark:bg-slate-950"
+            >
+              {PAGE_SIZE_OPTIONS.map((size) => (
+                <option key={size} value={size}>
+                  {size} / page
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div className="overflow-x-auto">
+            <table className="ds-table min-w-[880px] w-full">
+              <thead>
+                <tr>
+                  <th>
+                    <SortHeader
+                      label="User"
+                      active={sortKey === "name"}
+                      direction={sortDir}
+                      onClick={() => toggleSort("name")}
+                    />
+                  </th>
+                  <th className="hidden sm:table-cell">Role</th>
+                  <th className="hidden md:table-cell">Loan Officers</th>
+                  <th className="hidden lg:table-cell">Company</th>
+                  <th>
+                    <SortHeader
+                      label="Status"
+                      active={sortKey === "status"}
+                      direction={sortDir}
+                      onClick={() => toggleSort("status")}
+                    />
+                  </th>
+                  <th className="!text-right">Action</th>
+                </tr>
+              </thead>
+              <tbody>
+                {loading && !isSearching ? (
+                  <tr>
+                    <td colSpan={6} className="px-5 py-14 text-center">
+                      <div className="inline-flex items-center gap-2 text-sm text-text-secondary">
+                        <Users className="h-4 w-4 animate-pulse text-[#4C78F5]" />
+                        Loading co brokers…
+                      </div>
+                    </td>
                   </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
-                  {officers.map((o, index) => {
+                ) : !loading && officers.length === 0 ? (
+                  <tr>
+                    <td colSpan={6} className="!px-5 !py-14 text-center">
+                      <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-xl bg-[#4C78F5]/10 text-[#4C78F5]">
+                        <Users className="h-5 w-5" />
+                      </div>
+                      <p className="text-sm font-semibold text-text-primary">
+                        {search || debouncedSearch || statusFilter
+                          ? "No co brokers match your filters"
+                          : "No co brokers yet"}
+                      </p>
+                      <p className="mx-auto mt-1.5 max-w-sm text-xs text-text-secondary">
+                        {search || debouncedSearch || statusFilter
+                          ? "Try a different search term or status filter."
+                          : "Add your first co broker to delegate loan pipeline work."}
+                      </p>
+                      {!search && !debouncedSearch && !statusFilter ? (
+                        canEditCoBrokers ? (
+                          <button
+                            type="button"
+                            onClick={openCreateModal}
+                            className="ds-btn-primary mt-4 h-9 px-4 text-xs"
+                          >
+                            <Plus size={14} />
+                            Add co broker
+                          </button>
+                        ) : null
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setSearch("");
+                            setStatusFilter("");
+                            setPage(1);
+                          }}
+                          className="mt-4 text-xs font-semibold text-[#4C78F5] hover:underline"
+                        >
+                          Clear filters
+                        </button>
+                      )}
+                    </td>
+                  </tr>
+                ) : (
+                  officers.map((o) => {
                     const fullName = `${o.firstName} ${o.lastName}`.trim();
                     const isActive = o.status === "ACTIVE";
+                    const busy = togglingId === o.id;
                     const loanOfficerLabel = formatTeamAssignments(
                       o.assignedLoanOfficers,
                     );
                     const loanOfficerTitle = getTeamAssignmentTitle(
                       o.assignedLoanOfficers,
                     );
+                    const company = o.profile?.company?.trim() || "";
 
                     return (
-                      <tr
-                        key={o.id}
-                        className={`group transition-colors ${
-                          isActive
-                            ? "hover:bg-[#13538A]/[0.03] dark:hover:bg-gray-800/40"
-                            : "bg-gray-50/40 hover:bg-gray-100/60 dark:bg-gray-900/20 dark:hover:bg-gray-800/40"
-                        }`}
-                      >
-                        <td className="px-4 py-3.5 text-sm font-medium tabular-nums text-gray-400">
-                          {(page - 1) * limit + index + 1}
-                        </td>
-
-                        <td className="px-4 py-3.5">
-                          <div className="flex min-w-0 items-center gap-3">
-                            <span
-                              className={`relative flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-[11px] font-bold ring-1 ring-gray-200/80 dark:ring-gray-700 ${getAvatarTone(fullName)}`}
-                            >
+                      <tr key={o.id}>
+                        <td>
+                          <div className="flex items-center gap-3">
+                            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#4C78F5] text-[11px] font-semibold text-white">
                               {getInitials(o.firstName, o.lastName)}
-                              <span
-                                className={`absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full border-2 border-white dark:border-gray-900 ${
-                                  isActive ? "bg-emerald-500" : "bg-gray-400"
-                                }`}
-                              />
-                            </span>
+                            </div>
                             <div className="min-w-0">
-                              <p className="truncate text-sm font-semibold text-gray-900 dark:text-gray-100">
-                                {fullName}
+                              <p className="ds-table-title">
+                                {fullName || "Unnamed"}
                               </p>
-                              <p className="truncate text-xs text-gray-500 dark:text-gray-400">
-                                Co Broker
+                              <p className="ds-table-meta">
+                                {o.email || "No email"}
                               </p>
+                              {o.phone ? (
+                                <p className="mt-0.5 flex items-center gap-1 text-[11px] text-text-secondary/80 sm:hidden">
+                                  <Phone className="h-3 w-3" />
+                                  {formatPhone(o.phone)}
+                                </p>
+                              ) : null}
                             </div>
                           </div>
                         </td>
 
-                        <td className="px-4 py-3.5">
-                          <a
-                            href={`mailto:${o.email}`}
-                            className="flex min-w-0 max-w-full items-center gap-2 text-sm text-gray-600 transition hover:text-[#13538A] dark:text-gray-300 dark:hover:text-cyan-400"
-                            title={o.email}
-                          >
-                            <Mail className="h-3.5 w-3.5 shrink-0 text-gray-400" />
-                            <span className="truncate">{o.email}</span>
-                          </a>
+                        <td className="hidden sm:table-cell">
+                          <span className="inline-flex items-center gap-1 rounded-full bg-cyan-100 px-2.5 py-1 text-[11px] font-semibold text-cyan-700 ring-1 ring-inset ring-cyan-200">
+                            <Shield className="h-3 w-3" />
+                            Co Broker
+                          </span>
                         </td>
 
-                        <td className="hidden px-4 py-3.5 md:table-cell">
-                          {o.phone ? (
-                            <a
-                              href={`tel:${o.phone}`}
-                              className="flex min-w-0 max-w-full items-center gap-2 text-sm text-gray-600 transition hover:text-[#13538A] dark:text-gray-300 dark:hover:text-cyan-400"
-                              title={formatPhone(o.phone)}
-                            >
-                              <Phone className="h-3.5 w-3.5 shrink-0 text-gray-400" />
-                              <span className="truncate">
-                                {formatPhone(o.phone)}
-                              </span>
-                            </a>
-                          ) : null}
-                        </td>
-
-                        <td className="px-4 py-3.5">
-                          <CoBrokerStatusBadge
-                            active={isActive}
-                            loading={togglingId === o.id}
-                            onClick={
-                              canDisableCoBrokers
-                                ? () => toggleStatus(o.id, o.status)
-                                : undefined
-                            }
-                          />
-                        </td>
-
-                        <td className="hidden min-w-0 px-4 py-3.5 lg:table-cell">
-                          <LoanOfficerBadge
+                        <td className="hidden min-w-0 md:table-cell">
+                          <LoanOfficerCell
                             label={loanOfficerLabel}
                             title={loanOfficerTitle}
                           />
                         </td>
 
-                        <td className="hidden px-4 py-3.5 sm:table-cell">
-                          <span
-                            className="block truncate text-sm text-gray-600 dark:text-gray-300"
-                            title={formatDate(o.createdAt)}
-                          >
-                            {formatDate(o.createdAt)}
-                          </span>
+                        <td className="hidden lg:table-cell">
+                          {company ? (
+                            <span className="inline-flex max-w-[160px] truncate rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-[11px] font-medium lowercase text-slate-600 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300">
+                              {company}
+                            </span>
+                          ) : (
+                            <span className="text-[12px] font-medium italic text-text-secondary/70">
+                              Not set
+                            </span>
+                          )}
                         </td>
 
-                        <td className="px-4 py-3.5 text-right">
-                          <button
-                            type="button"
-                            data-menu-id={o.id}
-                            onClick={(event) => openRowMenu(o.id, event)}
-                            className={`inline-flex h-8 w-8 items-center justify-center rounded-lg border transition ${
-                              activeMenuId === o.id
-                                ? "border-[#13538A]/30 bg-[#13538A]/5 text-[#13538A] dark:border-cyan-500/30 dark:bg-cyan-500/10 dark:text-cyan-400"
-                                : "border-gray-200 bg-white text-gray-500 hover:border-gray-300 hover:bg-gray-50 hover:text-gray-800 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-400 dark:hover:border-gray-600 dark:hover:bg-gray-800 dark:hover:text-white"
-                            }`}
-                            title="More actions"
-                            aria-label="Open actions menu"
-                          >
-                            <MoreVertical className="h-4 w-4" />
-                          </button>
+                        <td>
+                          <StatusPill active={isActive} />
+                        </td>
+
+                        <td className="text-right">
+                          <div className="inline-flex items-center justify-end gap-2">
+                            {canDisableCoBrokers ? (
+                              <button
+                                type="button"
+                                disabled={busy}
+                                onClick={() => toggleStatus(o.id, o.status)}
+                                className={`inline-flex h-8 items-center gap-1.5 rounded-lg px-3 text-xs font-semibold transition disabled:opacity-50 ${
+                                  isActive
+                                    ? "border border-border bg-white text-text-secondary hover:bg-surface dark:border-slate-700 dark:bg-slate-950"
+                                    : "bg-[#4C78F5] text-white hover:bg-[#3B66E0]"
+                                }`}
+                              >
+                                <Lock className="h-3.5 w-3.5" />
+                                {busy
+                                  ? "Updating…"
+                                  : isActive
+                                    ? "Suspend"
+                                    : "Activate"}
+                              </button>
+                            ) : null}
+                            <button
+                              type="button"
+                              data-menu-id={o.id}
+                              onClick={(event) => openRowMenu(o.id, event)}
+                              className={`inline-flex h-8 w-8 items-center justify-center rounded-full border transition ${
+                                activeMenuId === o.id
+                                  ? "border-[#4C78F5]/40 bg-[#4C78F5]/10 text-[#4C78F5]"
+                                  : "border-border bg-white text-text-secondary hover:bg-surface hover:text-text-primary dark:border-slate-700 dark:bg-slate-900"
+                              }`}
+                              title="More actions"
+                              aria-label="Open actions menu"
+                            >
+                              <MoreVertical className="h-4 w-4" />
+                            </button>
+                          </div>
                         </td>
                       </tr>
                     );
-                  })}
-                </tbody>
-              </table>
-            </div>
-          )}
+                  })
+                )}
+              </tbody>
+            </table>
+          </div>
 
-          {!loading && !isSearching && officers.length > 0 && (
-            <div className="flex flex-col gap-3 border-t border-gray-100 px-4 py-4 dark:border-gray-800 sm:flex-row sm:items-center sm:justify-between sm:px-5">
-              <p className="text-sm text-gray-500 dark:text-gray-400">
+          {!loading && !isSearching && officers.length > 0 ? (
+            <div className="flex flex-col gap-3 border-t border-border px-4 py-3.5 dark:border-slate-800 sm:flex-row sm:items-center sm:justify-between sm:px-5">
+              <p className="text-[13px] text-text-secondary">
                 Showing{" "}
-                <span className="font-medium text-gray-700 dark:text-gray-200">
-                  {total === 0 ? 0 : (page - 1) * limit + 1}-
+                <span className="font-semibold text-text-primary">
+                  {total === 0 ? 0 : (page - 1) * limit + 1}
+                </span>
+                –
+                <span className="font-semibold text-text-primary">
                   {Math.min(page * limit, total)}
                 </span>{" "}
                 of{" "}
-                <span className="font-medium text-gray-700 dark:text-gray-200">
-                  {total}
-                </span>
+                <span className="font-semibold text-text-primary">{total}</span>
               </p>
 
-              <div className="flex flex-wrap items-center gap-1.5">
-                <button
-                  type="button"
-                  disabled={page === 1 || loading}
-                  onClick={() => setPage((p) => Math.max(p - 1, 1))}
-                  className="rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-200"
-                >
-                  <span className="inline-flex items-center gap-1">
-                    <ChevronLeft className="h-4 w-4" />
-                    Prev
-                  </span>
-                </button>
+              {totalPages > 1 ? (
+                <div className="flex items-center gap-1.5">
+                  <button
+                    type="button"
+                    disabled={page <= 1 || loading}
+                    onClick={() => setPage((p) => Math.max(p - 1, 1))}
+                    className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-border bg-white transition hover:bg-surface disabled:opacity-40 dark:border-slate-700 dark:bg-slate-900"
+                  >
+                    <ChevronLeft size={16} />
+                  </button>
 
-                {Array.from({ length: Math.min(totalPages, 5) }).map((_, i) => {
-                  const half = Math.floor(5 / 2);
-                  let startPage = 1;
-                  if (totalPages <= 5) startPage = 1;
-                  else if (page <= half + 1) startPage = 1;
-                  else if (page >= totalPages - half) startPage = totalPages - 4;
-                  else startPage = page - half;
+                  {Array.from({ length: Math.min(totalPages, 5) }).map(
+                    (_, i) => {
+                      const half = Math.floor(5 / 2);
+                      let startPage = 1;
+                      if (totalPages <= 5) startPage = 1;
+                      else if (page <= half + 1) startPage = 1;
+                      else if (page >= totalPages - half)
+                        startPage = totalPages - 4;
+                      else startPage = page - half;
 
-                  const pageNum = startPage + i;
-                  if (pageNum > totalPages) return null;
+                      const pageNum = startPage + i;
+                      if (pageNum > totalPages) return null;
 
-                  return (
-                    <button
-                      key={pageNum}
-                      type="button"
-                      onClick={() => setPage(pageNum)}
-                      disabled={loading}
-                      className={`min-w-8 rounded-lg border px-2.5 py-1.5 text-sm font-medium transition ${
-                        pageNum === page
-                          ? "border-[#13538A] bg-[#13538A] text-white"
-                          : "border-gray-200 bg-white text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-200"
-                      }`}
-                    >
-                      {pageNum}
-                    </button>
-                  );
-                })}
+                      return (
+                        <button
+                          key={pageNum}
+                          type="button"
+                          disabled={loading}
+                          onClick={() => setPage(pageNum)}
+                          className={`inline-flex h-9 min-w-9 items-center justify-center rounded-xl px-2.5 text-sm font-semibold transition ${
+                            pageNum === page
+                              ? "bg-[#4C78F5] text-white"
+                              : "border border-border bg-white hover:bg-surface dark:border-slate-700 dark:bg-slate-900"
+                          }`}
+                        >
+                          {pageNum}
+                        </button>
+                      );
+                    },
+                  )}
 
-                <button
-                  type="button"
-                  disabled={page === totalPages || loading}
-                  onClick={() => setPage((p) => Math.min(p + 1, totalPages))}
-                  className="rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-200"
-                >
-                  <span className="inline-flex items-center gap-1">
-                    Next
-                    <ChevronRight className="h-4 w-4" />
-                  </span>
-                </button>
-              </div>
+                  <button
+                    type="button"
+                    disabled={page >= totalPages || loading}
+                    onClick={() => setPage((p) => Math.min(p + 1, totalPages))}
+                    className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-border bg-white transition hover:bg-surface disabled:opacity-40 dark:border-slate-700 dark:bg-slate-900"
+                  >
+                    <ChevronRight size={16} />
+                  </button>
+                </div>
+              ) : null}
             </div>
-          )}
+          ) : null}
         </div>
       </div>
 
@@ -1213,13 +1089,13 @@ export default function SubBroker() {
           <div
             ref={menuRef}
             style={{ position: "fixed", top: menuPos.top, left: menuPos.left }}
-            className="z-[9999] w-[168px] max-h-[min(196px,calc(100vh-16px))] overflow-y-auto rounded-lg border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-900"
+            className="z-[9999] max-h-[min(196px,calc(100vh-16px))] w-[168px] overflow-y-auto rounded-xl border border-border bg-white dark:border-slate-700 dark:bg-slate-950"
           >
-            <div className="border-b border-gray-100 px-3 py-2 dark:border-gray-800">
-              <p className="truncate text-[11px] font-semibold text-gray-900 dark:text-white">
+            <div className="border-b border-border px-3 py-2 dark:border-slate-800">
+              <p className="truncate text-[11px] font-semibold text-text-primary dark:text-white">
                 {activeMenuUser.firstName} {activeMenuUser.lastName}
               </p>
-              <p className="truncate text-[10px] text-gray-500">
+              <p className="truncate text-[10px] text-text-secondary">
                 {activeMenuUser.email}
               </p>
             </div>
@@ -1232,9 +1108,9 @@ export default function SubBroker() {
                   closeRowMenu();
                   openViewSubBroker(activeMenuUser.id);
                 }}
-                className="flex w-full items-center gap-2 px-3 py-2 text-xs text-gray-700 transition hover:bg-gray-50 disabled:opacity-50 dark:text-gray-200 dark:hover:bg-gray-800"
+                className="flex w-full items-center gap-2 px-3 py-2 text-xs text-text-primary transition hover:bg-[#4C78F5]/[0.06] disabled:opacity-50 dark:text-slate-200 dark:hover:bg-slate-900"
               >
-                <Eye className="h-3.5 w-3.5 text-[#13538A]" />
+                <Eye className="h-3.5 w-3.5 text-[#4C78F5]" />
                 View details
               </button>
               {canAccessCoBrokerPortal && (
@@ -1245,9 +1121,9 @@ export default function SubBroker() {
                     activeMenuUser.status !== "ACTIVE"
                   }
                   onClick={() => handleImpersonate(activeMenuUser)}
-                  className="flex w-full items-center gap-2 px-3 py-2 text-xs text-gray-700 transition hover:bg-gray-50 disabled:opacity-50 dark:text-gray-200 dark:hover:bg-gray-800"
+                  className="flex w-full items-center gap-2 px-3 py-2 text-xs text-text-primary transition hover:bg-[#4C78F5]/[0.06] disabled:opacity-50 dark:text-slate-200 dark:hover:bg-slate-900"
                 >
-                  <ExternalLink className="h-3.5 w-3.5 text-cyan-600" />
+                  <ExternalLink className="h-3.5 w-3.5 text-[#4C78F5]" />
                   {impersonatingId === activeMenuUser.id
                     ? "Opening portal..."
                     : "Access portal"}
@@ -1260,7 +1136,7 @@ export default function SubBroker() {
                     closeRowMenu();
                     openEditSubBroker(activeMenuUser.id);
                   }}
-                  className="flex w-full items-center gap-2 px-3 py-2 text-xs text-gray-700 transition hover:bg-gray-50 dark:text-gray-200 dark:hover:bg-gray-800"
+                  className="flex w-full items-center gap-2 px-3 py-2 text-xs text-text-primary transition hover:bg-[#4C78F5]/[0.06] dark:text-slate-200 dark:hover:bg-slate-900"
                 >
                   <Pencil className="h-3.5 w-3.5 text-amber-600" />
                   Edit
@@ -1273,16 +1149,16 @@ export default function SubBroker() {
                   onClick={() =>
                     toggleStatus(activeMenuUser.id, activeMenuUser.status)
                   }
-                  className="flex w-full items-center gap-2 px-3 py-2 text-xs text-gray-700 transition hover:bg-gray-50 disabled:opacity-50 dark:text-gray-200 dark:hover:bg-gray-800"
+                  className="flex w-full items-center gap-2 px-3 py-2 text-xs text-text-primary transition hover:bg-[#4C78F5]/[0.06] disabled:opacity-50 dark:text-slate-200 dark:hover:bg-slate-900"
                 >
                   <Power
                     className={`h-3.5 w-3.5 ${
                       activeMenuUser.status === "ACTIVE"
                         ? "text-emerald-600"
-                        : "text-gray-500"
+                        : "text-text-secondary"
                     }`}
                   />
-                  {activeMenuUser.status === "ACTIVE" ? "Disable" : "Enable"}
+                  {activeMenuUser.status === "ACTIVE" ? "Suspend" : "Activate"}
                 </button>
               )}
             </div>

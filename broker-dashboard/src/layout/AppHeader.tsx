@@ -1,11 +1,11 @@
 import { useCallback, useEffect, useState } from "react";
-import { Link } from "react-router";
+import { Link, useLocation } from "react-router";
+import { CalendarClock, Menu, MoreHorizontal, X } from "lucide-react";
 import { useSidebar } from "../context/SidebarContext";
 import { ThemeToggleButton } from "../components/common/ThemeToggleButton";
 import NotificationDropdown from "../components/header/NotificationDropdown";
 import UserDropdown from "../components/header/UserDropdown";
 import { jwtDecode } from "jwt-decode";
-import { Menu, MoreHorizontal, X } from "lucide-react";
 import { BROKER_API_BASE, getBrokerAuthHeaders } from "../lib/brokerApi";
 import { handleBrokerUnauthorized } from "../lib/brokerSession";
 import BrokerPlanBadge from "../components/subscription/BrokerPlanBadge";
@@ -25,11 +25,74 @@ function toTitleCase(value?: string) {
     .join(" ");
 }
 
-const AppHeader: React.FC = () => {
-  const [isMobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [user, setUser] = useState<any | null>(null);
-  const [time, setTime] = useState("");
+function resolvePageTitle(pathname: string) {
+  if (pathname === "/" || pathname === "") return "Dashboard";
+  if (
+    pathname.startsWith("/submit-applications") ||
+    pathname.startsWith("/loan-preview") ||
+    pathname.startsWith("/loi-")
+  )
+    return "Loan Pipeline";
+  if (pathname.startsWith("/loan-application")) return "New Application";
+  if (
+    pathname.startsWith("/lender-marketplace") ||
+    pathname.startsWith("/find-lender") ||
+    pathname.startsWith("/my-lenders") ||
+    pathname.startsWith("/invited-lenders")
+  )
+    return "Lender Marketplace";
+  if (pathname.startsWith("/loan-officers")) return "Loan Officers";
+  if (pathname.startsWith("/sub-brokers") || pathname.startsWith("/co-brokers"))
+    return "Co Brokers";
+  if (pathname.startsWith("/borrowers")) return "Borrowers";
+  if (pathname.startsWith("/contacts")) return "Contacts";
+  if (pathname.startsWith("/commissions")) return "Commissions";
+  if (pathname.startsWith("/payments/banking")) return "Banking";
+  if (pathname.startsWith("/payments/invoices")) return "Invoices";
+  if (pathname.startsWith("/payments/commissions")) return "Commissions";
+  if (pathname.startsWith("/payments")) return "Payments";
+  if (pathname.startsWith("/messages")) return "Messages";
+  if (pathname.startsWith("/email-marketing")) return "Email Marketing";
+  if (pathname.startsWith("/documents") || pathname.startsWith("/sign-form"))
+    return "Documents";
+  if (
+    pathname.startsWith("/application") ||
+    pathname.startsWith("/active-application") ||
+    pathname.startsWith("/templates")
+  )
+    return "Applications";
+  if (pathname.startsWith("/settings/branding")) return "Branding";
+  if (pathname.startsWith("/settings/plan")) return "Plan & Add-ons";
+  if (pathname.startsWith("/settings") || pathname.startsWith("/integrations"))
+    return "Settings";
+  if (pathname.startsWith("/profile") || pathname.startsWith("/account"))
+    return "Profile";
+  if (pathname.startsWith("/admin-logs")) return "Admin Logs";
+  if (pathname.startsWith("/website-builder")) return "Website Builder";
+  return "Broker Portal";
+}
 
+function formatHeaderDateTime(now: Date) {
+  const day = now.getDate();
+  const month = now.toLocaleString("en-US", { month: "short" });
+  const year = now.getFullYear();
+  const clock = now.toLocaleTimeString("en-US", {
+    hour: "numeric",
+    minute: "2-digit",
+    hour12: true,
+  });
+  return `${day} ${month} ${year} · ${clock}`;
+}
+
+const AppHeader: React.FC = () => {
+  const [isApplicationMenuOpen, setApplicationMenuOpen] = useState(false);
+  const [user, setUser] = useState<any | null>(null);
+  const [dateTime, setDateTime] = useState(() =>
+    formatHeaderDateTime(new Date()),
+  );
+
+  const location = useLocation();
+  const pageTitle = resolvePageTitle(location.pathname);
   const { isMobileOpen, toggleSidebar, toggleMobileSidebar } = useSidebar();
 
   const token = sessionStorage.getItem("broker_token");
@@ -76,22 +139,15 @@ const AppHeader: React.FC = () => {
   }, [fetchAuthUser]);
 
   useEffect(() => {
-    const updateDateTime = () => {
-      const now = new Date();
-      const day = now.getDate();
-      const month = now.toLocaleString("en-US", { month: "short" });
-      const year = now.getFullYear();
-      const clock = now.toLocaleTimeString(undefined, {
-        hour: "2-digit",
-        minute: "2-digit",
-      });
-      setTime(`${day} ${month} ${year} , ${clock}`);
-    };
-
-    updateDateTime();
-    const interval = window.setInterval(updateDateTime, 1000);
+    const tick = () => setDateTime(formatHeaderDateTime(new Date()));
+    tick();
+    const interval = window.setInterval(tick, 1000);
     return () => window.clearInterval(interval);
   }, []);
+
+  useEffect(() => {
+    setApplicationMenuOpen(false);
+  }, [location.pathname]);
 
   const handleExitView = async () => {
     try {
@@ -121,101 +177,48 @@ const AppHeader: React.FC = () => {
 
   const orgName = user?.organization?.name;
   const welcomeName = toTitleCase(displayName);
+  const contextLabel = orgName || `Welcome ${welcomeName}`;
 
   return (
-    <header className="sticky top-0 z-[999] w-full border-b border-gray-200 bg-white dark:border-gray-800 dark:bg-gray-900">
-      <div className="flex h-16 items-center gap-3 px-3 sm:gap-4 sm:px-4 lg:px-6">
-        <div className="flex min-w-0 flex-1 items-center gap-2.5 sm:gap-3">
+    <header className="relative z-40 flex h-14 w-full shrink-0 border-b border-border bg-white dark:border-slate-800 dark:bg-slate-950">
+      <div className="flex w-full items-center justify-between gap-3 px-3 sm:px-4 lg:px-5">
+        <div className="flex min-w-0 items-center gap-2.5 sm:gap-3">
           <button
             type="button"
-            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-gray-200 text-gray-500 transition hover:border-gray-300 hover:bg-gray-50 dark:border-gray-700 dark:text-gray-400 dark:hover:bg-gray-800 lg:h-10 lg:w-10"
+            className={`inline-flex h-9 w-9 items-center justify-center rounded-lg transition ${
+              isMobileOpen
+                ? "bg-[#4C78F5] text-white"
+                : "border border-border text-text-secondary hover:border-[#4C78F5]/30 hover:bg-[#4C78F5]/5 hover:text-[#4C78F5] dark:border-slate-700 dark:text-slate-300"
+            }`}
             onClick={handleToggle}
             aria-label="Toggle sidebar"
           >
-            {isMobileOpen ? <X size={18} /> : <Menu size={18} />}
+            {isMobileOpen ? <X size={17} /> : <Menu size={17} />}
           </button>
 
           <Link to="/" className="shrink-0 lg:hidden">
             <img
               src="/loanAutomation.jpeg"
               alt="Logo"
-              className="h-9 w-9 rounded-full ring-2 ring-[#13538A]/15"
+              className="h-8 w-8 rounded-full object-cover ring-2 ring-[#4C78F5]/15"
             />
           </Link>
 
-          <div className="hidden min-w-0 lg:block">
-            <h1 className="truncate text-lg font-semibold text-gray-900 dark:text-white">
-              Welcome{" "}
-              <span className="text-[#3e86b7] dark:text-[#5ba8d4]">
-                {welcomeName}
-              </span>
+          <div className="flex min-w-0 items-center gap-2 sm:gap-2.5">
+            <h1 className="truncate text-[15px] font-semibold tracking-tight text-text-primary dark:text-white">
+              {pageTitle}
             </h1>
-            {orgName ? (
-              <p className="truncate text-xs text-gray-500 dark:text-gray-400">
-                {orgName}
-              </p>
-            ) : null}
-          </div>
 
-          <button
-            type="button"
-            onClick={() => setMobileMenuOpen((v) => !v)}
-            className="ml-auto flex h-9 w-9 items-center justify-center rounded-lg text-gray-600 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-800 lg:hidden"
-            aria-label="Open header menu"
-            aria-expanded={isMobileMenuOpen}
-          >
-            <MoreHorizontal size={18} />
-          </button>
-        </div>
+            <span
+              className="hidden h-4 w-px shrink-0 bg-border sm:block dark:bg-slate-700"
+              aria-hidden
+            />
 
-        <div className="ml-auto hidden shrink-0 items-center gap-2 sm:gap-3 lg:flex">
-          {isImpersonation ? (
-            <button
-              type="button"
-              onClick={handleExitView}
-              className="rounded-lg bg-red-500 px-2.5 py-1.5 text-xs font-medium text-white hover:bg-red-600"
-            >
-              Exit view
-            </button>
-          ) : null}
-
-          <BrokerPlanBadge autoLoad />
-
-          <span className="whitespace-nowrap text-sm font-semibold text-[#3e86b7] dark:text-[#5ba8d4]">
-            {time}
-          </span>
-
-          <ThemeToggleButton />
-          <NotificationDropdown />
-          <UserDropdown user={user} compact />
-        </div>
-      </div>
-
-      {isMobileMenuOpen ? (
-        <div className="border-t border-gray-100 px-3 pb-3 pt-2 dark:border-gray-800 lg:hidden">
-          <div className="mb-2.5">
-            <h1 className="text-base font-semibold text-gray-900 dark:text-white">
-              Welcome{" "}
-              <span className="text-[#3e86b7] dark:text-[#5ba8d4]">
-                {welcomeName}
-              </span>
-            </h1>
-            {orgName ? (
-              <p className="text-xs text-gray-500 dark:text-gray-400">{orgName}</p>
-            ) : null}
-          </div>
-
-          <div className="flex items-center justify-between gap-2">
-            <div className="flex min-w-0 items-center gap-2">
+            <div className="hidden min-w-0 items-center gap-2 sm:flex">
               <BrokerPlanBadge autoLoad />
-              <span className="text-sm font-semibold text-[#3e86b7] dark:text-[#5ba8d4]">
-                {time}
+              <span className="truncate text-[12px] font-medium text-text-secondary">
+                {contextLabel}
               </span>
-            </div>
-            <div className="flex items-center gap-2">
-              <ThemeToggleButton />
-              <NotificationDropdown />
-              <UserDropdown user={user} compact />
             </div>
           </div>
 
@@ -223,13 +226,69 @@ const AppHeader: React.FC = () => {
             <button
               type="button"
               onClick={handleExitView}
-              className="mt-2.5 w-full rounded-lg bg-red-500 px-3 py-2 text-xs font-medium text-white hover:bg-red-600"
+              className="ml-1 hidden h-8 items-center rounded-lg bg-rose-500 px-3 text-[11px] font-semibold text-white transition hover:bg-rose-600 sm:inline-flex"
             >
               Exit view mode
             </button>
           ) : null}
         </div>
-      ) : null}
+
+        <button
+          type="button"
+          onClick={() => setApplicationMenuOpen((open) => !open)}
+          className={`inline-flex h-9 w-9 items-center justify-center rounded-lg transition lg:hidden ${
+            isApplicationMenuOpen
+              ? "bg-[#4C78F5]/10 text-[#4C78F5]"
+              : "text-text-secondary hover:bg-surface"
+          }`}
+          aria-label="Open header menu"
+          aria-expanded={isApplicationMenuOpen}
+        >
+          <MoreHorizontal size={18} />
+        </button>
+
+        <div
+          className={`${
+            isApplicationMenuOpen ? "flex" : "hidden"
+          } absolute top-14 right-3 left-3 z-50 flex-col gap-3 rounded-2xl border border-border bg-white p-3 dark:border-slate-700 dark:bg-slate-900 sm:flex-row sm:items-center sm:justify-between lg:static lg:flex lg:flex-row lg:items-center lg:justify-end lg:gap-2.5 lg:border-0 lg:bg-transparent lg:p-0 dark:lg:bg-transparent`}
+        >
+          <div className="flex min-w-0 flex-wrap items-center gap-2 sm:hidden">
+            <BrokerPlanBadge autoLoad />
+            <span className="truncate text-[12px] font-medium text-text-secondary">
+              {contextLabel}
+            </span>
+          </div>
+
+          <div className="hidden h-9 items-center gap-1.5 rounded-lg border border-border bg-white px-2.5 text-[12px] font-medium text-text-secondary sm:inline-flex dark:border-slate-700 dark:bg-slate-950">
+            <CalendarClock
+              className="h-3.5 w-3.5 shrink-0 text-[#4C78F5]"
+              strokeWidth={1.75}
+            />
+            <time
+              dateTime={new Date().toISOString()}
+              className="whitespace-nowrap tabular-nums"
+            >
+              {dateTime}
+            </time>
+          </div>
+
+          <div className="flex items-center gap-1.5">
+            <ThemeToggleButton />
+            <NotificationDropdown />
+            <UserDropdown user={user} />
+          </div>
+
+          {isImpersonation ? (
+            <button
+              type="button"
+              onClick={handleExitView}
+              className="h-9 rounded-lg bg-rose-500 px-3 text-[11px] font-semibold text-white transition hover:bg-rose-600 sm:hidden"
+            >
+              Exit view mode
+            </button>
+          ) : null}
+        </div>
+      </div>
     </header>
   );
 };

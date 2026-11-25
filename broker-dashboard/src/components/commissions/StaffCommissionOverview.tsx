@@ -143,7 +143,7 @@ export default function StaffCommissionOverview({
             {commissionsHref ? (
               <Link
                 to={commissionsHref}
-                className="text-sm font-medium text-[#13538A] hover:underline"
+                className="text-sm font-medium text-[#4C78F5] hover:underline"
               >
                 View all commissions
               </Link>
@@ -151,7 +151,7 @@ export default function StaffCommissionOverview({
             {invoicesHref ? (
               <Link
                 to={invoicesHref}
-                className="text-sm font-medium text-[#13538A] hover:underline"
+                className="text-sm font-medium text-[#4C78F5] hover:underline"
               >
                 View all invoices
               </Link>

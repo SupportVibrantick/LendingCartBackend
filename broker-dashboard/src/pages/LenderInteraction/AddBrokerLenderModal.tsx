@@ -20,10 +20,10 @@ import {
 } from "../../lib/lenderMarketplaceApi";
 import { formatPhone } from "../UserManagement/loanOfficerShared";
 
-const BRAND = "#13538A";
+const BRAND = "#4C78F5";
 
 const inputClass =
-  "w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm text-slate-800 outline-none transition focus:border-[#13538A] focus:bg-white focus:ring-2 focus:ring-[#13538A]/20 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100";
+  "w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm text-slate-800 outline-none transition focus:border-[#4C78F5] focus:bg-white focus:ring-2 focus:ring-[#4C78F5]/20 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100";
 
 type FormState = {
   companyName: string;

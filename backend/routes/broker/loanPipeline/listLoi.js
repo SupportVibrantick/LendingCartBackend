@@ -1,7 +1,6 @@
 const {
-  APPLICATION_LENDER_LOI_INCLUDE,
   parseLoiListQuery,
-  formatBrokerLoiRecord,
+  queryBrokerLois,
   buildLoiSearchFilter,
   buildLoiPagination,
 } = require("../../../utils/broker/brokerLoiList");
@@ -30,6 +29,18 @@ async function listLoiRoute(fastify) {
             page: { type: "integer", minimum: 1 },
             limit: { type: "integer", minimum: 1, maximum: 20 },
             search: { type: "string" },
+            sort: {
+              type: "string",
+              enum: [
+                "newest",
+                "oldest",
+                "amount_desc",
+                "amount_asc",
+                "rate_asc",
+                "rate_desc",
+                "lender_az",
+              ],
+            },
           },
         },
       },
@@ -52,7 +63,9 @@ async function listLoiRoute(fastify) {
 
         const brokerOrgId = req.user.organizationId;
         const { applicationId } = req.params;
-        const { page, limit, search, skip } = parseLoiListQuery(req.query);
+        const { page, limit, search, sort, skip } = parseLoiListQuery(
+          req.query,
+        );
 
         const application = await prisma.loanApplication.findFirst({
           where: {
@@ -85,21 +98,14 @@ async function listLoiRoute(fastify) {
           ...buildLoiSearchFilter(search),
         };
 
-        const [totalFiltered, totalLoiReceived, lenders] = await Promise.all([
+        const [totalFiltered, totalLoiReceived, lois] = await Promise.all([
           prisma.applicationLender.count({ where }),
           search
             ? prisma.applicationLender.count({ where: baseWhere })
             : Promise.resolve(null),
-          prisma.applicationLender.findMany({
-            where,
-            include: APPLICATION_LENDER_LOI_INCLUDE,
-            orderBy: [{ sentAt: "desc" }, { lastUpdatedAt: "desc" }],
-            skip,
-            take: limit,
-          }),
+          queryBrokerLois(prisma, { where, sort, skip, limit }),
         ]);
 
-        const lois = lenders.map(formatBrokerLoiRecord);
         const pagination = buildLoiPagination(page, limit, totalFiltered);
 
         return reply.send({

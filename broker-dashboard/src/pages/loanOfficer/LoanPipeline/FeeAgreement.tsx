@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { FileText, Pencil } from "lucide-react";
+import { FileText, Loader2, Pencil } from "lucide-react";
 import { useRef } from "react";
 import toast from "react-hot-toast";
 import FeeAgreementDocument from "../../../components/FeeAgreementDocument";
@@ -152,59 +152,60 @@ export default function FeeAgreement({
     }
   };
 
-  // Loading
   if (loading) {
     return (
-      <div className="py-20 text-center text-gray-500">
-        Loading Fee Agreement...
+      <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-none dark:border-slate-800 dark:bg-slate-950">
+        <div className="flex min-h-[280px] flex-col items-center justify-center gap-3 px-6 py-16 text-center">
+          <Loader2 className="h-7 w-7 animate-spin text-[#4C78F5]" />
+          <p className="text-sm font-medium text-slate-600 dark:text-slate-300">
+            Loading fee agreement…
+          </p>
+        </div>
       </div>
     );
   }
 
-  // Empty State
   if (!data) {
     return (
-      <div
-        className="rounded-2xl border-2 border-dashed border-slate-300 
-bg-slate-50 py-20 px-6 text-center flex flex-col items-center gap-4
-dark:border-slate-700 dark:bg-slate-900"
-      >
-        <div
-          className="h-16 w-16 rounded-2xl bg-[#13538A] 
-          flex items-center justify-center shadow-sm"
-        >
-          <FileText className="text-white" size={28} />
+      <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-none dark:border-slate-800 dark:bg-slate-950">
+        <div className="border-b border-slate-200 bg-slate-50/70 px-4 py-4 dark:border-slate-800 dark:bg-slate-900/40 sm:px-5">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[#4C78F5]">
+            Broker fees
+          </p>
+          <h2 className="mt-1 text-lg font-semibold tracking-tight text-slate-900 dark:text-white">
+            Fee Agreement
+          </h2>
         </div>
-
-        <p className="text-base font-semibold text-gray-700">
-          No Fee Agreement Found
-        </p>
-
-        <p className="text-sm text-gray-500 max-w-sm">
-          Agreement not generated yet or still under process.
-        </p>
+        <div className="flex flex-col items-center justify-center px-6 py-16 text-center">
+          <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-xl bg-[#4C78F5] text-white">
+            <FileText size={26} />
+          </div>
+          <h3 className="text-base font-semibold text-slate-800 dark:text-slate-100">
+            No fee agreement yet
+          </h3>
+          <p className="mt-2 max-w-md text-sm leading-relaxed text-slate-500 dark:text-slate-400">
+            A fee agreement wasn’t included with this application yet, or it is
+            still being prepared.
+          </p>
+        </div>
       </div>
     );
   }
 
   return (
-    <div
-      className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden 
-dark:bg-slate-900 dark:border-slate-800"
-    >
-      {/* HEADER */}
-      <div
-        className="flex items-center justify-between px-6 py-4 border-b 
-bg-slate-50 dark:bg-slate-900 dark:border-slate-800"
-      >
+    <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-none dark:border-slate-800 dark:bg-slate-950">
+      <div className="flex items-center justify-between gap-3 border-b border-slate-200 bg-slate-50/70 px-4 py-4 dark:border-slate-800 dark:bg-slate-900/40 sm:px-5">
         <div>
-          <h2 className="text-lg font-bold text-slate-800 dark:text-slate-100">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[#4C78F5]">
+            Broker fees
+          </p>
+          <h2 className="mt-1 text-lg font-semibold tracking-tight text-slate-900 dark:text-white">
             Fee Agreement
           </h2>
-          <p className="text-xs text-slate-500 dark:text-slate-400">
+          <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
             Status:{" "}
-            <span className="font-semibold text-[#13538A] dark:text-sky-300">
-              {data.status}
+            <span className="font-semibold text-[#4C78F5] dark:text-sky-300">
+              {String(data.status || "").replace(/_/g, " ")}
             </span>
           </p>
         </div>
@@ -217,7 +218,7 @@ bg-slate-50 dark:bg-slate-900 dark:border-slate-800"
             <button
               onClick={() => setIsModalOpen(true)}
               className="flex items-center gap-2 px-4 py-2 text-xs rounded-lg 
-    bg-[#13538A] text-white hover:bg-[#0E426E] transition"
+    bg-[#4C78F5] text-white hover:bg-[#3B66E0] transition"
             >
               <Pencil size={14} />
               Update
@@ -321,7 +322,7 @@ dark:border-slate-700 dark:bg-slate-800"
   ${
     errors.upfrontFee
       ? "border-red-500 focus:ring-2 focus:ring-red-500"
-      : "focus:ring-2 focus:ring-[#13538A]"
+      : "focus:ring-2 focus:ring-[#4C78F5]"
   }`}
                 />
                 {errors.upfrontFee && (
@@ -353,7 +354,7 @@ dark:border-slate-700 dark:bg-slate-800"
     ${
       errors.exclusivityMonths
         ? "border-red-500 focus:ring-2 focus:ring-red-500"
-        : "focus:ring-2 focus:ring-[#13538A]"
+        : "focus:ring-2 focus:ring-[#4C78F5]"
     }`}
 />
 
@@ -377,7 +378,7 @@ dark:border-slate-700 dark:bg-slate-800"
               <button
                 onClick={handleUpdate}
                 disabled={updating}
-                className="px-4 py-2 text-sm rounded-lg bg-[#13538A] text-white hover:bg-[#0E426E] disabled:opacity-50"
+                className="px-4 py-2 text-sm rounded-lg bg-[#4C78F5] text-white hover:bg-[#3B66E0] disabled:opacity-50"
               >
                 {updating ? "Updating..." : "Update"}
               </button>

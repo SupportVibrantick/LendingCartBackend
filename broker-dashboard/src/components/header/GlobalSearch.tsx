@@ -366,7 +366,7 @@ function ResultIcon({ kind }: { kind: SearchItem["kind"] }) {
     case "contact":
       return <Users size={15} className="shrink-0 text-emerald-600" />;
     case "lender":
-      return <Building2 size={15} className="shrink-0 text-[#13538A]" />;
+      return <Building2 size={15} className="shrink-0 text-[#4C78F5]" />;
     case "application":
       return <FileText size={15} className="shrink-0 text-slate-600" />;
     default:
@@ -443,9 +443,9 @@ function renderGroupedItems(
           onClick={() => selectItem(item)}
           className={`flex w-full items-start gap-3 px-3 py-2.5 text-left transition ${
             index === activeIndex
-              ? "bg-[#13538A]/8 dark:bg-[#13538A]/20"
+              ? "bg-[#4C78F5]/8 dark:bg-[#4C78F5]/20"
               : "hover:bg-gray-50 dark:hover:bg-gray-800/80"
-          } ${isViewAll ? "border-t border-gray-100 text-xs font-medium text-[#13538A] dark:border-gray-800" : ""}`}
+          } ${isViewAll ? "border-t border-gray-100 text-xs font-medium text-[#4C78F5] dark:border-gray-800" : ""}`}
         >
           {!isViewAll && <ResultIcon kind={item.kind} />}
           <span className="min-w-0 flex-1">
@@ -523,7 +523,7 @@ export function GlobalSearchField({
           if (query.trim()) setIsOpen(true);
         }}
         onKeyDown={handleKeyDown}
-        className="h-10 w-full rounded-xl border border-gray-200/90 bg-gray-50/90 pl-10 pr-12 text-sm text-gray-800 placeholder:text-gray-400 transition focus:border-[#13538A]/35 focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#13538A]/10 dark:border-gray-700 dark:bg-gray-800/90 dark:text-white dark:focus:bg-gray-900"
+        className="h-10 w-full rounded-xl border border-gray-200/90 bg-gray-50/90 pl-10 pr-12 text-sm text-gray-800 placeholder:text-gray-400 transition focus:border-[#4C78F5]/35 focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#4C78F5]/10 dark:border-gray-700 dark:bg-gray-800/90 dark:text-white dark:focus:bg-gray-900"
         autoComplete="off"
         role="combobox"
         aria-expanded={showDropdown}

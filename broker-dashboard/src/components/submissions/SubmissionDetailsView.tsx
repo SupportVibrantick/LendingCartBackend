@@ -1,9 +1,18 @@
-import { ChevronDown, Eye, Search, X } from "lucide-react";
+import {
+  Building2,
+  Calendar,
+  ChevronDown,
+  Eye,
+  Gauge,
+  Search,
+  X,
+} from "lucide-react";
 import { AnimatePresence, motion } from "framer-motion";
 import { useMemo, useState, type ReactNode } from "react";
 import ApplicationDetailsDownloadButton from "./ApplicationDetailsDownloadButton";
 import {
   formatSubmissionFieldValue,
+  getEntityTypeFromFields,
   getSubmissionFieldLabel,
   groupSubmissionFieldsForDisplay,
   parseSubmissionFieldValue,
@@ -56,8 +65,10 @@ type SubmissionDetailsViewProps = {
   showPdfDownload?: boolean;
 };
 
+const BRAND = "#4C78F5";
+
 /**
- * Fields already shown in the page header or metrics ribbon.
+ * Fields already shown in the page header, metrics ribbon, or summary cards.
  * They stay out of the detail sections so values are not repeated.
  */
 const TOP_SUMMARY_FIELD_KEYS = new Set([
@@ -69,6 +80,8 @@ const TOP_SUMMARY_FIELD_KEYS = new Set([
   "borrowername",
   "firstname",
   "lastname",
+  "borroweremail",
+  "email",
   "loanproduct",
   "loanproductcode",
   "loanprogram",
@@ -84,6 +97,10 @@ const TOP_SUMMARY_FIELD_KEYS = new Set([
   "dscr",
   "dscrratio",
   "networth",
+  "entitytype",
+  "creditscore",
+  "dob",
+  "dateofbirth",
 ]);
 
 function isDisplayedInTopSummary(field: SubmissionDetailField) {
@@ -94,13 +111,63 @@ function isDisplayedInTopSummary(field: SubmissionDetailField) {
   return TOP_SUMMARY_FIELD_KEYS.has(normalizedKey);
 }
 
+function findFieldByKeys(
+  fields: SubmissionDetailField[],
+  keys: string[],
+): SubmissionDetailField | undefined {
+  const normalized = new Set(keys.map((k) => k.toLowerCase()));
+  return fields.find((field) =>
+    normalized.has((field.fieldKey || "").trim().toLowerCase()),
+  );
+}
+
 // ─── Sub-components ───────
+
+function InfoCell({
+  label,
+  value,
+  icon,
+}: {
+  label: string;
+  value: ReactNode;
+  icon?: ReactNode;
+}) {
+  const isEmpty =
+    value == null ||
+    value === "" ||
+    value === "—" ||
+    value === "-";
+
+  return (
+    <div className="group relative rounded-xl border border-slate-200/80 bg-gradient-to-b from-white to-slate-50/80 p-4 transition hover:border-slate-300 dark:border-slate-700/80 dark:from-slate-900 dark:to-slate-950 dark:hover:border-slate-600">
+      <div className="mb-2 flex items-center gap-2">
+        {icon ? (
+          <span className="flex h-6 w-6 items-center justify-center rounded-md bg-[#4C78F5]/10 text-[#4C78F5]">
+            {icon}
+          </span>
+        ) : null}
+        <span className="text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-400">
+          {label}
+        </span>
+      </div>
+      <div
+        className={`text-[15px] font-semibold leading-snug break-words ${
+          isEmpty
+            ? "text-slate-300 dark:text-slate-600"
+            : "text-slate-900 dark:text-slate-100"
+        }`}
+      >
+        {isEmpty ? "—" : value}
+      </div>
+    </div>
+  );
+}
 
 function FieldItem({ field }: { field: SubmissionDetailField }) {
   const display = formatSubmissionFieldValue(field);
   const isEmpty = !display || display === "—";
   return (
-    <div className="rounded-lg bg-slate-50/80 px-3 py-2.5 dark:bg-slate-800/40">
+    <div className="rounded-lg border border-slate-100 bg-slate-50/80 px-3 py-2.5 dark:border-slate-800 dark:bg-slate-800/40">
       <span className="text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-400">
         {getSubmissionFieldLabel(field)}
       </span>
@@ -147,14 +214,17 @@ function AccordionSection({
   const isInProgress = filledCount > 0 && !isComplete;
 
   return (
-    <div className="overflow-hidden rounded-xl border border-slate-200/80 bg-white shadow-[0_1px_2px_rgba(15,23,42,0.03)] dark:border-slate-700/80 dark:bg-slate-950">
+    <div className="overflow-hidden rounded-xl border border-slate-200/80 bg-white dark:border-slate-700/80 dark:bg-slate-950">
       <button
         type="button"
         onClick={() => setIsOpen((o) => !o)}
         aria-expanded={isOpen}
         className="flex w-full items-center gap-3 px-4 py-3.5 text-left transition-colors hover:bg-slate-50/80 dark:hover:bg-slate-900/60"
       >
-        <span className="h-8 w-1 rounded-full bg-[#0A2540]/80 dark:bg-sky-500/70" />
+        <span
+          className="h-8 w-1 rounded-full"
+          style={{ backgroundColor: BRAND }}
+        />
         <span className="flex-1 text-sm font-semibold text-slate-800 dark:text-slate-100">
           {title}
         </span>
@@ -164,7 +234,7 @@ function AccordionSection({
               ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-400"
               : isInProgress
                 ? "bg-amber-50 text-amber-700 dark:bg-amber-500/10 dark:text-amber-400"
-                : "bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400"
+                : "bg-[#4C78F5]/10 text-[#4C78F5]"
           }`}
         >
           {isComplete ? "✓ " : ""}
@@ -247,7 +317,7 @@ function LenderDecisionCard({
         : "bg-slate-100 text-slate-600";
 
   return (
-    <div className="relative flex flex-col overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-sm dark:border-slate-700 dark:bg-slate-950">
+    <div className="relative flex flex-col overflow-hidden rounded-2xl border border-slate-200/80 bg-white dark:border-slate-700 dark:bg-slate-950">
       <div className={`h-1 w-full ${accentLine}`} />
 
       <div className="flex flex-1 flex-col gap-4 p-5">
@@ -326,7 +396,7 @@ function LenderDecisionCard({
               type="button"
               onClick={() => onMarkFunded(applicationLenderId)}
               disabled={markingFundedId === applicationLenderId}
-              className="w-full rounded-xl bg-[#0A2540] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-[#123A5C] disabled:cursor-not-allowed disabled:opacity-50"
+              className="w-full rounded-xl bg-[#4C78F5] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-[#3B66E0] disabled:cursor-not-allowed disabled:opacity-50"
             >
               {markingFundedId === applicationLenderId
                 ? "Marking as funded…"
@@ -430,13 +500,17 @@ export default function SubmissionDetailsView({
     [filteredSections],
   );
 
+  const entityType = getEntityTypeFromFields(fields);
+  const dobField = findFieldByKeys(fields, ["dob", "dateOfBirth"]);
+  const creditScoreField = findFieldByKeys(fields, ["creditScore"]);
+
   return (
     <div className="space-y-5">
       {!showMarkFundedActions &&
         markFundedBlockedReason &&
         hasApprovedLender &&
         !isApplicationFunded && (
-          <div className="flex items-start gap-3 rounded-2xl border border-amber-200/80 bg-amber-50 px-4 py-3.5 shadow-sm dark:border-amber-900/40 dark:bg-amber-950/20">
+          <div className="flex items-start gap-3 rounded-2xl border border-amber-200/80 bg-amber-50 px-4 py-3.5 dark:border-amber-900/40 dark:bg-amber-950/20">
             <span className="mt-0.5 flex-shrink-0 text-amber-500">
               <svg
                 width="14"
@@ -476,7 +550,84 @@ export default function SubmissionDetailsView({
         </div>
       )}
 
-      <section className="overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-sm dark:border-slate-700 dark:bg-slate-950">
+      <section className="overflow-hidden rounded-2xl border border-slate-200/80 bg-white dark:border-slate-700 dark:bg-slate-950">
+        <div className="flex flex-col gap-3 border-b border-slate-100 px-4 py-3.5 dark:border-slate-800 sm:flex-row sm:items-center sm:justify-between sm:px-5">
+          <div className="min-w-0">
+            <h2 className="text-sm font-semibold text-slate-900 dark:text-white">
+              Application details
+            </h2>
+            <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">
+              Key borrower and submission information
+            </p>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            {showEditHint && submissionDetail?.canEdit !== false ? (
+              <span className="inline-flex items-center gap-1.5 rounded-full bg-slate-50 px-2.5 py-1 text-[11px] font-medium text-slate-500 ring-1 ring-slate-200 dark:bg-slate-900 dark:text-slate-400 dark:ring-slate-700">
+                <Eye size={12} className="shrink-0" />
+                Read-only — use Edit Application to change
+              </span>
+            ) : null}
+            {showPdfDownload ? (
+              <ApplicationDetailsDownloadButton
+                submissionDetail={submissionDetail}
+                fields={fields}
+                formatSubmissionStatus={formatSubmissionStatus}
+                formatCompactAmount={formatCompactAmount}
+                loanAmount={loanAmount}
+                ltv={ltv}
+                dscr={dscr}
+                monthlyPayment={monthlyPayment}
+                monthlyPaymentDisplay={monthlyPaymentDisplay}
+                submittedDate={submittedDate}
+                className="shrink-0"
+              />
+            ) : null}
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 gap-3 p-4 sm:grid-cols-2 lg:grid-cols-4 sm:p-5">
+          <InfoCell
+            label="Entity type"
+            icon={<Building2 size={12} />}
+            value={entityType}
+          />
+          <InfoCell
+            label="Date of birth"
+            icon={<Calendar size={12} />}
+            value={
+              dobField ? formatSubmissionFieldValue(dobField) : "—"
+            }
+          />
+          <InfoCell
+            label="Credit score"
+            icon={<Gauge size={12} />}
+            value={
+              creditScoreField
+                ? formatSubmissionFieldValue(creditScoreField)
+                : "—"
+            }
+          />
+          <InfoCell
+            label="Submitted"
+            icon={<Calendar size={12} />}
+            value={
+              submittedDate ? (
+                <span>
+                  {submittedDate.toLocaleDateString()}
+                  <span className="mx-1.5 text-slate-300">·</span>
+                  <span className="font-medium text-slate-500 dark:text-slate-400">
+                    {submittedDate.toLocaleTimeString()}
+                  </span>
+                </span>
+              ) : (
+                "—"
+              )
+            }
+          />
+        </div>
+      </section>
+
+      <section className="overflow-hidden rounded-2xl border border-slate-200/80 bg-white dark:border-slate-700 dark:bg-slate-950">
         <div className="flex flex-col gap-3 border-b border-slate-100 px-4 py-3.5 dark:border-slate-800 sm:flex-row sm:items-center sm:justify-between sm:px-5">
           <div className="min-w-0">
             <h2 className="text-sm font-semibold text-slate-900 dark:text-white">
@@ -486,48 +637,20 @@ export default function SubmissionDetailsView({
               Fields not already shown in the summary above
             </p>
           </div>
-          {showPdfDownload ? (
-            <ApplicationDetailsDownloadButton
-              submissionDetail={submissionDetail}
-              fields={fields}
-              formatSubmissionStatus={formatSubmissionStatus}
-              formatCompactAmount={formatCompactAmount}
-              loanAmount={loanAmount}
-              ltv={ltv}
-              dscr={dscr}
-              monthlyPayment={monthlyPayment}
-              monthlyPaymentDisplay={monthlyPaymentDisplay}
-              submittedDate={submittedDate}
-              className="shrink-0"
-            />
-          ) : null}
         </div>
 
-        {showEditHint && submissionDetail?.canEdit !== false && (
-          <div className="flex items-center gap-2.5 border-b border-slate-100 bg-slate-50/70 px-5 py-2.5 dark:border-slate-800 dark:bg-slate-900/40">
-            <Eye size={14} className="shrink-0 text-slate-400" />
-            <p className="text-xs text-slate-500 dark:text-slate-400">
-              Read-only. Use{" "}
-              <span className="font-semibold text-slate-700 dark:text-slate-200">
-                Edit Application
-              </span>{" "}
-              to change these answers.
-            </p>
-          </div>
-        )}
-
         <div className="border-b border-slate-100 px-4 py-4 dark:border-slate-800 sm:px-5">
-          <div className="relative">
+          <div className="relative w-full sm:max-w-sm">
             <Search
               size={14}
-              className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400"
+              className="pointer-events-none absolute left-3.5 top-1/2 z-10 -translate-y-1/2 text-slate-400"
             />
             <input
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Search all fields…"
-              className="w-full rounded-xl border border-slate-200 bg-slate-50/70 py-2.5 pl-10 pr-10 text-sm text-slate-900 placeholder:text-slate-400 outline-none transition focus:border-[#0A2540]/40 focus:bg-white focus:ring-4 focus:ring-[#0A2540]/10 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100 dark:focus:border-sky-500/40 dark:focus:ring-sky-500/10"
+              className="h-10 w-full rounded-xl border border-slate-200 bg-white py-2 pl-10 pr-10 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-[#4C78F5]/50 focus:ring-2 focus:ring-[#4C78F5]/20 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
             />
             {searchQuery && (
               <button
@@ -595,7 +718,7 @@ export default function SubmissionDetailsView({
             <p className="mb-4 text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-400">
               Digital signature
             </p>
-            <div className="inline-block rounded-2xl border border-slate-200 bg-slate-50 p-5 shadow-sm dark:border-slate-700 dark:bg-slate-900">
+            <div className="inline-block rounded-2xl border border-slate-200 bg-slate-50 p-5 dark:border-slate-700 dark:bg-slate-900">
               <img
                 src={String(parseSubmissionFieldValue(signatureField.value))}
                 alt="Digital Signature"

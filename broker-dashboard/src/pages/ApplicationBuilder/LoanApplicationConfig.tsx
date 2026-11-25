@@ -208,7 +208,7 @@ const LoanApplicationConfig: React.FC = () => {
   return (
     <div className="px-6 py-6 text-gray-900 dark:text-gray-100">
       <div className="mb-6">
-        <h1 className="text-2xl font-semibold text-[#2C92D5]">
+        <h1 className="text-2xl font-semibold text-[#4C78F5]">
           Loan Application Config 
         </h1>
         <p className="text-sm text-slate-400">
@@ -273,7 +273,7 @@ const LoanApplicationConfig: React.FC = () => {
 
             <button
               onClick={handleAddConfig}
-              className="w-full bg-[#2C92D5] hover:bg-[#197bbc] text-white py-2 rounded-lg text-sm"
+              className="w-full bg-[#4C78F5] hover:bg-[#197bbc] text-white py-2 rounded-lg text-sm"
             >
               Add / Configure Product(s)
             </button>

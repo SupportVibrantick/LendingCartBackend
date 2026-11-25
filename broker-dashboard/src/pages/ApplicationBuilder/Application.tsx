@@ -721,7 +721,7 @@ export default function ApplicationBuilder() {
 
   return (
     <div className="min-h-screen p-6 bg-slate-50 text-slate-900 dark:bg-slate-900 dark:text-slate-100">
-      <h1 className="text-2xl font-bold mb-6 text-[#2C92D5]">
+      <h1 className="text-2xl font-bold mb-6 text-[#4C78F5]">
         Application Form Builder
       </h1>
 
@@ -964,7 +964,7 @@ export default function ApplicationBuilder() {
             )}
             <button
               onClick={handleAddOrUpdate}
-              className="bg-[#2C92D5] text-white px-4 py-2 rounded text-xs"
+              className="bg-[#4C78F5] text-white px-4 py-2 rounded text-xs"
             >
               {editingId ? "Save Field" : "Add Field"}
             </button>

@@ -91,7 +91,7 @@ export default function LoanDateField({
         const clearBtn = document.createElement("button");
         clearBtn.type = "button";
         clearBtn.textContent = "Clear";
-        clearBtn.className = "text-[#13538A] font-medium hover:underline";
+        clearBtn.className = "text-[#4C78F5] font-medium hover:underline";
         clearBtn.onclick = () => {
           instance.clear();
           onChangeRef.current("");
@@ -100,7 +100,7 @@ export default function LoanDateField({
         const todayBtn = document.createElement("button");
         todayBtn.type = "button";
         todayBtn.textContent = "Today";
-        todayBtn.className = "text-[#13538A] font-medium hover:underline";
+        todayBtn.className = "text-[#4C78F5] font-medium hover:underline";
         todayBtn.onclick = () => {
           instance.setDate(new Date(), true);
         };

@@ -1,6 +1,7 @@
 import { Link } from "react-router";
 import GridShape from "../../components/common/GridShape";
 import ThemeTogglerTwo from "../../components/common/ThemeTogglerTwo";
+import "../../pages/ClientPortal/clientPortalTheme.css";
 
 const FEATURES = [
   "Manage loan pipeline in one place",
@@ -18,7 +19,7 @@ export default function AuthLayout({
   wide?: boolean;
 }) {
   return (
-    <div className="relative h-dvh overflow-hidden bg-white dark:bg-gray-950">
+    <div className="relative h-dvh overflow-hidden bg-white font-[Inter,ui-sans-serif,system-ui,sans-serif] antialiased dark:bg-gray-950">
       <div className="flex h-full min-h-0 flex-col lg:flex-row">
         {/* Form panel — only this side scrolls */}
         <div
@@ -36,16 +37,16 @@ export default function AuthLayout({
         </div>
 
         {/* Brand panel — fixed, never scrolls */}
-        <div className="relative hidden h-full min-h-0 shrink-0 overflow-hidden bg-[#0b1f3a] lg:flex lg:flex-1">
-          <div className="absolute inset-0 bg-[linear-gradient(135deg,#0b1f3a_0%,#13538A_45%,#1a6aad_100%)]" />
-          <div className="absolute -top-24 right-0 h-72 w-72 rounded-full bg-cyan-400/20 blur-[100px]" />
-          <div className="absolute bottom-0 left-0 h-64 w-64 rounded-full bg-blue-500/20 blur-[80px]" />
+        <div className="relative hidden h-full min-h-0 shrink-0 overflow-hidden bg-[#4C78F5] lg:flex lg:flex-1">
+          <div className="absolute inset-0 bg-[linear-gradient(145deg,#4C78F5_0%,#3A5FD4_45%,#2E4BB0_100%)]" />
+          <div className="absolute -top-24 right-0 h-72 w-72 rounded-full bg-white/15 blur-[100px]" />
+          <div className="absolute bottom-0 left-0 h-64 w-64 rounded-full bg-[#93B4FF]/20 blur-[80px]" />
 
           <GridShape />
 
           <div className="relative z-10 flex h-full flex-col items-center justify-center px-12 text-center">
             <Link to="/" className="mb-8 block transition hover:scale-[1.02]">
-              <div className="mx-auto h-28 w-28 overflow-hidden rounded-full ring-4 ring-white/20 shadow-2xl shadow-black/30">
+              <div className="mx-auto h-24 w-24 overflow-hidden rounded-full shadow-2xl shadow-black/30 ring-4 ring-white/15">
                 <img
                   src="/loanAutomation.jpeg"
                   alt="Loan Automation"
@@ -54,10 +55,10 @@ export default function AuthLayout({
               </div>
             </Link>
 
-            <h2 className="text-3xl font-bold tracking-tight text-white xl:text-4xl">
-              Broker Dashboard
+            <h2 className="text-3xl font-semibold tracking-tight text-white xl:text-[34px]">
+              Broker Portal
             </h2>
-            <p className="mt-3 max-w-sm text-base leading-relaxed text-blue-100/80">
+            <p className="mt-3 max-w-sm text-[15px] leading-relaxed text-white/65">
               Smart Loans for Smarter Businesses.
             </p>
 
@@ -65,9 +66,9 @@ export default function AuthLayout({
               {FEATURES.map((feature) => (
                 <li
                   key={feature}
-                  className="flex items-center gap-3 text-sm text-blue-50/90"
+                  className="flex items-center gap-3 text-sm text-white/80"
                 >
-                  <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-white/15 text-xs text-cyan-200">
+                  <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-white/15 text-xs text-white">
                     ✓
                   </span>
                   {feature}

@@ -66,7 +66,7 @@ function SummaryCard({
       onClick={onClick}
       className={`rounded-2xl border p-4 text-left transition-all ${
         active
-          ? "border-[#13538A] bg-[#13538A]/5 shadow-sm"
+          ? "border-[#4C78F5] bg-[#4C78F5]/5 shadow-sm"
           : "border-slate-200 bg-white hover:border-slate-300 dark:border-gray-800 dark:bg-gray-900"
       }`}
     >
@@ -212,7 +212,7 @@ export default function StaffInvoicesPage({
       <PageMeta title={pageTitle} description={pageDescription} />
 
       <div className="space-y-6">
-        <div className="overflow-hidden rounded-2xl border border-[#13538A]/15 bg-gradient-to-br from-[#13538A] via-[#1a6aad] to-[#2C92D5] p-6 text-white shadow-sm sm:p-8">
+        <div className="overflow-hidden rounded-2xl border border-[#4C78F5]/15 bg-gradient-to-br from-[#4C78F5] via-[#1a6aad] to-[#4C78F5] p-6 text-white shadow-sm sm:p-8">
           <p className="text-xs font-semibold uppercase tracking-widest text-white/70">
             Commissions
           </p>
@@ -316,7 +316,7 @@ export default function StaffInvoicesPage({
               <button
                 type="button"
                 onClick={() => navigate(dashboardPath)}
-                className="mt-4 text-sm font-medium text-[#13538A] hover:underline"
+                className="mt-4 text-sm font-medium text-[#4C78F5] hover:underline"
               >
                 Go to dashboard
               </button>

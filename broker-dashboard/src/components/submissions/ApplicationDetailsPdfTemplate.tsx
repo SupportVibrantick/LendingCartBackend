@@ -34,14 +34,48 @@ export type ApplicationDetailsPdfTemplateProps = {
   branding: BrokerPdfBranding;
 };
 
-const SECTION_ACCENTS = [
-  "#13538A",
-  "#0F766E",
-  "#B45309",
-  "#1D4ED8",
-  "#6D28D9",
-  "#BE185D",
+const BRAND = "#4C78F5";
+const INK = "#0F172A";
+const MUTED = "#64748B";
+const LINE = "#E2E8F0";
+const SOFT = "#F8FAFC";
+const TABLE_HEAD = "#EEF3FF";
+
+const FINANCIAL_ROW_ORDER = [
+  "grossRevenue",
+  "grossRentalIncome",
+  "vacancyCreditLoss",
+  "operatingExpenses",
+  "effectiveGrossIncomeOverride",
+  "noiOverride",
+  "mortgageDebtService",
+  "cashFlowAfterDebtOverride",
+  "netIncome",
+  "ebitda",
+  "netProfit",
+  "totalExistingDebt",
+  "cashReserves",
+  "dscr",
+  "currentRatio",
 ];
+
+const FINANCIAL_ROW_LABELS: Record<string, string> = {
+  grossRevenue: "Gross Revenue",
+  grossRentalIncome: "Gross Rental Income",
+  vacancyCreditLoss: "Vacancy & Credit Loss",
+  operatingExpenses: "Operating Expenses",
+  effectiveGrossIncomeOverride: "Effective Gross Income",
+  noiOverride: "Net Operating Income (NOI)",
+  mortgageDebtService: "Mortgage / Debt Service",
+  cashFlowAfterDebtOverride: "Cash Flow After Debt Service",
+  netIncome: "Net Income",
+  ebitda: "EBITDA",
+  netProfit: "Net Profit",
+  totalExistingDebt: "Total Existing Debt",
+  cashReserves: "Cash Reserves",
+  dscr: "Debt Service Coverage Ratio (DSCR)",
+  currentRatio: "Current Ratio",
+};
 
 function buildTermsText(brandName: string): string {
   return `This loan application has been submitted through the ${brandName} commercial loan origination platform. All information provided herein is subject to verification, underwriting review, and final lender approval. The broker identified in this document is an independent third party and not an employee or agent of the lender. Submission of this application does not constitute a commitment to lend. This document and all associated materials are confidential and intended solely for authorized lending personnel.`;
@@ -75,12 +109,33 @@ function formatGeneratedDate(): string {
   });
 }
 
+function stripCoBorrowerPrefix(fieldKey: string) {
+  return fieldKey.replace(/^coBorrower_\d+_/i, "");
+}
+
+function humanizeRowKey(key: string) {
+  return key
+    .replace(/Override$/i, "")
+    .replace(/([a-z])([A-Z])/g, "$1 $2")
+    .replace(/_/g, " ")
+    .replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
 function isLoanHighlightSection(title: string): boolean {
   const normalized = title.toLowerCase();
   return (
     normalized.includes("loan request") ||
     normalized.includes("loan details") ||
     (normalized.includes("loan") && normalized.includes("request"))
+  );
+}
+
+function isFinancialSection(section: { id: string; title: string }) {
+  const title = section.title.toLowerCase();
+  return (
+    section.id.includes("financial") ||
+    title.includes("financial") ||
+    title.includes("annual financial")
   );
 }
 
@@ -145,14 +200,97 @@ function buildSectionLayout(
   return items;
 }
 
+type FinancialMatrix = {
+  columns: { key: string; label: string }[];
+  rows: { key: string; label: string; values: Record<string, string> }[];
+  leftoverFields: SubmissionDetailField[];
+};
+
+function buildYearColumnMap(fields: SubmissionDetailField[]) {
+  const map = new Map<string, string>();
+  for (const field of fields) {
+    const bare = stripCoBorrowerPrefix(field.fieldKey || "");
+    const match = bare.match(/^financialYear_(col\d+)$/i);
+    if (!match) continue;
+    const year = String(parseSubmissionFieldValue(field.value) ?? "").trim();
+    if (!year) continue;
+    const index = Number(match[1].replace(/col/i, ""));
+    map.set(
+      match[1].toLowerCase(),
+      index === 0 ? `${year} (YTD)` : year,
+    );
+  }
+  return map;
+}
+
+function buildFinancialMatrix(
+  sectionFields: SubmissionDetailField[],
+  allFields: SubmissionDetailField[],
+): FinancialMatrix | null {
+  const yearMap = buildYearColumnMap(allFields);
+  const columnKeys = new Set<string>();
+  const rowMap = new Map<string, Record<string, string>>();
+  const leftoverFields: SubmissionDetailField[] = [];
+
+  const matrixPattern =
+    /^(financial|entityAnnual)_(.+)_col(\d+)(?:_computed)?$/i;
+
+  for (const field of sectionFields) {
+    const bare = stripCoBorrowerPrefix(field.fieldKey || "");
+    const match = bare.match(matrixPattern);
+    if (!match) {
+      leftoverFields.push(field);
+      continue;
+    }
+
+    const rowKey = match[2];
+    const colKey = `col${match[3]}`.toLowerCase();
+    columnKeys.add(colKey);
+    if (!rowMap.has(rowKey)) rowMap.set(rowKey, {});
+    rowMap.get(rowKey)![colKey] = formatSubmissionFieldValue(field);
+  }
+
+  if (!rowMap.size || !columnKeys.size) return null;
+
+  const columns = Array.from(columnKeys)
+    .sort((a, b) => {
+      const ai = Number(a.replace(/col/i, ""));
+      const bi = Number(b.replace(/col/i, ""));
+      // Show years left-to-right as prior years then YTD (col0 last if present)
+      if (ai === 0) return 1;
+      if (bi === 0) return -1;
+      return bi - ai;
+    })
+    .map((key) => ({
+      key,
+      label: yearMap.get(key) || (key === "col0" ? "YTD" : key.replace("col", "Year ")),
+    }));
+
+  const preferred = FINANCIAL_ROW_ORDER.filter((key) => rowMap.has(key));
+  const remaining = Array.from(rowMap.keys()).filter(
+    (key) => !FINANCIAL_ROW_ORDER.includes(key),
+  );
+  const orderedKeys = [...preferred, ...remaining];
+
+  const rows = orderedKeys.map((key) => ({
+    key,
+    label: FINANCIAL_ROW_LABELS[key] || humanizeRowKey(key),
+    values: rowMap.get(key) || {},
+  }));
+
+  return { columns, rows, leftoverFields };
+}
+
 function BrandLogo({
   logoUrl,
   brandName,
   height = 40,
+  light = false,
 }: {
   logoUrl: string | null;
   brandName: string;
   height?: number;
+  light?: boolean;
 }) {
   if (logoUrl) {
     return (
@@ -172,19 +310,67 @@ function BrandLogo({
   return (
     <div
       style={{
-        width: "40px",
-        height: "40px",
+        width: `${height}px`,
+        height: `${height}px`,
         borderRadius: "10px",
-        background: "rgba(255,255,255,0.2)",
+        background: light ? "rgba(255,255,255,0.2)" : `${BRAND}12`,
+        border: light ? "1px solid rgba(255,255,255,0.25)" : `1px solid ${BRAND}22`,
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
-        fontSize: "18px",
+        fontSize: `${Math.max(12, height * 0.42)}px`,
         fontWeight: 800,
-        color: "#ffffff",
+        color: light ? "#ffffff" : BRAND,
       }}
     >
       {brandName.charAt(0).toUpperCase()}
+    </div>
+  );
+}
+
+function SectionHeading({
+  index,
+  title,
+  accent = BRAND,
+}: {
+  index: number;
+  title: string;
+  accent?: string;
+}) {
+  return (
+    <div
+      data-pdf-block={`section-header-${index}`}
+      style={{
+        display: "flex",
+        alignItems: "center",
+        gap: "10px",
+        marginBottom: "10px",
+      }}
+    >
+      <span
+        style={{
+          fontSize: "8px",
+          fontWeight: 800,
+          letterSpacing: "0.12em",
+          color: "#ffffff",
+          background: accent,
+          padding: "4px 9px",
+          borderRadius: "999px",
+          textTransform: "uppercase",
+        }}
+      >
+        Section {index}
+      </span>
+      <span
+        style={{
+          fontSize: "14px",
+          fontWeight: 700,
+          color: INK,
+          letterSpacing: "-0.01em",
+        }}
+      >
+        {title}
+      </span>
     </div>
   );
 }
@@ -209,9 +395,9 @@ function LongTextFieldCell({
           key={`${field.fieldKey}-${chunkIndex}`}
           data-pdf-block={`field-${field.fieldKey || label}-${chunkIndex}`}
           style={{
-            padding: "14px 16px",
+            padding: "12px 14px",
             borderTop:
-              showTopBorder || chunkIndex > 0 ? "1px solid #E8EDF3" : "none",
+              showTopBorder || chunkIndex > 0 ? `1px solid ${LINE}` : "none",
             width: "100%",
             boxSizing: "border-box",
           }}
@@ -222,8 +408,8 @@ function LongTextFieldCell({
               fontWeight: 700,
               letterSpacing: "0.1em",
               textTransform: "uppercase",
-              color: "#64748B",
-              marginBottom: "6px",
+              color: MUTED,
+              marginBottom: "5px",
             }}
           >
             {chunkIndex === 0 ? label : `${label} (continued)`}
@@ -232,8 +418,8 @@ function LongTextFieldCell({
             style={{
               fontSize: "11px",
               fontWeight: 600,
-              color: highlight ? "#13538A" : "#0F172A",
-              lineHeight: 1.65,
+              color: highlight ? BRAND : INK,
+              lineHeight: 1.6,
               whiteSpace: "pre-wrap",
               wordBreak: "break-word",
               overflowWrap: "anywhere",
@@ -257,15 +443,15 @@ function FieldCell({
   highlight?: boolean;
 }) {
   return (
-    <div style={{ padding: "12px 16px", minWidth: 0 }}>
+    <div style={{ padding: "11px 14px", minWidth: 0 }}>
       <div
         style={{
           fontSize: "8px",
           fontWeight: 700,
           letterSpacing: "0.1em",
           textTransform: "uppercase",
-          color: "#64748B",
-          marginBottom: "5px",
+          color: MUTED,
+          marginBottom: "4px",
         }}
       >
         {label}
@@ -274,8 +460,8 @@ function FieldCell({
         style={{
           fontSize: "12px",
           fontWeight: 600,
-          color: highlight ? "#13538A" : "#0F172A",
-          lineHeight: 1.5,
+          color: highlight ? BRAND : INK,
+          lineHeight: 1.45,
           wordBreak: "break-word",
         }}
       >
@@ -313,20 +499,17 @@ function SectionFieldsGrid({
         }
 
         const row = item.fields;
-        const rowIndex = itemIndex;
 
         return (
           <div
-            key={`row-${rowIndex}`}
+            key={`row-${itemIndex}`}
             data-pdf-block={`row-${row.map((f) => f.fieldKey).join("-")}`}
             style={{
               display: "flex",
               flexWrap: "nowrap",
               alignItems: "flex-start",
               borderBottom:
-                itemIndex < layoutItems.length - 1
-                  ? "1px solid #E8EDF3"
-                  : "none",
+                itemIndex < layoutItems.length - 1 ? `1px solid ${LINE}` : "none",
             }}
           >
             {row.map((field) => (
@@ -348,7 +531,11 @@ function SectionFieldsGrid({
               ? Array.from({ length: columns - row.length }).map((_, i) => (
                   <div
                     key={`pad-${i}`}
-                    style={{ width: widthPct, boxSizing: "border-box", flexShrink: 0 }}
+                    style={{
+                      width: widthPct,
+                      boxSizing: "border-box",
+                      flexShrink: 0,
+                    }}
                   />
                 ))
               : null}
@@ -359,50 +546,137 @@ function SectionFieldsGrid({
   );
 }
 
-function MetricCell({
-  label,
-  value,
-  accent,
-  showDivider,
-}: {
-  label: string;
-  value: string;
-  accent?: boolean;
-  showDivider?: boolean;
-}) {
+function FinancialSummaryTable({ matrix }: { matrix: FinancialMatrix }) {
+  return (
+    <div
+      data-pdf-block="financial-summary-table"
+      style={{
+        border: `1px solid ${LINE}`,
+        borderRadius: "12px",
+        overflow: "hidden",
+        background: "#ffffff",
+      }}
+    >
+      <table
+        style={{
+          width: "100%",
+          borderCollapse: "collapse",
+          tableLayout: "fixed",
+        }}
+      >
+        <thead>
+          <tr style={{ background: TABLE_HEAD }}>
+            <th
+              style={{
+                textAlign: "left",
+                padding: "11px 14px",
+                fontSize: "8px",
+                fontWeight: 800,
+                letterSpacing: "0.1em",
+                textTransform: "uppercase",
+                color: BRAND,
+                borderBottom: `1px solid ${LINE}`,
+                width: "34%",
+              }}
+            >
+              Financial Metric
+            </th>
+            {matrix.columns.map((column) => (
+              <th
+                key={column.key}
+                style={{
+                  textAlign: "right",
+                  padding: "11px 14px",
+                  fontSize: "8px",
+                  fontWeight: 800,
+                  letterSpacing: "0.08em",
+                  textTransform: "uppercase",
+                  color: BRAND,
+                  borderBottom: `1px solid ${LINE}`,
+                }}
+              >
+                {column.label}
+              </th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {matrix.rows.map((row, rowIndex) => (
+            <tr
+              key={row.key}
+              style={{
+                background: rowIndex % 2 === 0 ? "#ffffff" : SOFT,
+              }}
+            >
+              <td
+                style={{
+                  padding: "10px 14px",
+                  fontSize: "11px",
+                  fontWeight: 600,
+                  color: INK,
+                  borderBottom: `1px solid ${LINE}`,
+                }}
+              >
+                {row.label}
+              </td>
+              {matrix.columns.map((column) => (
+                <td
+                  key={`${row.key}-${column.key}`}
+                  style={{
+                    padding: "10px 14px",
+                    fontSize: "11px",
+                    fontWeight: 700,
+                    color: INK,
+                    textAlign: "right",
+                    fontVariantNumeric: "tabular-nums",
+                    borderBottom: `1px solid ${LINE}`,
+                  }}
+                >
+                  {row.values[column.key] || "—"}
+                </td>
+              ))}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+function MetricCard({ label, value }: { label: string; value: string }) {
   return (
     <div
       style={{
         flex: 1,
-        padding: "10px 6px",
-        textAlign: "center",
-        borderRight: showDivider ? "1px solid rgba(255,255,255,0.15)" : "none",
         minWidth: 0,
+        border: `1px solid ${LINE}`,
+        borderRadius: "10px",
+        background: "#ffffff",
+        padding: "10px 12px",
       }}
     >
       <div
         style={{
-          fontSize: "15px",
+          fontSize: "7px",
           fontWeight: 700,
-          color: accent ? "#FCD34D" : "#ffffff",
-          lineHeight: 1.3,
+          letterSpacing: "0.1em",
+          textTransform: "uppercase",
+          color: MUTED,
+          marginBottom: "4px",
+        }}
+      >
+        {label}
+      </div>
+      <div
+        style={{
+          fontSize: "14px",
+          fontWeight: 700,
+          color: INK,
+          lineHeight: 1.2,
           wordBreak: "break-word",
         }}
       >
         {value}
-      </div>
-      <div
-        style={{
-          marginTop: "4px",
-          fontSize: "7px",
-          fontWeight: 600,
-          letterSpacing: "0.08em",
-          textTransform: "uppercase",
-          color: "rgba(255,255,255,0.55)",
-          lineHeight: 1.3,
-        }}
-      >
-        {label}
       </div>
     </div>
   );
@@ -410,14 +684,14 @@ function MetricCell({
 
 function MetaItem({ label, value }: { label: string; value: string }) {
   return (
-    <div style={{ padding: "0 4px" }}>
+    <div style={{ padding: "0 2px" }}>
       <div
         style={{
           fontSize: "8px",
           fontWeight: 700,
           letterSpacing: "0.1em",
           textTransform: "uppercase",
-          color: "#64748B",
+          color: MUTED,
           marginBottom: "3px",
         }}
       >
@@ -427,7 +701,7 @@ function MetaItem({ label, value }: { label: string; value: string }) {
         style={{
           fontSize: "11px",
           fontWeight: 600,
-          color: "#0F172A",
+          color: INK,
           lineHeight: 1.4,
         }}
       >
@@ -467,8 +741,11 @@ export default function ApplicationDetailsPdfTemplate({
     ? resolvePdfAssetUrl(String(parseSubmissionFieldValue(signatureField.value)))
     : null;
 
-  const { brandName, logoUrl, primaryColor, secondaryColor } = branding;
-  const headerGradient = `linear-gradient(135deg, ${primaryColor} 0%, ${secondaryColor} 100%)`;
+  const brandName = branding.brandName || "Loan Automation";
+  const logoUrl = branding.logoUrl;
+  const accent = branding.primaryColor || BRAND;
+
+  let sectionCounter = 0;
 
   return (
     <div
@@ -476,45 +753,20 @@ export default function ApplicationDetailsPdfTemplate({
       style={{
         width: "794px",
         background: "#ffffff",
-        color: "#0F172A",
-        fontFamily: "'Segoe UI', Arial, Helvetica, sans-serif",
+        color: INK,
+        fontFamily:
+          "Inter, 'Segoe UI', Arial, Helvetica, sans-serif",
         position: "relative",
       }}
     >
-      <div
-        aria-hidden
-        style={{
-          position: "absolute",
-          inset: 0,
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          pointerEvents: "none",
-          zIndex: 0,
-        }}
-      >
-        <div
-          style={{
-            transform: "rotate(-28deg)",
-            fontSize: "72px",
-            fontWeight: 800,
-            color: "rgba(19,83,138,0.04)",
-            letterSpacing: "0.14em",
-            whiteSpace: "nowrap",
-            textTransform: "uppercase",
-          }}
-        >
-          {brandName}
-        </div>
-      </div>
-
       <div style={{ position: "relative", zIndex: 1 }}>
-        {/* Header */}
+        {/* Header — white professional */}
         <div
+          data-pdf-block="header"
           style={{
-            background: headerGradient,
-            color: "#ffffff",
-            padding: "26px 32px 22px",
+            padding: "24px 28px 18px",
+            borderBottom: `1px solid ${LINE}`,
+            background: "#ffffff",
           }}
         >
           <div
@@ -522,35 +774,52 @@ export default function ApplicationDetailsPdfTemplate({
               display: "flex",
               justifyContent: "space-between",
               alignItems: "flex-start",
-              gap: "24px",
+              gap: "20px",
             }}
           >
-            <div style={{ flex: 1 }}>
+            <div style={{ flex: 1, minWidth: 0 }}>
               <div
                 style={{
                   display: "flex",
                   alignItems: "center",
-                  gap: "14px",
-                  marginBottom: "20px",
+                  gap: "12px",
+                  marginBottom: "16px",
                 }}
               >
-                <BrandLogo logoUrl={logoUrl} brandName={brandName} height={44} />
-                <div
-                  style={{
-                    fontSize: "16px",
-                    fontWeight: 700,
-                    letterSpacing: "0.01em",
-                  }}
-                >
-                  {brandName}
+                <BrandLogo logoUrl={logoUrl} brandName={brandName} height={40} />
+                <div>
+                  <div
+                    style={{
+                      fontSize: "15px",
+                      fontWeight: 700,
+                      color: INK,
+                      letterSpacing: "-0.01em",
+                    }}
+                  >
+                    {brandName}
+                  </div>
+                  <div
+                    style={{
+                      marginTop: "2px",
+                      fontSize: "9px",
+                      fontWeight: 700,
+                      letterSpacing: "0.14em",
+                      textTransform: "uppercase",
+                      color: accent,
+                    }}
+                  >
+                    Commercial Loan Application
+                  </div>
                 </div>
               </div>
+
               <div
                 style={{
-                  fontSize: "24px",
+                  fontSize: "22px",
                   fontWeight: 700,
-                  lineHeight: 1.25,
-                  letterSpacing: "-0.01em",
+                  lineHeight: 1.2,
+                  letterSpacing: "-0.02em",
+                  color: INK,
                 }}
               >
                 Loan Application Summary
@@ -558,8 +827,8 @@ export default function ApplicationDetailsPdfTemplate({
               <div
                 style={{
                   fontSize: "11px",
-                  opacity: 0.9,
-                  marginTop: "6px",
+                  color: MUTED,
+                  marginTop: "5px",
                 }}
               >
                 Complete application details — verified submission record
@@ -568,38 +837,43 @@ export default function ApplicationDetailsPdfTemplate({
 
             <div
               style={{
-                background: "rgba(255,255,255,0.12)",
-                border: "1px solid rgba(255,255,255,0.2)",
+                background: SOFT,
+                border: `1px solid ${LINE}`,
                 borderRadius: "12px",
-                padding: "14px 16px",
-                minWidth: "210px",
+                padding: "12px 14px",
+                minWidth: "200px",
               }}
             >
               <div
                 style={{
-                  fontSize: "10px",
+                  fontSize: "9px",
                   fontWeight: 700,
-                  letterSpacing: "0.08em",
+                  letterSpacing: "0.1em",
                   textTransform: "uppercase",
-                  opacity: 0.8,
-                  marginBottom: "6px",
+                  color: MUTED,
+                  marginBottom: "5px",
                 }}
               >
                 Application ID
               </div>
-              <div style={{ fontSize: "13px", fontWeight: 700 }}>
+              <div style={{ fontSize: "13px", fontWeight: 700, color: accent }}>
                 #{applicationNumber}
               </div>
               <div
                 style={{
                   marginTop: "10px",
                   fontSize: "10px",
-                  lineHeight: 1.65,
-                  opacity: 0.92,
+                  lineHeight: 1.6,
+                  color: MUTED,
                 }}
               >
                 <div>{formatPdfDate(submittedDate)}</div>
-                <div style={{ marginTop: "4px" }}>Status: {pipelineStage}</div>
+                <div style={{ marginTop: "3px" }}>
+                  Status:{" "}
+                  <span style={{ color: INK, fontWeight: 600 }}>
+                    {pipelineStage}
+                  </span>
+                </div>
               </div>
             </div>
           </div>
@@ -607,13 +881,14 @@ export default function ApplicationDetailsPdfTemplate({
 
         {/* Meta strip */}
         <div
+          data-pdf-block="meta"
           style={{
             display: "grid",
             gridTemplateColumns: "repeat(4, 1fr)",
             gap: "12px",
-            padding: "16px 32px",
-            background: "#F8FAFC",
-            borderBottom: "1px solid #E2E8F0",
+            padding: "14px 28px",
+            background: SOFT,
+            borderBottom: `1px solid ${LINE}`,
           }}
         >
           <MetaItem label="Borrower" value={borrowerName} />
@@ -625,71 +900,61 @@ export default function ApplicationDetailsPdfTemplate({
           <MetaItem label="Broker Contact" value={brokerProfile.email} />
         </div>
 
-        {/* Metrics bar */}
-        <div style={{ padding: "14px 32px 0" }}>
-          <div
-            style={{
-              background: "linear-gradient(135deg, #0F2744 0%, #13538A 55%, #1a6cb0 100%)",
-              borderRadius: "12px",
-              padding: "4px 6px",
-              color: "#ffffff",
-              boxShadow: "0 4px 16px rgba(19,83,138,0.12)",
-            }}
-          >
-            <div style={{ display: "flex", alignItems: "stretch" }}>
-              {[
-                {
-                  label: "Loan Amount",
-                  value: formatCompactAmount(loanAmount),
-                  accent: false,
-                },
-                {
-                  label: "Interest Rate",
-                  value: interestRate ? `${interestRate.toFixed(2)}%` : "—",
-                  accent: true,
-                },
-                {
-                  label: "Amortization",
-                  value: amortizationLabel || "—",
-                  accent: false,
-                },
-                {
-                  label: "Monthly P&I",
-                  value: monthlyPaymentDisplay || "—",
-                  accent: false,
-                },
-                {
-                  label: "LTV Ratio",
-                  value: ltv ? `${ltv.toFixed(1)}%` : "—",
-                  accent: true,
-                },
-                {
-                  label: "DSCR",
-                  value: dscr ? `${dscr.toFixed(2)}x` : "—",
-                  accent: true,
-                },
-              ].map((metric, index, arr) => (
-                <MetricCell
-                  key={metric.label}
-                  label={metric.label}
-                  value={metric.value}
-                  accent={metric.accent}
-                  showDivider={index < arr.length - 1}
-                />
-              ))}
-            </div>
+        {/* Metrics — white cards */}
+        <div data-pdf-block="metrics" style={{ padding: "14px 28px 0" }}>
+          <div style={{ display: "flex", gap: "8px" }}>
+            {[
+              {
+                label: "Loan Amount",
+                value: formatCompactAmount(loanAmount),
+              },
+              {
+                label: "Interest Rate",
+                value: interestRate ? `${interestRate.toFixed(2)}%` : "—",
+              },
+              {
+                label: "Amortization",
+                value: amortizationLabel || "—",
+              },
+              {
+                label: "Monthly P&I",
+                value: monthlyPaymentDisplay || "—",
+              },
+              {
+                label: "LTV Ratio",
+                value: ltv ? `${ltv.toFixed(1)}%` : "—",
+              },
+              {
+                label: "DSCR",
+                value: dscr ? `${dscr.toFixed(2)}x` : "—",
+              },
+            ].map((metric) => (
+              <MetricCard
+                key={metric.label}
+                label={metric.label}
+                value={metric.value}
+              />
+            ))}
           </div>
         </div>
 
         {/* Sections */}
-        <div style={{ padding: "16px 32px 16px" }}>
-          {sections.map((section, index) => {
-            const accent = SECTION_ACCENTS[index % SECTION_ACCENTS.length];
+        <div style={{ padding: "16px 28px 12px" }}>
+          {sections.map((section) => {
+            sectionCounter += 1;
+            const index = sectionCounter;
             const highlight = isLoanHighlightSection(section.title);
+            const financial = isFinancialSection(section);
+            const matrix = financial
+              ? buildFinancialMatrix(section.fields, fields)
+              : null;
+
+            const leftover = matrix?.leftoverFields || [];
+            const gridFields = matrix ? leftover : section.fields;
             const columns =
-              section.fields.length <= 4
+              gridFields.length <= 4
                 ? 2
-                : section.fields.some((f) =>
+                : gridFields.some((f) =>
                       /description|purpose|address|notes|summary|strategy/i.test(
                         getSubmissionFieldLabel(f),
                       ),
@@ -700,69 +965,39 @@ export default function ApplicationDetailsPdfTemplate({
             return (
               <div
                 key={section.id}
-                style={{
-                  marginBottom: "14px",
-                }}
+                style={{ marginBottom: "16px" }}
               >
-                <div
-                  data-pdf-block={`section-header-${index + 1}`}
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: "10px",
-                    marginBottom: "10px",
-                    paddingBottom: "8px",
-                    borderBottom: "2px solid #E8EDF3",
-                  }}
-                >
+                <SectionHeading
+                  index={index}
+                  title={
+                    financial && matrix
+                      ? "Financial Summary"
+                      : section.title
+                  }
+                  accent={accent}
+                />
+
+                {matrix ? (
+                  <div style={{ marginBottom: leftover.length ? "10px" : 0 }}>
+                    <FinancialSummaryTable matrix={matrix} />
+                  </div>
+                ) : null}
+
+                {gridFields.length > 0 ? (
                   <div
                     style={{
-                      width: "4px",
-                      height: "22px",
-                      borderRadius: "2px",
-                      background: accent,
-                      flexShrink: 0,
-                    }}
-                  />
-                  <span
-                    style={{
-                      fontSize: "9px",
-                      fontWeight: 700,
-                      letterSpacing: "0.1em",
-                      color: accent,
-                      background: `${accent}12`,
-                      padding: "3px 9px",
-                      borderRadius: "4px",
+                      border: `1px solid ${LINE}`,
+                      borderRadius: "12px",
+                      overflow: "visible",
+                      background: highlight ? "#FFFBEB" : "#ffffff",
                     }}
                   >
-                    {String(index + 1).padStart(2, "0")}
-                  </span>
-                  <span
-                    style={{
-                      fontSize: "14px",
-                      fontWeight: 700,
-                      color: "#0F172A",
-                      letterSpacing: "-0.01em",
-                    }}
-                  >
-                    {section.title}
-                  </span>
-                </div>
-
-                <div
-                  style={{
-                    border: "1px solid #E2E8F0",
-                    borderRadius: "10px",
-                    overflow: "visible",
-                    background: highlight ? "#FFFBEB" : "#ffffff",
-                    boxShadow: "0 1px 3px rgba(15,23,42,0.04)",
-                  }}
-                >
-                  <SectionFieldsGrid
-                    sectionFields={section.fields}
-                    columns={columns as 2 | 3 | 4}
-                  />
-                </div>
+                    <SectionFieldsGrid
+                      sectionFields={gridFields}
+                      columns={columns as 2 | 3 | 4}
+                    />
+                  </div>
+                ) : null}
               </div>
             );
           })}
@@ -770,43 +1005,19 @@ export default function ApplicationDetailsPdfTemplate({
           {/* Broker Information */}
           <div
             data-pdf-block="broker-info"
-            style={{ marginBottom: "14px", pageBreakInside: "avoid" }}
+            style={{ marginBottom: "16px", pageBreakInside: "avoid" }}
           >
+            <SectionHeading
+              index={sectionCounter + 1}
+              title="Broker Information"
+              accent={accent}
+            />
             <div
               style={{
-                display: "flex",
-                alignItems: "center",
-                gap: "10px",
-                marginBottom: "10px",
-                paddingBottom: "8px",
-                borderBottom: "2px solid #E8EDF3",
-              }}
-            >
-              <div
-                style={{
-                  width: "4px",
-                  height: "22px",
-                  borderRadius: "2px",
-                  background: primaryColor,
-                  flexShrink: 0,
-                }}
-              />
-              <span
-                style={{
-                  fontSize: "14px",
-                  fontWeight: 700,
-                  color: "#0F172A",
-                }}
-              >
-                Broker Information
-              </span>
-            </div>
-            <div
-              style={{
-                border: "1px solid #E2E8F0",
-                borderRadius: "10px",
+                border: `1px solid ${LINE}`,
+                borderRadius: "12px",
                 overflow: "hidden",
-                boxShadow: "0 1px 3px rgba(15,23,42,0.04)",
+                background: "#ffffff",
               }}
             >
               <SectionFieldsGrid
@@ -823,7 +1034,7 @@ export default function ApplicationDetailsPdfTemplate({
                   },
                   {
                     fieldKey: "brokerNmls",
-                    label: "NMLS / License #",
+                    label: "NMLS ID",
                     value: brokerProfile.licenseNumber,
                   },
                   {
@@ -856,20 +1067,20 @@ export default function ApplicationDetailsPdfTemplate({
               style={{
                 fontSize: "13px",
                 fontWeight: 700,
-                color: "#0F172A",
-                marginBottom: "10px",
+                color: INK,
+                marginBottom: "8px",
               }}
             >
               Terms & Acknowledgement
             </div>
             <div
               style={{
-                background: "#F1F5F9",
-                border: "1px solid #E2E8F0",
-                borderRadius: "10px",
-                padding: "16px 18px",
+                background: SOFT,
+                border: `1px solid ${LINE}`,
+                borderRadius: "12px",
+                padding: "14px 16px",
                 fontSize: "10px",
-                lineHeight: 1.75,
+                lineHeight: 1.7,
                 color: "#475569",
                 textAlign: "justify",
               }}
@@ -878,28 +1089,28 @@ export default function ApplicationDetailsPdfTemplate({
             </div>
           </div>
 
-          {/* Borrower Signature only */}
+          {/* Borrower Signature */}
           <div
             data-pdf-block="signature"
-            style={{ marginBottom: "12px", pageBreakInside: "avoid" }}
+            style={{ marginBottom: "8px", pageBreakInside: "avoid" }}
           >
             <div
               style={{
                 fontSize: "13px",
                 fontWeight: 700,
-                color: "#0F172A",
-                marginBottom: "12px",
+                color: INK,
+                marginBottom: "10px",
               }}
             >
               Borrower Signature
             </div>
             <div
               style={{
-                border: "1px solid #E2E8F0",
-                borderRadius: "10px",
-                padding: "20px 24px",
+                border: `1px solid ${LINE}`,
+                borderRadius: "12px",
+                padding: "18px 20px",
                 maxWidth: "420px",
-                boxShadow: "0 1px 3px rgba(15,23,42,0.04)",
+                background: "#ffffff",
               }}
             >
               <div
@@ -908,8 +1119,8 @@ export default function ApplicationDetailsPdfTemplate({
                   fontWeight: 700,
                   letterSpacing: "0.1em",
                   textTransform: "uppercase",
-                  color: "#64748B",
-                  marginBottom: "12px",
+                  color: MUTED,
+                  marginBottom: "10px",
                 }}
               >
                 Authorised Borrower Signature
@@ -922,7 +1133,7 @@ export default function ApplicationDetailsPdfTemplate({
                     height: "64px",
                     maxWidth: "100%",
                     objectFit: "contain",
-                    marginBottom: "12px",
+                    marginBottom: "10px",
                     display: "block",
                   }}
                 />
@@ -931,10 +1142,10 @@ export default function ApplicationDetailsPdfTemplate({
                   style={{
                     fontFamily: "Georgia, 'Times New Roman', serif",
                     fontStyle: "italic",
-                    fontSize: "26px",
-                    color: "#0F172A",
-                    marginBottom: "12px",
-                    minHeight: "36px",
+                    fontSize: "24px",
+                    color: INK,
+                    marginBottom: "10px",
+                    minHeight: "34px",
                   }}
                 >
                   {borrowerName}
@@ -942,8 +1153,8 @@ export default function ApplicationDetailsPdfTemplate({
               )}
               <div
                 style={{
-                  borderTop: "1px solid #CBD5E1",
-                  paddingTop: "10px",
+                  borderTop: `1px solid ${LINE}`,
+                  paddingTop: "8px",
                   fontSize: "11px",
                   fontWeight: 600,
                   color: "#334155",
@@ -951,14 +1162,14 @@ export default function ApplicationDetailsPdfTemplate({
               >
                 {borrowerName}
               </div>
-              <div style={{ marginTop: "14px" }}>
+              <div style={{ marginTop: "12px" }}>
                 <div
                   style={{
                     fontSize: "8px",
                     fontWeight: 700,
                     letterSpacing: "0.1em",
                     textTransform: "uppercase",
-                    color: "#64748B",
+                    color: MUTED,
                     marginBottom: "3px",
                   }}
                 >
@@ -968,7 +1179,7 @@ export default function ApplicationDetailsPdfTemplate({
                   style={{
                     fontSize: "11px",
                     fontWeight: 600,
-                    color: "#0F172A",
+                    color: INK,
                   }}
                 >
                   {formatSignatureDate(submittedDate)}
@@ -978,13 +1189,14 @@ export default function ApplicationDetailsPdfTemplate({
           </div>
         </div>
 
-        {/* Footer */}
+        {/* Footer — white */}
         <div
           data-pdf-block="footer"
           style={{
-            background: headerGradient,
-            color: "#ffffff",
-            padding: "14px 32px",
+            borderTop: `1px solid ${LINE}`,
+            background: SOFT,
+            color: MUTED,
+            padding: "12px 28px",
             display: "flex",
             justifyContent: "space-between",
             alignItems: "center",
@@ -992,11 +1204,13 @@ export default function ApplicationDetailsPdfTemplate({
           }}
         >
           <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-            <BrandLogo logoUrl={logoUrl} brandName={brandName} height={22} />
-            <span style={{ fontWeight: 600, opacity: 0.95 }}>{brandName}</span>
+            <BrandLogo logoUrl={logoUrl} brandName={brandName} height={20} />
+            <span style={{ fontWeight: 600, color: INK }}>{brandName}</span>
           </div>
-          <div style={{ opacity: 0.88, textAlign: "right", lineHeight: 1.5 }}>
-            <div>CONFIDENTIAL</div>
+          <div style={{ textAlign: "right", lineHeight: 1.5 }}>
+            <div style={{ fontWeight: 700, color: accent, letterSpacing: "0.08em" }}>
+              CONFIDENTIAL
+            </div>
             <div>
               Application #{applicationNumber} · Generated {formatGeneratedDate()}
             </div>

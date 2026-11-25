@@ -32,6 +32,11 @@ export type BrokerCustomDocumentsResponse = {
   meta?: {
     search?: string | null;
   };
+  stats?: {
+    total: number;
+    used: number;
+    unused: number;
+  };
   pagination?: {
     page: number;
     limit: number;

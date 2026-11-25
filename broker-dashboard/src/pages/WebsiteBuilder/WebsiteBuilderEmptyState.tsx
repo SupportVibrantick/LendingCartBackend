@@ -17,7 +17,7 @@ export default function WebsiteBuilderEmptyState({
   if (variant === "agency-ready") {
     return (
       <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-slate-200 bg-white px-6 py-16 text-center dark:border-slate-700 dark:bg-slate-900">
-        <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-[#13538A]/10 text-[#13538A]">
+        <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-[#4C78F5]/10 text-[#4C78F5]">
           <Globe className="h-7 w-7" />
         </div>
         <h3 className="text-lg font-semibold text-slate-900 dark:text-white">
@@ -32,7 +32,7 @@ export default function WebsiteBuilderEmptyState({
             href={dashboardUrl}
             target="_blank"
             rel="noopener noreferrer"
-            className="mt-6 inline-flex items-center gap-2 rounded-lg bg-[#13538A] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-[#0f4270]"
+            className="mt-6 inline-flex items-center gap-2 rounded-lg bg-[#4C78F5] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-[#0f4270]"
           >
             <ExternalLink className="h-4 w-4" />
             Open CRM website builder
@@ -40,7 +40,7 @@ export default function WebsiteBuilderEmptyState({
         ) : (
           <Link
             to="/settings/integrations/ghl"
-            className="mt-6 inline-flex items-center gap-2 rounded-lg bg-[#13538A] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-[#0f4270]"
+            className="mt-6 inline-flex items-center gap-2 rounded-lg bg-[#4C78F5] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-[#0f4270]"
           >
             View CRM status
           </Link>
@@ -65,7 +65,7 @@ export default function WebsiteBuilderEmptyState({
         </p>
         <Link
           to="/settings/integrations/ghl"
-          className="mt-6 inline-flex items-center gap-2 rounded-lg bg-[#13538A] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-[#0f4270]"
+          className="mt-6 inline-flex items-center gap-2 rounded-lg bg-[#4C78F5] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-[#0f4270]"
         >
           Check CRM status
         </Link>

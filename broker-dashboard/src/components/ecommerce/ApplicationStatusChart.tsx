@@ -40,7 +40,7 @@ export default function ApplicationStatusChart({
 }: Props) {
   const { open, funded, lost, total } = buckets(stats);
   const slices = [
-    { key: "OPEN" as const, label: "Open", count: open, color: "#13538A" },
+    { key: "OPEN" as const, label: "Open", count: open, color: "#4C78F5" },
     { key: "FUNDED" as const, label: "Funded", count: funded, color: "#14B8A6" },
     { key: "LOST" as const, label: "Lost", count: lost, color: "#F43F5E" },
   ].filter((slice) => slice.count > 0 || slice.key !== "LOST");
@@ -50,7 +50,7 @@ export default function ApplicationStatusChart({
 
   const options: ApexOptions = {
     chart: {
-      fontFamily: "Outfit, sans-serif",
+      fontFamily: "Inter, sans-serif",
       toolbar: { show: false },
       events: {
         dataPointSelection: (_event, _ctx, config) => {

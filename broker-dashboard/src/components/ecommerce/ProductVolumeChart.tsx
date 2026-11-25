@@ -11,15 +11,15 @@ interface Props {
   loading: boolean;
 }
 
-const PRODUCT_COLORS = ["#13538A", "#0F766E", "#059669", "#0284C7", "#4F46E5"];
+const PRODUCT_COLORS = ["#4C78F5", "#0F766E", "#059669", "#0284C7", "#4F46E5"];
 const STATUS_COLORS = ["#F97316", "#0EA5E9", "#6366F1", "#10B981", "#0F766E", "#94A3B8", "#EF4444"];
 
 function ChartSkeleton() {
   return (
-      <div className="h-full rounded-2xl border border-slate-200/80 bg-white p-5 shadow-[0_10px_30px_rgba(15,23,42,0.05)] dark:border-gray-800 dark:bg-gray-900">
+    <div className="h-full rounded-2xl border border-border bg-white p-5 dark:border-slate-800 dark:bg-slate-900">
       <div className="animate-pulse space-y-3">
-        <div className="h-4 w-36 rounded bg-gray-200 dark:bg-gray-700" />
-        <div className="h-[260px] rounded-xl bg-gray-100 dark:bg-gray-800" />
+        <div className="h-4 w-36 rounded bg-surface dark:bg-slate-800" />
+        <div className="h-[260px] rounded-xl bg-surface dark:bg-slate-800" />
       </div>
     </div>
   );
@@ -78,7 +78,7 @@ export default function ProductVolumeChart({ stats, loading }: Props) {
 
   const options: ApexOptions = {
     chart: {
-      fontFamily: "Outfit, sans-serif",
+      fontFamily: "Inter, sans-serif",
       toolbar: { show: false },
     },
     plotOptions: {
@@ -136,16 +136,13 @@ export default function ProductVolumeChart({ stats, loading }: Props) {
   const series = [{ name: useProducts ? "Volume" : "Apps", data: rows.map((r) => r.value) }];
 
   return (
-    <div className="flex h-full flex-col rounded-2xl border border-slate-200/80 bg-white p-5 shadow-[0_10px_30px_rgba(15,23,42,0.05)] dark:border-gray-800 dark:bg-gray-900">
-      <div className="mb-2 flex items-start justify-between gap-3">
-        <div>
-          <div className="flex items-center gap-2">
-            <span className="h-4 w-1 rounded-full bg-gradient-to-b from-[#13538A] to-[#38BDF8]" />
-            <h3 className="text-[15px] font-semibold text-slate-900 dark:text-white">
-              {useProducts ? "Product Mix" : "Pipeline Focus"}
-            </h3>
-          </div>
-          <p className="pl-3 text-[12px] text-slate-400">
+    <div className="flex h-full flex-col rounded-2xl border border-border bg-white p-5 dark:border-slate-800 dark:bg-slate-900">
+      <div className="mb-4 flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <h3 className="truncate text-[16px] font-semibold leading-tight text-text-primary dark:text-white">
+            {useProducts ? "Product Mix" : "Pipeline Focus"}
+          </h3>
+          <p className="mt-1 text-[13px] text-text-secondary">
             {useProducts
               ? "Approved volume by product"
               : "Where applications concentrate"}
@@ -153,10 +150,10 @@ export default function ProductVolumeChart({ stats, loading }: Props) {
         </div>
         {total > 0 ? (
           <div className="text-right">
-            <p className="text-[11px] text-[#9aa0a6]">
+            <p className="text-[11px] text-text-secondary">
               {useProducts ? "Volume" : "Apps"}
             </p>
-            <p className="text-sm font-semibold text-[#1f2328] dark:text-white">
+            <p className="text-sm font-semibold text-text-primary dark:text-white">
               {useProducts
                 ? formatCompactCurrency(total)
                 : formatCompactCount(total)}

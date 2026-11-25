@@ -30,7 +30,7 @@ import SelfBankingPanel from "../../../components/banking/SelfBankingPanel";
 import { formatPhone } from "../../UserManagement/loanOfficerShared";
 
 const inputClass =
-  "w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-2.5 text-sm text-gray-900 outline-none transition focus:border-[#13538A]/40 focus:bg-white focus:ring-2 focus:ring-[#13538A]/10 dark:border-gray-700 dark:bg-gray-800 dark:text-white";
+  "w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-2.5 text-sm text-gray-900 outline-none transition focus:border-[#4C78F5]/40 focus:bg-white focus:ring-2 focus:ring-[#4C78F5]/10 dark:border-gray-700 dark:bg-gray-800 dark:text-white";
 
 const displayClass =
   "rounded-xl border border-gray-100 bg-gray-50 px-4 py-2.5 text-sm text-gray-800 dark:border-gray-700 dark:bg-gray-800/80 dark:text-gray-200";
@@ -328,7 +328,7 @@ export default function Profile() {
       {/* Profile card */}
       <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm dark:border-gray-800 dark:bg-gray-900">
         {/* Cover + page title */}
-        <div className="relative bg-gradient-to-br from-[#13538A] via-[#1a6aad] to-[#2C92D5] px-5 pb-16 pt-6 text-white sm:px-8 sm:pb-20 sm:pt-7">
+        <div className="relative bg-gradient-to-br from-[#4C78F5] via-[#1a6aad] to-[#4C78F5] px-5 pb-16 pt-6 text-white sm:px-8 sm:pb-20 sm:pt-7">
           <div className="pointer-events-none absolute inset-0 overflow-hidden">
             <div className="absolute -right-10 -top-10 h-40 w-40 rounded-full bg-white/10 blur-2xl" />
             <div className="absolute -bottom-16 left-1/3 h-36 w-36 rounded-full bg-cyan-300/20 blur-2xl" />
@@ -419,7 +419,7 @@ export default function Profile() {
             <h2 className="text-xl font-bold text-gray-900 dark:text-white">
               {displayName}
             </h2>
-            <p className="mt-1 flex items-center gap-2 text-sm font-medium text-[#13538A] dark:text-[#6ba3d8]">
+            <p className="mt-1 flex items-center gap-2 text-sm font-medium text-[#4C78F5] dark:text-[#6ba3d8]">
               <Briefcase size={14} />
               Loan Officer
             </p>
@@ -442,7 +442,7 @@ export default function Profile() {
             className={`inline-flex items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold transition ${
               editing
                 ? "border border-gray-200 bg-gray-50 text-gray-700 hover:bg-gray-100 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200"
-                : "bg-[#13538A] text-white shadow-sm hover:bg-[#1a6aad]"
+                : "bg-[#4C78F5] text-white shadow-sm hover:bg-[#1a6aad]"
             }`}
           >
             {editing ? (
@@ -563,7 +563,7 @@ export default function Profile() {
                 />
                 <InfoCard
                   label="Organization"
-                  value={user.organizationName || "—"}
+                  value={user.organizationName || ""}
                   icon={<ShieldCheck size={18} />}
                 />
               </div>
@@ -585,7 +585,7 @@ export default function Profile() {
               <div className="flex flex-wrap items-start justify-between gap-4 border-b border-gray-100 px-4 py-4 dark:border-gray-800 sm:px-5">
                 <div>
                   <h3 className="flex items-center gap-2 text-sm font-semibold text-gray-900 dark:text-white">
-                    <LockKeyhole size={16} className="text-[#13538A]" />
+                    <LockKeyhole size={16} className="text-[#4C78F5]" />
                     Security
                   </h3>
                   <p className="mt-1 text-xs text-gray-500">
@@ -599,7 +599,7 @@ export default function Profile() {
                     setShowPasswordSection((prev) => !prev);
                     resetPasswordForm();
                   }}
-                  className="rounded-xl bg-[#13538A]/10 px-4 py-2 text-sm font-medium text-[#13538A] transition hover:bg-[#13538A]/15"
+                  className="rounded-xl bg-[#4C78F5]/10 px-4 py-2 text-sm font-medium text-[#4C78F5] transition hover:bg-[#4C78F5]/15"
                 >
                   {showPasswordSection ? "Cancel" : "Change Password"}
                 </button>
@@ -636,7 +636,7 @@ export default function Profile() {
                       type="button"
                       onClick={handleChangePassword}
                       disabled={changingPassword}
-                      className="inline-flex items-center gap-2 rounded-xl bg-[#13538A] px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-[#1a6aad] disabled:opacity-50"
+                      className="inline-flex items-center gap-2 rounded-xl bg-[#4C78F5] px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-[#1a6aad] disabled:opacity-50"
                     >
                       {changingPassword ? "Updating..." : "Update Password"}
                     </button>
@@ -677,8 +677,8 @@ export default function Profile() {
               </div>
             </div>
 
-            <div className="rounded-2xl border border-[#13538A]/15 bg-[#13538A]/5 p-5 dark:border-[#13538A]/25 dark:bg-[#13538A]/10">
-              <p className="text-xs font-semibold uppercase tracking-wider text-[#13538A]">
+            <div className="rounded-2xl border border-[#4C78F5]/15 bg-[#4C78F5]/5 p-5 dark:border-[#4C78F5]/25 dark:bg-[#4C78F5]/10">
+              <p className="text-xs font-semibold uppercase tracking-wider text-[#4C78F5]">
                 Tip
               </p>
               <p className="mt-2 text-sm text-gray-600 dark:text-gray-300">
@@ -702,7 +702,7 @@ export default function Profile() {
               type="button"
               onClick={handleSave}
               disabled={saving || !isChanged}
-              className="inline-flex items-center gap-2 rounded-xl bg-[#13538A] px-6 py-2.5 text-sm font-semibold text-white hover:bg-[#1a6aad] disabled:opacity-50"
+              className="inline-flex items-center gap-2 rounded-xl bg-[#4C78F5] px-6 py-2.5 text-sm font-semibold text-white hover:bg-[#1a6aad] disabled:opacity-50"
             >
               {saving ? (
                 "Saving..."
@@ -756,7 +756,13 @@ function ProfileField({
           className={inputClass}
         />
       ) : (
-        <div className={displayClass}>{value || "—"}</div>
+        <div className={displayClass}>
+          {value?.trim() ? (
+            value
+          ) : (
+            <span className="font-normal text-slate-400">Not provided</span>
+          )}
+        </div>
       )}
     </div>
   );
@@ -773,13 +779,17 @@ function InfoCard({
 }) {
   return (
     <div className="flex items-start gap-3 rounded-xl border border-gray-100 bg-white p-4 dark:border-gray-800 dark:bg-gray-900/60">
-      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#13538A]/10 text-[#13538A]">
+      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#4C78F5]/10 text-[#4C78F5]">
         {icon}
       </div>
       <div className="min-w-0">
         <p className="text-xs font-medium text-gray-400">{label}</p>
         <p className="mt-0.5 truncate text-sm font-medium text-gray-900 dark:text-white">
-          {value}
+          {value?.trim() ? (
+            value
+          ) : (
+            <span className="font-normal text-slate-400">Not provided</span>
+          )}
         </p>
       </div>
     </div>

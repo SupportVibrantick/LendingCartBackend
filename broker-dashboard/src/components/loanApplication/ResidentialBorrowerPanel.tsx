@@ -156,7 +156,7 @@ const YesNoToggle = ({
         onClick={() => onChange(option)}
         className={`rounded-md border px-3 py-1 text-xs font-medium capitalize transition ${
           value === option
-            ? "border-[#13538A] bg-[#13538A] text-white"
+            ? "border-[#4C78F5] bg-[#4C78F5] text-white"
             : hasError
               ? "border-red-400 bg-red-50 text-red-700 hover:bg-red-100 dark:border-red-500 dark:bg-red-950/30 dark:text-red-300"
               : "border-slate-300 bg-white text-slate-600 hover:bg-slate-50 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-300"
@@ -333,7 +333,7 @@ export default function ResidentialBorrowerPanel({
             Borrower {borrowerIndex + 1}
           </button>
           {isPrimary && (
-            <span className="rounded-full bg-[#13538A]/10 px-2 py-0.5 text-xs font-semibold text-[#13538A]">
+            <span className="rounded-full bg-[#4C78F5]/10 px-2 py-0.5 text-xs font-semibold text-[#4C78F5]">
               Primary
             </span>
           )}
@@ -579,7 +579,7 @@ export default function ResidentialBorrowerPanel({
           <CollapsibleSection title="Assets & Liabilities">
             <div className="grid grid-cols-1 gap-10 lg:grid-cols-2">
               <div>
-                <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-[#13538A]">
+                <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-[#4C78F5]">
                   Assets
                 </p>
                 <div className="space-y-2">
@@ -613,8 +613,8 @@ export default function ResidentialBorrowerPanel({
 
             <div className="mt-4 grid grid-cols-1 gap-2 border-t border-slate-200 pt-4 text-sm dark:border-slate-700 md:grid-cols-3">
               <div className="flex items-baseline justify-between gap-2 md:justify-start">
-                <span className="font-medium text-[#13538A]">Total Assets</span>
-                <span className="font-semibold text-[#13538A]">
+                <span className="font-medium text-[#4C78F5]">Total Assets</span>
+                <span className="font-semibold text-[#4C78F5]">
                   ${totalAssets.toLocaleString()}
                 </span>
               </div>

@@ -65,7 +65,7 @@ export default function ApplicationPipeline({
             key={stage.key}
             type="button"
             onClick={() => onStageClick?.(stage.key)}
-            className={`relative rounded-lg border border-gray-100 p-3 text-left transition hover:border-[#13538A]/25 hover:shadow-sm dark:border-gray-800 ${stage.soft}`}
+            className={`relative rounded-lg border border-gray-100 p-3 text-left transition hover:border-[#4C78F5]/25 hover:shadow-sm dark:border-gray-800 ${stage.soft}`}
           >
             {index < stages.length - 1 ? (
               <span className="pointer-events-none absolute -right-1 top-1/2 z-10 hidden h-2 w-2 -translate-y-1/2 rotate-45 border-r border-t border-gray-200 bg-inherit xl:block dark:border-gray-700" />

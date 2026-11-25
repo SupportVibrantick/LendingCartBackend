@@ -49,13 +49,13 @@ type DocumentControlsBarProps = {
 };
 
 const selectClass =
-  "w-full appearance-none rounded-lg border border-slate-200 bg-white py-2.5 pl-9 pr-9 text-sm text-slate-800 outline-none transition hover:border-slate-300 focus:border-[#3A99D8] focus:ring-2 focus:ring-[#3A99D8]/20 dark:border-slate-700 dark:bg-slate-950 dark:text-white dark:hover:border-slate-600";
+  "h-10 w-full appearance-none rounded-xl border border-slate-200 bg-white py-2 pl-9 pr-9 text-sm text-slate-800 outline-none transition hover:border-slate-300 focus:border-[#4C78F5]/50 focus:ring-2 focus:ring-[#4C78F5]/20 dark:border-slate-700 dark:bg-slate-950 dark:text-white dark:hover:border-slate-600";
 
 const labelClass =
-  "mb-1.5 block text-[11px] font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400";
+  "mb-1.5 block text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-400";
 
 const searchInputClass =
-  "w-full rounded-lg border border-slate-200 bg-white py-2.5 pl-9 pr-9 text-sm text-slate-800 outline-none transition placeholder:text-slate-400 hover:border-slate-300 focus:border-[#3A99D8] focus:ring-2 focus:ring-[#3A99D8]/20 dark:border-slate-700 dark:bg-slate-950 dark:text-white [&::-webkit-search-cancel-button]:hidden [&::-webkit-search-decoration]:hidden";
+  "h-10 w-full rounded-xl border border-slate-200 bg-white py-2 pl-9 pr-9 text-sm text-slate-800 outline-none transition placeholder:text-slate-400 hover:border-slate-300 focus:border-[#4C78F5]/50 focus:ring-2 focus:ring-[#4C78F5]/20 dark:border-slate-700 dark:bg-slate-950 dark:text-white [&::-webkit-search-cancel-button]:hidden [&::-webkit-search-decoration]:hidden";
 
 export default function DocumentControlsBar({
   autoForwardEnabled,
@@ -101,11 +101,11 @@ export default function DocumentControlsBar({
   };
 
   return (
-    <div className="mb-5 space-y-3">
+    <div className="space-y-3">
       <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
         {autoForwardEliteLocked && (
           <>
-            <div className="flex h-full flex-col gap-3 rounded-xl border border-amber-200 bg-amber-50/50 px-4 py-3.5 dark:border-amber-900/40 dark:bg-amber-950/20 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex h-full flex-col gap-3 rounded-xl border border-amber-200 bg-amber-50/50 px-4 py-3 shadow-none dark:border-amber-900/40 dark:bg-amber-950/20 sm:flex-row sm:items-center sm:justify-between">
               <div className="flex min-w-0 flex-1 items-start gap-3 sm:items-center">
                 <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-amber-100 text-amber-700 dark:bg-amber-950/50 dark:text-amber-300">
                   <Zap size={16} />
@@ -115,7 +115,7 @@ export default function DocumentControlsBar({
                     <p className="text-sm font-semibold text-slate-800 dark:text-white">
                       Auto Forward to Lender
                     </p>
-                    <span className="rounded-md bg-amber-500/15 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-amber-700 dark:text-amber-300">
+                    <span className="rounded-full bg-amber-500/15 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-700 dark:text-amber-300">
                       Elite
                     </span>
                   </div>
@@ -125,7 +125,7 @@ export default function DocumentControlsBar({
                 </div>
               </div>
             </div>
-            <div className="flex h-full flex-col gap-3 rounded-xl border border-amber-200 bg-amber-50/50 px-4 py-3.5 dark:border-amber-900/40 dark:bg-amber-950/20 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex h-full flex-col gap-3 rounded-xl border border-amber-200 bg-amber-50/50 px-4 py-3 shadow-none dark:border-amber-900/40 dark:bg-amber-950/20 sm:flex-row sm:items-center sm:justify-between">
               <div className="flex min-w-0 flex-1 items-start gap-3 sm:items-center">
                 <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-amber-100 text-amber-700 dark:bg-amber-950/50 dark:text-amber-300">
                   <UserRound size={16} />
@@ -135,7 +135,7 @@ export default function DocumentControlsBar({
                     <p className="text-sm font-semibold text-slate-800 dark:text-white">
                       Auto Forward to Client
                     </p>
-                    <span className="rounded-md bg-amber-500/15 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-amber-700 dark:text-amber-300">
+                    <span className="rounded-full bg-amber-500/15 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-700 dark:text-amber-300">
                       Elite
                     </span>
                   </div>
@@ -150,10 +150,10 @@ export default function DocumentControlsBar({
 
         {showAutoForward && (
           <div
-            className={`flex h-full flex-col gap-3 rounded-xl border px-4 py-3.5 transition sm:flex-row sm:items-center sm:justify-between ${
+            className={`flex h-full flex-col gap-3 rounded-xl border px-4 py-3 shadow-none transition sm:flex-row sm:items-center sm:justify-between ${
               autoForwardEnabled
-                ? "border-emerald-200 bg-emerald-50/50 dark:border-emerald-900/40 dark:bg-emerald-950/20"
-                : "border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-900"
+                ? "border-emerald-200 bg-emerald-50/40 dark:border-emerald-900/40 dark:bg-emerald-950/20"
+                : "border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-950"
             }`}
           >
             <div className="flex min-w-0 flex-1 items-start gap-3 sm:items-center">
@@ -161,7 +161,7 @@ export default function DocumentControlsBar({
                 className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${
                   autoForwardEnabled
                     ? "bg-emerald-600 text-white"
-                    : "bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400"
+                    : "bg-[#4C78F5]/10 text-[#4C78F5]"
                 }`}
               >
                 <Zap size={16} />
@@ -173,10 +173,10 @@ export default function DocumentControlsBar({
                     Auto Forward to Lender
                   </p>
                   <span
-                    className={`inline-flex items-center rounded-md border px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide ${
+                    className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${
                       autoForwardEnabled
-                        ? "border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300"
-                        : "border-slate-200 bg-slate-50 text-slate-600 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-400"
+                        ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300"
+                        : "bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400"
                     }`}
                   >
                     {autoForwardEnabled ? "On" : "Off"}
@@ -198,7 +198,9 @@ export default function DocumentControlsBar({
               disabled={autoForwardSaving}
               onClick={onToggleAutoForward}
               className={`relative inline-flex h-7 w-12 shrink-0 items-center rounded-full transition-colors duration-200 self-end sm:self-center ${
-                autoForwardEnabled ? "bg-emerald-500" : "bg-slate-300 dark:bg-slate-600"
+                autoForwardEnabled
+                  ? "bg-emerald-500"
+                  : "bg-slate-300 dark:bg-slate-600"
               } ${autoForwardSaving ? "cursor-not-allowed opacity-60" : "cursor-pointer"}`}
             >
               <span
@@ -212,18 +214,18 @@ export default function DocumentControlsBar({
 
         {showAutoForwardToClient && onToggleAutoForwardToClient && (
           <div
-            className={`flex h-full flex-col gap-3 rounded-xl border px-4 py-3.5 transition sm:flex-row sm:items-center sm:justify-between ${
+            className={`flex h-full flex-col gap-3 rounded-xl border px-4 py-3 shadow-none transition sm:flex-row sm:items-center sm:justify-between ${
               autoForwardToClientEnabled
-                ? "border-sky-200 bg-sky-50/50 dark:border-sky-900/40 dark:bg-sky-950/20"
-                : "border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-900"
+                ? "border-[#4C78F5]/30 bg-[#4C78F5]/[0.06] dark:border-sky-900/40 dark:bg-sky-950/20"
+                : "border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-950"
             }`}
           >
             <div className="flex min-w-0 flex-1 items-start gap-3 sm:items-center">
               <div
                 className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${
                   autoForwardToClientEnabled
-                    ? "bg-[#3A99D8] text-white"
-                    : "bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400"
+                    ? "bg-[#4C78F5] text-white"
+                    : "bg-[#4C78F5]/10 text-[#4C78F5]"
                 }`}
               >
                 <UserRound size={16} />
@@ -235,10 +237,10 @@ export default function DocumentControlsBar({
                     Auto Forward to Client
                   </p>
                   <span
-                    className={`inline-flex items-center rounded-md border px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide ${
+                    className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${
                       autoForwardToClientEnabled
-                        ? "border-sky-200 bg-sky-50 text-[#2f87c2] dark:border-sky-800 dark:bg-sky-950/40 dark:text-sky-300"
-                        : "border-slate-200 bg-slate-50 text-slate-600 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-400"
+                        ? "bg-[#4C78F5]/10 text-[#4C78F5]"
+                        : "bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400"
                     }`}
                   >
                     {autoForwardToClientEnabled ? "On" : "Off"}
@@ -261,7 +263,7 @@ export default function DocumentControlsBar({
               onClick={onToggleAutoForwardToClient}
               className={`relative inline-flex h-7 w-12 shrink-0 items-center rounded-full transition-colors duration-200 self-end sm:self-center ${
                 autoForwardToClientEnabled
-                  ? "bg-[#3A99D8]"
+                  ? "bg-[#4C78F5]"
                   : "bg-slate-300 dark:bg-slate-600"
               } ${autoForwardToClientSaving ? "cursor-not-allowed opacity-60" : "cursor-pointer"}`}
             >
@@ -277,13 +279,13 @@ export default function DocumentControlsBar({
 
       {manualSendSlot ? <div>{manualSendSlot}</div> : null}
 
-      <div className="rounded-xl border border-slate-200 bg-white p-4 dark:border-slate-700 dark:bg-slate-900">
-        <div className="mb-3 flex items-center justify-between gap-3">
-          <div className="flex items-center gap-2 text-slate-700 dark:text-slate-200">
-            <Filter size={15} className="text-[#3A99D8]" />
+      <div className="rounded-xl border border-slate-200 bg-white shadow-none dark:border-slate-700 dark:bg-slate-950">
+        <div className="flex items-center justify-between gap-3 border-b border-slate-100 px-4 py-2.5 dark:border-slate-800">
+          <div className="flex items-center gap-2 text-slate-800 dark:text-slate-100">
+            <Filter size={15} className="text-[#4C78F5]" />
             <span className="text-sm font-semibold">Filter & search</span>
             {hasActiveFilters && (
-              <span className="rounded-md bg-[#3A99D8]/15 px-1.5 py-0.5 text-[10px] font-semibold text-[#2f87c2]">
+              <span className="rounded-full bg-[#4C78F5]/10 px-2 py-0.5 text-[10px] font-semibold text-[#4C78F5]">
                 Active
               </span>
             )}
@@ -301,7 +303,7 @@ export default function DocumentControlsBar({
           )}
         </div>
 
-        <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-12">
+        <div className="grid grid-cols-1 gap-3 p-3 md:grid-cols-2 xl:grid-cols-12 sm:p-4">
           <div
             className={
               visibleLenderFilters
@@ -314,7 +316,7 @@ export default function DocumentControlsBar({
             </label>
             <div className="relative">
               <Search
-                size={16}
+                size={15}
                 className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
               />
               <input
@@ -355,7 +357,7 @@ export default function DocumentControlsBar({
               </label>
               <div className="relative">
                 <UserRound
-                  size={16}
+                  size={15}
                   className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
                 />
                 <select
@@ -389,7 +391,7 @@ export default function DocumentControlsBar({
               </label>
               <div className="relative">
                 <Building2
-                  size={16}
+                  size={15}
                   className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
                 />
                 <select
@@ -434,7 +436,7 @@ export default function DocumentControlsBar({
               </label>
               <div className="relative">
                 <SendHorizonal
-                  size={16}
+                  size={15}
                   className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
                 />
                 <select

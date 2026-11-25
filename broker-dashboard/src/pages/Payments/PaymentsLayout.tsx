@@ -1,39 +1,43 @@
 import { NavLink, Outlet } from "react-router";
+import { Building2, FileText, Wallet } from "lucide-react";
 
 const tabs = [
-  { label: "Invoices", to: "/payments/invoices" },
-  { label: "Commissions", to: "/payments/commissions" },
-  { label: "Banking", to: "/payments/banking" },
+  { label: "Invoices", to: "/payments/invoices", icon: FileText },
+  { label: "Commissions", to: "/payments/commissions", icon: Wallet },
+  { label: "Banking", to: "/payments/banking", icon: Building2 },
 ];
 
 export default function PaymentsLayout() {
   return (
-    <div className="space-y-6">
+    <div className="w-full min-w-0 space-y-4 pb-4 text-text-primary dark:text-slate-100">
       <div>
-        <h1 className="text-2xl font-semibold text-slate-900">Payments</h1>
-        <p className="mt-1 text-sm text-slate-500">
-          Manage commission invoices, payouts, firm banking, and payment records. 
+        <h1 className="ds-page-title">Payments</h1>
+        <p className="ds-page-subtitle">
+          Manage commission invoices, payouts, firm banking, and payment
+          records.
         </p>
       </div>
 
-      <div className="border-b border-slate-200">
-        <nav className="-mb-px flex flex-wrap gap-1">
-          {tabs.map((tab) => (
+      <div className="inline-flex w-full gap-1 rounded-xl border border-border bg-white p-1 dark:border-slate-700 dark:bg-slate-950 sm:w-auto">
+        {tabs.map((tab) => {
+          const Icon = tab.icon;
+          return (
             <NavLink
               key={tab.to}
               to={tab.to}
               className={({ isActive }) =>
-                `rounded-t-lg px-4 py-2.5 text-sm font-medium transition-colors ${
+                `inline-flex flex-1 items-center justify-center gap-1.5 rounded-lg px-3.5 py-1.5 text-xs font-semibold transition sm:flex-none ${
                   isActive
-                    ? "border-b-2 border-[#13538A] text-[#13538A]"
-                    : "text-slate-500 hover:text-slate-800"
+                    ? "bg-[#4C78F5] text-white"
+                    : "text-text-secondary hover:bg-surface hover:text-[#4C78F5] dark:text-slate-300 dark:hover:bg-slate-900"
                 }`
               }
             >
+              <Icon size={14} />
               {tab.label}
             </NavLink>
-          ))}
-        </nav>
+          );
+        })}
       </div>
 
       <Outlet />

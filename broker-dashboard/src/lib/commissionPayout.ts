@@ -38,7 +38,7 @@ export async function promptRecordCommissionPayout(
       icon: "info",
       title: "Already paid",
       text: "This commission line has no remaining balance.",
-      confirmButtonColor: "#13538A",
+      confirmButtonColor: "#4C78F5",
     });
     return null;
   }

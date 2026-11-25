@@ -141,27 +141,25 @@ export default function SignInForm() {
   };
 
   const inputWrap = (hasError: boolean) =>
-    `flex items-center gap-3 rounded-xl border px-4 py-3.5 transition focus-within:ring-2 focus-within:ring-[#13538A]/30 ${
+    `flex items-center gap-3 rounded-xl border px-4 py-3.5 transition focus-within:ring-2 focus-within:ring-[#4C78F5]/25 ${
       hasError
-        ? "border-red-300 bg-red-50 dark:border-red-500/50 dark:bg-red-950/20"
-        : "border-gray-200 bg-gray-50 focus-within:border-[#13538A] focus-within:bg-white dark:border-gray-700 dark:bg-gray-900 dark:focus-within:border-cyan-500 dark:focus-within:bg-gray-900"
+        ? "border-red-300 bg-red-50"
+        : "border-[#E2E8F0] bg-[#F7F9FC] focus-within:border-[#4C78F5] focus-within:bg-white"
     }`;
 
   return (
-    <div className="w-full">
+    <div className="w-full font-[Inter,ui-sans-serif,system-ui,sans-serif] antialiased">
       {/* Mobile logo */}
       <div className="mb-8 flex items-center gap-3 lg:hidden">
         <img
           src="/loanAutomation.jpeg"
           alt="Loan Automation"
-          className="h-12 w-12 rounded-full ring-2 ring-[#13538A]/20"
+          className="h-12 w-12 rounded-full ring-2 ring-[#4C78F5]/20"
         />
         <div>
-          <p className="text-lg font-bold text-[#13538A] dark:text-cyan-400">
-            Loan Automation
-          </p>
-          <p className="text-[10px] font-medium uppercase tracking-wider text-gray-400">
-            Broker Dashboard
+          <p className="text-lg font-semibold text-[#4C78F5]">Loan Automation</p>
+          <p className="text-[10px] font-medium uppercase tracking-wider text-[#94A3B8]">
+            Broker Portal
           </p>
         </div>
       </div>
@@ -171,26 +169,26 @@ export default function SignInForm() {
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.45 }}
       >
-        <span className="mb-4 inline-flex rounded-full border border-[#13538A]/20 bg-[#13538A]/5 px-3 py-1 text-xs font-semibold text-[#13538A] dark:border-cyan-500/30 dark:bg-cyan-500/10 dark:text-cyan-300">
+        <span className="mb-4 inline-flex rounded-full border border-[#4C78F5]/20 bg-[#4C78F5]/10 px-3 py-1 text-xs font-semibold text-[#4C78F5]">
           Broker Portal
         </span>
 
-        <h1 className="text-3xl font-bold tracking-tight text-gray-900 dark:text-white">
+        <h1 className="text-[26px] font-semibold tracking-tight text-[#111827]">
           Welcome back
         </h1>
-        <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">
+        <p className="mt-2 text-[13px] leading-relaxed text-[#64748B]">
           Sign in to manage your loan pipeline, lenders, and team.
         </p>
 
         <form onSubmit={handleSubmit} className="mt-8 space-y-5">
           <div>
-            <label className="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300">
+            <label className="mb-2 block text-sm font-medium text-[#334155]">
               Email address
             </label>
             <div className={inputWrap(Boolean(errors.email))}>
               <Mail
                 size={18}
-                className={errors.email ? "text-red-400" : "text-gray-400"}
+                className={errors.email ? "text-red-400" : "text-[#94A3B8]"}
               />
               <input
                 type="email"
@@ -201,7 +199,7 @@ export default function SignInForm() {
                   setEmail(e.target.value);
                   setErrors((p) => ({ ...p, email: undefined }));
                 }}
-                className="w-full bg-transparent text-sm text-gray-900 outline-none placeholder:text-gray-400 dark:text-white"
+                className="w-full bg-transparent text-sm text-[#111827] outline-none placeholder:text-[#94A3B8]"
               />
             </div>
             {errors.email && (
@@ -212,13 +210,15 @@ export default function SignInForm() {
           </div>
 
           <div>
-            <label className="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300">
+            <label className="mb-2 block text-sm font-medium text-[#334155]">
               Password
             </label>
             <div className={inputWrap(Boolean(errors.password))}>
               <LockKeyhole
                 size={18}
-                className={errors.password ? "text-red-400" : "text-gray-400"}
+                className={
+                  errors.password ? "text-red-400" : "text-[#94A3B8]"
+                }
               />
               <input
                 type={showPassword ? "text" : "password"}
@@ -229,12 +229,12 @@ export default function SignInForm() {
                   setPassword(e.target.value);
                   setErrors((p) => ({ ...p, password: undefined }));
                 }}
-                className="w-full bg-transparent text-sm text-gray-900 outline-none placeholder:text-gray-400 dark:text-white"
+                className="w-full bg-transparent text-sm text-[#111827] outline-none placeholder:text-[#94A3B8]"
               />
               <button
                 type="button"
                 onClick={() => setShowPassword(!showPassword)}
-                className="text-gray-400 transition hover:text-gray-600 dark:hover:text-gray-300"
+                className="text-[#94A3B8] transition hover:text-[#64748B]"
                 aria-label={showPassword ? "Hide password" : "Show password"}
               >
                 {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
@@ -250,13 +250,11 @@ export default function SignInForm() {
           <div className="flex items-center justify-between gap-4">
             <label className="flex cursor-pointer items-center gap-2.5">
               <Checkbox checked={isChecked} onChange={setIsChecked} />
-              <span className="text-sm text-gray-600 dark:text-gray-400">
-                Keep me signed in
-              </span>
+              <span className="text-sm text-[#64748B]">Keep me signed in</span>
             </label>
             <Link
               to="/reset-password"
-              className="text-sm font-medium text-[#13538A] hover:text-[#0f3d66] dark:text-cyan-400 dark:hover:text-cyan-300"
+              className="text-sm font-medium text-[#4C78F5] transition hover:text-[#3B66E0]"
             >
               Forgot password?
             </Link>
@@ -266,7 +264,7 @@ export default function SignInForm() {
             whileTap={{ scale: 0.98 }}
             type="submit"
             disabled={isSubmitting}
-            className="group flex w-full items-center justify-center gap-2 rounded-xl bg-linear-to-r from-[#13538A] to-[#1a6aad] px-5 py-3.5 text-sm font-semibold text-white shadow-lg shadow-[#13538A]/25 transition hover:shadow-[#13538A]/40 disabled:cursor-not-allowed disabled:opacity-70"
+            className="group flex w-full items-center justify-center gap-2 rounded-xl bg-[#4C78F5] px-5 py-3.5 text-sm font-semibold text-white shadow-lg shadow-[#4C78F5]/25 transition hover:bg-[#3B66E0] hover:shadow-[#4C78F5]/35 disabled:cursor-not-allowed disabled:opacity-70"
           >
             {isSubmitting ? (
               <>
@@ -284,35 +282,9 @@ export default function SignInForm() {
             )}
           </motion.button>
         </form>
-
-        {/* <p className="mt-6 text-center text-sm text-gray-600 dark:text-gray-400">
-          Don&apos;t have an account?{" "}
-          <Link
-            to="/signup"
-            className="font-semibold text-[#13538A] hover:underline dark:text-cyan-400"
-          >
-            Create broker account
-          </Link>
-        </p> */}
-
-        {/* <div className="mt-8 flex flex-wrap items-center justify-center gap-x-4 gap-y-2 border-t border-gray-100 pt-6 dark:border-gray-800">
-          <Link
-            to="/sub-broker/login"
-            className="text-xs font-medium text-gray-500 transition hover:text-[#13538A] dark:text-gray-400 dark:hover:text-cyan-400"
-          >
-            Sub-broker login
-          </Link>
-          <span className="text-gray-300 dark:text-gray-700">·</span>
-          <Link
-            to="/loan-officer/login"
-            className="text-xs font-medium text-gray-500 transition hover:text-[#13538A] dark:text-gray-400 dark:hover:text-cyan-400"
-          >
-            Loan officer login
-          </Link>
-        </div> */}
       </motion.div>
 
-      <p className="mt-8 text-center text-xs text-gray-400">
+      <p className="mt-8 text-center text-xs text-[#94A3B8]">
         Developed by Vibrantick Inc
       </p>
     </div>

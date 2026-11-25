@@ -101,7 +101,7 @@ export default function WebsiteBuilder() {
       </div>
 
       {agencyReady || oauthConnected ? (
-        <div className="mb-6 flex flex-wrap items-center justify-between gap-4 rounded-xl border border-[#13538A]/20 bg-[#13538A]/5 px-5 py-4 dark:border-[#13538A]/30 dark:bg-[#13538A]/10">
+        <div className="mb-6 flex flex-wrap items-center justify-between gap-4 rounded-xl border border-[#4C78F5]/20 bg-[#4C78F5]/5 px-5 py-4 dark:border-[#4C78F5]/30 dark:bg-[#4C78F5]/10">
           <p className="text-sm text-slate-700 dark:text-slate-200">
             {agencyReady
               ? "Your included CRM has the website builder. Create and publish sites in GoHighLevel."
@@ -111,7 +111,7 @@ export default function WebsiteBuilder() {
             href={ghlDashboardUrl}
             target="_blank"
             rel="noopener noreferrer"
-            className="inline-flex items-center gap-2 rounded-lg bg-[#13538A] px-4 py-2 text-sm font-semibold text-white transition hover:bg-[#0f4270]"
+            className="inline-flex items-center gap-2 rounded-lg bg-[#4C78F5] px-4 py-2 text-sm font-semibold text-white transition hover:bg-[#0f4270]"
           >
             <ExternalLink className="h-4 w-4" />
             Open CRM dashboard
@@ -121,7 +121,7 @@ export default function WebsiteBuilder() {
 
       {loading ? (
         <div className="flex min-h-[280px] items-center justify-center">
-          <Loader2 className="h-8 w-8 animate-spin text-[#13538A]" />
+          <Loader2 className="h-8 w-8 animate-spin text-[#4C78F5]" />
         </div>
       ) : !oauthConnected && agencyReady ? (
         <WebsiteBuilderEmptyState

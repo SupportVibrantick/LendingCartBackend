@@ -106,7 +106,7 @@ function SummaryCard({
       type="button"
       onClick={onClick}
       className={`rounded-2xl border p-4 text-left transition-all ${active
-        ? "border-[#13538A] bg-[#13538A]/5 shadow-sm"
+        ? "border-[#4C78F5] bg-[#4C78F5]/5 shadow-sm"
         : "border-slate-200 bg-white hover:border-slate-300"
         }`}
     >
@@ -491,7 +491,7 @@ export default function InvoicesPage() {
                           onClick={(event) => openRowMenu(row.id, event)}
                           className={`inline-flex h-8 w-8 items-center justify-center rounded-lg border transition ${
                             openMenuId === row.id
-                              ? "border-[#13538A]/30 bg-[#13538A]/5 text-[#13538A]"
+                              ? "border-[#4C78F5]/30 bg-[#4C78F5]/5 text-[#4C78F5]"
                               : "border-slate-200 bg-white text-slate-500 hover:border-slate-300 hover:bg-slate-50 hover:text-slate-800"
                           }`}
                           title="More actions"
@@ -573,7 +573,7 @@ export default function InvoicesPage() {
                 disabled={downloadingId === activeMenuRow.id}
                 className="flex w-full items-center gap-2 px-3 py-2 text-xs text-slate-700 transition hover:bg-slate-50 disabled:opacity-60"
               >
-                <Download className="h-3.5 w-3.5 text-[#13538A]" />
+                <Download className="h-3.5 w-3.5 text-[#4C78F5]" />
                 {downloadingId === activeMenuRow.id
                   ? "Downloading..."
                   : "Download PDF"}

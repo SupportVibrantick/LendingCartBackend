@@ -14,7 +14,7 @@ export default function RichEditor({
     extensions: [
       StarterKit,
       Placeholder.configure({
-        placeholder: "Write your campaign message...",
+        placeholder: "Write your campaign message…",
         showOnlyWhenEditable: true,
         emptyEditorClass: "is-empty",
       }),
@@ -28,55 +28,59 @@ export default function RichEditor({
   if (!editor) return null;
 
   const btnClass = (active: boolean) =>
-    `rounded-lg p-2 transition-all ${
+    `rounded-lg p-2 transition ${
       active
-        ? "bg-[#13538A]/10 text-[#13538A]"
-        : "text-slate-500 hover:bg-slate-100 hover:text-slate-700 dark:hover:bg-slate-800 dark:hover:text-slate-200"
+        ? "bg-[#4C78F5]/10 text-[#4C78F5]"
+        : "text-text-secondary hover:bg-surface hover:text-text-primary"
     }`;
 
   return (
-    <div className="overflow-hidden rounded-xl border border-slate-200 bg-white transition focus-within:border-[#13538A] focus-within:ring-2 focus-within:ring-[#13538A]/20 dark:border-slate-700 dark:bg-slate-900">
-      <div className="flex items-center justify-between border-b border-slate-100 bg-slate-50 px-3 py-2 dark:border-slate-800 dark:bg-slate-800/50">
-        <div className="flex items-center gap-1">
+    <div className="overflow-hidden rounded-xl border border-border bg-white transition focus-within:border-[#4C78F5]/50 focus-within:ring-2 focus-within:ring-[#4C78F5]/15 dark:border-slate-700 dark:bg-slate-950">
+      <div className="flex items-center border-b border-border bg-slate-50/70 px-2.5 py-1.5 dark:border-slate-800 dark:bg-slate-900/40">
+        <div className="flex items-center gap-0.5">
           <button
             type="button"
             onClick={() => editor.chain().focus().toggleBold().run()}
             className={btnClass(editor.isActive("bold"))}
+            aria-label="Bold"
           >
-            <Bold size={16} />
+            <Bold size={15} />
           </button>
 
           <button
             type="button"
             onClick={() => editor.chain().focus().toggleItalic().run()}
             className={btnClass(editor.isActive("italic"))}
+            aria-label="Italic"
           >
-            <Italic size={16} />
+            <Italic size={15} />
           </button>
 
-          <div className="mx-2 h-5 w-px bg-slate-200 dark:bg-slate-700" />
+          <div className="mx-1.5 h-4 w-px bg-border dark:bg-slate-700" />
 
           <button
             type="button"
             onClick={() => editor.chain().focus().toggleBulletList().run()}
             className={btnClass(editor.isActive("bulletList"))}
+            aria-label="Bullet list"
           >
-            <List size={16} />
+            <List size={15} />
           </button>
 
           <button
             type="button"
             onClick={() => editor.chain().focus().toggleOrderedList().run()}
             className={btnClass(editor.isActive("orderedList"))}
+            aria-label="Numbered list"
           >
-            <ListOrdered size={16} />
+            <ListOrdered size={15} />
           </button>
         </div>
       </div>
 
       <EditorContent
         editor={editor}
-        className="tiptap-content min-h-[220px] px-5 py-4 focus:outline-none"
+        className="tiptap-content min-h-[200px] px-4 py-3.5 text-sm leading-relaxed focus:outline-none"
       />
     </div>
   );

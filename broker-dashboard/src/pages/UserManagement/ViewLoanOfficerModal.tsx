@@ -25,7 +25,7 @@ type Props = {
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <section className="space-y-3">
-      <h4 className="border-b border-gray-100 pb-2 text-xs font-semibold uppercase tracking-wider text-[#13538A] dark:border-gray-800">
+      <h4 className="border-b border-gray-100 pb-2 text-xs font-semibold uppercase tracking-wider text-[#4C78F5] dark:border-gray-800">
         {title}
       </h4>
       {children}
@@ -261,7 +261,7 @@ export default function ViewLoanOfficerModal({
                         href={profile.website}
                         target="_blank"
                         rel="noreferrer"
-                        className="inline-flex items-center gap-1 text-[#13538A] hover:underline"
+                        className="inline-flex items-center gap-1 text-[#4C78F5] hover:underline"
                       >
                         {profile.website}
                         <ExternalLink className="h-3.5 w-3.5" />
@@ -364,7 +364,7 @@ export default function ViewLoanOfficerModal({
                         href={avatarUrl}
                         target="_blank"
                         rel="noreferrer"
-                        className="inline-flex items-center gap-1 text-[#13538A] hover:underline"
+                        className="inline-flex items-center gap-1 text-[#4C78F5] hover:underline"
                       >
                         View avatar <ExternalLink className="h-3.5 w-3.5" />
                       </a>
@@ -381,7 +381,7 @@ export default function ViewLoanOfficerModal({
                         href={w9Url}
                         target="_blank"
                         rel="noreferrer"
-                        className="inline-flex items-center gap-1 text-[#13538A] hover:underline"
+                        className="inline-flex items-center gap-1 text-[#4C78F5] hover:underline"
                       >
                         View W9 <ExternalLink className="h-3.5 w-3.5" />
                       </a>

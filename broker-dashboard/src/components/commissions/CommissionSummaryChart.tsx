@@ -16,20 +16,20 @@ export default function CommissionSummaryChart({
 }: Props) {
   if (loading) {
     return (
-      <div className="h-full rounded-xl border border-gray-200 bg-white p-5 shadow-sm dark:border-gray-800 dark:bg-gray-900">
-        <div className="h-5 w-40 animate-pulse rounded bg-gray-200 dark:bg-gray-700" />
-        <div className="mt-4 h-[240px] animate-pulse rounded-xl bg-gray-100 dark:bg-gray-800" />
+      <div className="h-full rounded-2xl border border-border bg-white p-5 dark:border-slate-800 dark:bg-slate-900">
+        <div className="h-5 w-40 animate-pulse rounded bg-surface dark:bg-slate-800" />
+        <div className="mt-4 h-[240px] animate-pulse rounded-xl bg-surface dark:bg-slate-800" />
       </div>
     );
   }
 
   if (!summary) {
     return (
-      <div className="flex h-full flex-col rounded-xl border border-gray-200 bg-white p-5 shadow-sm dark:border-gray-800 dark:bg-gray-900">
-        <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+      <div className="flex h-full flex-col rounded-2xl border border-border bg-white p-5 dark:border-slate-800 dark:bg-slate-900">
+        <h3 className="text-[16px] font-semibold text-text-primary dark:text-white">
           {title}
         </h3>
-        <p className="mt-4 text-sm text-gray-500">No commission data yet.</p>
+        <p className="mt-4 text-sm text-text-secondary">No commission data yet.</p>
       </div>
     );
   }
@@ -41,7 +41,7 @@ export default function CommissionSummaryChart({
       type: "bar",
       stacked: true,
       toolbar: { show: false },
-      fontFamily: "Outfit, sans-serif",
+      fontFamily: "Inter, sans-serif",
     },
     colors: ["#F59E0B", "#059669"],
     plotOptions: {
@@ -91,22 +91,19 @@ export default function CommissionSummaryChart({
   ];
 
   return (
-    <div className="flex h-full flex-col rounded-xl border border-gray-200 bg-white p-5 shadow-sm dark:border-gray-800 dark:bg-gray-900">
-      <div className="mb-2 flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[#13538A]">
-            Commissions
-          </p>
-          <h3 className="mt-0.5 text-lg font-semibold text-gray-900 dark:text-white">
+    <div className="flex h-full flex-col rounded-2xl border border-border bg-white p-5 dark:border-slate-800 dark:bg-slate-900">
+      <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
+        <div className="min-w-0">
+          <h3 className="truncate text-[16px] font-semibold leading-tight text-text-primary dark:text-white">
             {title}
           </h3>
-          <p className="text-xs text-gray-500">
+          <p className="mt-1 text-[13px] text-text-secondary">
             Last {summary.months.length} months
           </p>
         </div>
         <div className="flex gap-4 text-sm">
           <div>
-            <p className="text-[10px] uppercase tracking-wide text-gray-500">
+            <p className="text-[10px] uppercase tracking-wide text-text-secondary">
               Pending
             </p>
             <p className="font-semibold text-amber-600">
@@ -114,7 +111,7 @@ export default function CommissionSummaryChart({
             </p>
           </div>
           <div>
-            <p className="text-[10px] uppercase tracking-wide text-gray-500">
+            <p className="text-[10px] uppercase tracking-wide text-text-secondary">
               Paid
             </p>
             <p className="font-semibold text-emerald-600">

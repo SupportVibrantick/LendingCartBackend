@@ -377,7 +377,7 @@ export default function ActiveApplication() {
         {/* LEFT SIDE */}
         <div>
           <div className="flex gap-2 items-center">
-            <h1 className="text-2xl font-bold text-[#2C92D5]">
+            <h1 className="text-2xl font-bold text-[#4C78F5]">
               Application: {data.applicationName}
             </h1>
 
@@ -412,7 +412,7 @@ export default function ActiveApplication() {
           onClick={() => navigate("/loan-application")}
           className="
     inline-flex items-center gap-2
-    bg-[#2C92D5] text-white
+    bg-[#4C78F5] text-white
     px-4 py-2 text-sm font-medium
     rounded-xl
     hover:bg-[#237db6]

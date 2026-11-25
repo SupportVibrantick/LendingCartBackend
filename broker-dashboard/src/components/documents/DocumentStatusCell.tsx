@@ -287,7 +287,7 @@ export default function DocumentStatusCell({ doc, viewerPortal }: Props) {
   const rows = buildTrackRows(doc, summary.items, viewerPortal);
 
   return (
-    <div className="min-w-[220px] space-y-1.5">
+    <div className="min-w-[180px] space-y-1">
       {rows.map((row) => {
         const styles = stateStyles[row.state];
 
@@ -295,15 +295,15 @@ export default function DocumentStatusCell({ doc, viewerPortal }: Props) {
           <div
             key={row.key}
             title={row.title}
-            className="grid grid-cols-[76px_minmax(0,1fr)] items-center gap-2"
+            className="grid grid-cols-[68px_minmax(0,1fr)] items-center gap-1.5"
           >
-            <div className="flex items-center gap-1.5">
+            <div className="flex items-center gap-1">
               <span
-                className={`inline-flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded-full ${styles.dot}`}
+                className={`inline-flex h-3 w-3 shrink-0 items-center justify-center rounded-full ${styles.dot}`}
               >
                 <StateGlyph state={row.state} />
               </span>
-              <span className="text-[10px] font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+              <span className="text-[9px] font-semibold uppercase tracking-wide text-slate-400 dark:text-slate-500">
                 {row.label}
               </span>
             </div>

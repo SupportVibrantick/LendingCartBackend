@@ -154,7 +154,7 @@ export default function RecordPayoutModal({
           <div className="grid gap-3.5 lg:grid-cols-[1.05fr_1fr]">
             <div className="rounded-2xl border border-slate-200 bg-slate-50/80 px-3.5 py-3">
               <div className="flex items-center gap-2.5">
-                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-white text-[#13538A] shadow-sm ring-1 ring-slate-200">
+                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-white text-[#4C78F5] shadow-sm ring-1 ring-slate-200">
                   <UserRound size={16} />
                 </div>
                 <div className="min-w-0">
@@ -201,7 +201,7 @@ export default function RecordPayoutModal({
                     setError(null);
                   }}
                   disabled={submitting}
-                  className="w-full rounded-xl border border-slate-200 bg-white py-2.5 pl-7 pr-24 text-sm font-semibold text-slate-900 outline-none transition focus:border-[#13538A]/50 focus:ring-2 focus:ring-[#13538A]/15 disabled:opacity-60"
+                  className="w-full rounded-xl border border-slate-200 bg-white py-2.5 pl-7 pr-24 text-sm font-semibold text-slate-900 outline-none transition focus:border-[#4C78F5]/50 focus:ring-2 focus:ring-[#4C78F5]/15 disabled:opacity-60"
                 />
                 <button
                   type="button"
@@ -241,7 +241,7 @@ export default function RecordPayoutModal({
                     }}
                     className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition disabled:opacity-60 ${
                       selected
-                        ? "bg-[#13538A] text-white shadow-sm"
+                        ? "bg-[#4C78F5] text-white shadow-sm"
                         : "border border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:bg-slate-50"
                     }`}
                   >
@@ -264,7 +264,7 @@ export default function RecordPayoutModal({
                 onChange={(e) => setPaymentReference(e.target.value)}
                 disabled={submitting}
                 placeholder="Check #, wire ref, txn ID"
-                className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 outline-none transition focus:border-[#13538A]/50 focus:ring-2 focus:ring-[#13538A]/15 disabled:opacity-60"
+                className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 outline-none transition focus:border-[#4C78F5]/50 focus:ring-2 focus:ring-[#4C78F5]/15 disabled:opacity-60"
               />
             </div>
             <div>
@@ -278,7 +278,7 @@ export default function RecordPayoutModal({
                 onChange={(e) => setNotes(e.target.value)}
                 disabled={submitting}
                 placeholder="Internal note"
-                className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 outline-none transition focus:border-[#13538A]/50 focus:ring-2 focus:ring-[#13538A]/15 disabled:opacity-60"
+                className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 outline-none transition focus:border-[#4C78F5]/50 focus:ring-2 focus:ring-[#4C78F5]/15 disabled:opacity-60"
               />
             </div>
           </div>

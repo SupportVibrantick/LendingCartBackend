@@ -1,11 +1,12 @@
 import {
   ArrowUpDown,
+  CheckCircle2,
   ChevronDown,
   ChevronLeft,
   ChevronRight,
   ChevronUp,
   Eye,
-  Mail,
+  Lock,
   Pencil,
   Phone,
   Plus,
@@ -13,13 +14,14 @@ import {
   RefreshCw,
   Search,
   Shield,
+  ShieldOff,
   MoreVertical,
-  UserCheck,
   Users,
-  UserX,
   Activity,
   ExternalLink,
   Link2,
+  UserCheck,
+  UserX,
   X,
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -29,6 +31,7 @@ import toast from "react-hot-toast";
 // import Swal from "sweetalert2";
 // import Select from "react-select";
 import PageMeta from "../../components/common/PageMeta";
+import StatPill from "../../components/common/StatPill";
 import ViewLoanOfficerModal from "./ViewLoanOfficerModal";
 import { formatPhone, countGrantedLoPermissionUiSlots, getLoPermissionUiSlotTotal } from "./loanOfficerShared";
 import { buildImpersonatePortalUrl } from "../../lib/impersonateUrl";
@@ -78,8 +81,8 @@ interface LoanOfficer {
 }
 
 const AVATAR_TONES = [
-  "bg-blue-100 text-blue-700",
   "bg-violet-100 text-violet-700",
+  "bg-sky-100 text-sky-700",
   "bg-emerald-100 text-emerald-700",
   "bg-amber-100 text-amber-700",
 ];
@@ -91,15 +94,6 @@ function getInitials(first?: string, last?: string) {
 function getAvatarTone(seed: string) {
   const index = seed.split("").reduce((acc, char) => acc + char.charCodeAt(0), 0);
   return AVATAR_TONES[index % AVATAR_TONES.length];
-}
-
-function formatDate(value?: string) {
-  if (!value) return "";
-  return new Date(value).toLocaleDateString(undefined, {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-  });
 }
 
 function getTeamAssignmentTitle(
@@ -162,56 +156,44 @@ function SortHeader({
     <button
       type="button"
       onClick={onClick}
-      className={`group inline-flex w-full items-center gap-1.5 text-xs font-semibold uppercase tracking-wide transition ${
+      className={`group inline-flex w-full items-center gap-1 text-[11px] font-semibold uppercase tracking-[0.08em] transition ${
         align === "right" ? "justify-end" : "justify-start"
-      } ${active ? "text-[#13538A]" : "text-gray-500 hover:text-[#13538A] dark:text-gray-400"}`}
+      } ${active ? "text-[#4C78F5]" : "text-text-secondary hover:text-[#4C78F5] dark:text-slate-400"}`}
     >
       {label}
       {active ? (
         direction === "asc" ? (
-          <ChevronUp className="h-4 w-4 shrink-0" />
+          <ChevronUp className="h-3.5 w-3.5 shrink-0" />
         ) : (
-          <ChevronDown className="h-4 w-4 shrink-0" />
+          <ChevronDown className="h-3.5 w-3.5 shrink-0" />
         )
       ) : (
-        <ArrowUpDown className="h-3.5 w-3.5 shrink-0 opacity-0 transition group-hover:opacity-50" />
+        <ArrowUpDown className="h-3 w-3 shrink-0 opacity-0 transition group-hover:opacity-50" />
       )}
     </button>
   );
 }
 
-function OfficerStatusBadge({
-  active,
-  loading,
-  onClick,
-}: {
-  active: boolean;
-  loading?: boolean;
-  onClick: () => void;
-}) {
+function StatusPill({ active }: { active: boolean }) {
   return (
-    <button
-      type="button"
-      disabled={loading}
-      onClick={onClick}
-      title="Click to toggle status"
-      className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold transition disabled:opacity-50 ${
+    <span
+      className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-semibold ring-1 ring-inset ${
         active
-          ? "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200/80 hover:bg-emerald-100 dark:bg-emerald-500/10 dark:text-emerald-300 dark:ring-emerald-500/30"
-          : "bg-slate-100 text-slate-600 ring-1 ring-slate-200 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:ring-slate-700"
+          ? "bg-emerald-100 text-emerald-700 ring-emerald-200 dark:bg-emerald-500/10 dark:text-emerald-300 dark:ring-emerald-500/30"
+          : "bg-rose-100 text-rose-700 ring-rose-200 dark:bg-rose-500/10 dark:text-rose-300 dark:ring-rose-500/30"
       }`}
     >
-      <span
-        className={`h-1.5 w-1.5 rounded-full ${
-          active ? "bg-emerald-500" : "bg-slate-400"
-        }`}
-      />
-      {loading ? "Updating..." : active ? "Active" : "Disabled"}
-    </button>
+      {active ? (
+        <CheckCircle2 className="h-3.5 w-3.5" />
+      ) : (
+        <ShieldOff className="h-3.5 w-3.5" />
+      )}
+      {active ? "Active" : "Suspended"}
+    </span>
   );
 }
 
-function PermissionsBadge({
+function AccessBadge({
   permissions,
   allowedKeys,
 }: {
@@ -223,41 +205,19 @@ function PermissionsBadge({
     permissions || [],
     allowedKeys,
   );
-  const pct = total > 0 ? Math.round((slotCount / total) * 100) : 0;
   const isComplete = total > 0 && slotCount >= total;
-
-  if (!slotCount) {
-    return (
-      <span className="inline-flex items-center rounded-full bg-amber-50 px-2.5 py-1 text-xs font-medium text-amber-700 ring-1 ring-amber-200/80 dark:bg-amber-500/10 dark:text-amber-300 dark:ring-amber-500/20">
-        None
-      </span>
-    );
-  }
+  const label = !slotCount
+    ? "none"
+    : isComplete
+      ? "full access"
+      : `${slotCount}/${total}`;
 
   return (
     <span
       title={`${slotCount} of ${total} permissions granted`}
-      className={`inline-flex min-w-[5.5rem] items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold ring-1 ${
-        isComplete
-          ? "bg-emerald-50 text-emerald-700 ring-emerald-200/80 dark:bg-emerald-500/10 dark:text-emerald-300 dark:ring-emerald-500/25"
-          : "bg-[#13538A]/10 text-[#13538A] ring-[#13538A]/15 dark:bg-[#13538A]/20 dark:text-cyan-300 dark:ring-cyan-500/20"
-      }`}
+      className="inline-flex rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-[11px] font-medium capitalize text-slate-600 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300"
     >
-      <Shield className="h-3 w-3 shrink-0" />
-      <span className="tabular-nums">
-        {isComplete ? "All" : `${slotCount}/${total}`}
-      </span>
-      <span
-        className="ml-0.5 h-1 w-8 overflow-hidden rounded-full bg-black/10 dark:bg-white/15"
-        aria-hidden
-      >
-        <span
-          className={`block h-full rounded-full ${
-            isComplete ? "bg-emerald-500" : "bg-[#13538A] dark:bg-cyan-400"
-          }`}
-          style={{ width: `${pct}%` }}
-        />
-      </span>
+      {label}
     </span>
   );
 }
@@ -291,19 +251,19 @@ function CoBrokerBadge({
           return (
             <span
               key={broker.id}
-              className={`inline-flex h-7 w-7 items-center justify-center rounded-full text-[10px] font-bold ring-2 ring-white dark:ring-gray-900 ${getAvatarTone(name)}`}
+              className={`inline-flex h-6 w-6 items-center justify-center rounded-full text-[10px] font-bold ring-2 ring-white dark:ring-slate-950 ${getAvatarTone(name)}`}
             >
               {getInitials(broker.firstName, broker.lastName)}
             </span>
           );
         })}
         {remaining > 0 ? (
-          <span className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-gray-200 text-[10px] font-bold text-gray-700 ring-2 ring-white dark:bg-gray-700 dark:text-gray-200 dark:ring-gray-900">
+          <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-slate-100 text-[10px] font-bold text-text-secondary ring-2 ring-white dark:bg-slate-700 dark:text-slate-200 dark:ring-slate-950">
             +{remaining}
           </span>
         ) : null}
       </div>
-      <span className="truncate text-xs text-gray-600 dark:text-gray-300">
+      <span className="truncate text-xs text-text-secondary">
         {brokers.length === 1
           ? `${brokers[0].firstName || ""} ${brokers[0].lastName || ""}`.trim() ||
             brokers[0].email
@@ -313,39 +273,9 @@ function CoBrokerBadge({
   );
 }
 
-function StatCard({
-  icon: Icon,
-  label,
-  value,
-  iconWrap,
-}: {
-  icon: typeof Users;
-  label: string;
-  value: number | string;
-  iconWrap: string;
-}) {
-  return (
-    <div className="flex items-center gap-2.5 rounded-xl border border-gray-200/80 bg-white px-3.5 py-2.5 shadow-[0_1px_2px_rgba(15,23,42,0.04)] dark:border-gray-800 dark:bg-gray-900">
-      <div
-        className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${iconWrap}`}
-      >
-        <Icon className="h-4 w-4" />
-      </div>
-      <div className="min-w-0">
-        <p className="text-[11px] font-medium uppercase tracking-wide text-gray-400 dark:text-gray-500">
-          {label}
-        </p>
-        <p className="text-lg font-semibold leading-tight tabular-nums text-gray-900 dark:text-white">
-          {value}
-        </p>
-      </div>
-    </div>
-  );
-}
-
 type OfficersPageTab = "officers" | "activity";
 
-const PAGE_SIZE_OPTIONS = [5, 8, 10, 20] as const;
+const PAGE_SIZE_OPTIONS = [10, 15, 25] as const;
 
 export default function LoanOfficersPage() {
   const location = useLocation();
@@ -360,7 +290,7 @@ export default function LoanOfficersPage() {
   const [officers, setOfficers] = useState<LoanOfficer[]>([]);
   const [loading, setLoading] = useState(false);
   const [page, setPage] = useState(1);
-  const [limit, setLimit] = useState(8);
+  const [limit, setLimit] = useState(10);
   const [total, setTotal] = useState(0);
   const [totalPages, setTotalPages] = useState(1);
   const [listStats, setListStats] = useState({
@@ -576,25 +506,23 @@ export default function LoanOfficersPage() {
         setOfficers([]);
         setTotal(0);
         setTotalPages(1);
+        setListStats({ total: 0, active: 0, disabled: 0 });
         return;
       }
 
       setOfficers(json.data || []);
       setTotal(json.total ?? 0);
       setTotalPages(json.totalPages || 1);
-
-      if (json.stats) {
-        setListStats({
-          total: json.stats.total ?? 0,
-          active: json.stats.active ?? 0,
-          disabled: json.stats.disabled ?? 0,
-        });
-      }
+      setListStats({
+        total: json.stats?.total ?? json.total ?? 0,
+        active: json.stats?.active ?? 0,
+        disabled: json.stats?.disabled ?? 0,
+      });
 
       if (page > (json.totalPages || 1) && (json.totalPages || 1) >= 1) {
         setPage(json.totalPages || 1);
       }
-    } catch (err) { 
+    } catch (err) {
       console.error(err);
       toast.error("Failed to load loan officers");
     } finally {
@@ -696,8 +624,6 @@ export default function LoanOfficersPage() {
     () => officers.find((o) => o.id === activeMenuId) ?? null,
     [officers, activeMenuId],
   );
-
-  const stats = listStats;
 
   const toggleSort = (key: SortKey) => {
     if (sortKey === key) {
@@ -857,20 +783,11 @@ export default function LoanOfficersPage() {
         description="Manage loan officers and monitor team activity"
       />
 
-      <div className="space-y-3 pb-4">
-        {/* Compact page header */}
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+      <div className="w-full min-w-0 space-y-4 pb-4 text-text-primary dark:text-slate-100">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
           <div className="min-w-0">
-            <div className="mb-1 flex items-center gap-2">
-              <span className="inline-flex items-center gap-1 rounded-md bg-[#13538A]/10 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-[#13538A] dark:bg-[#13538A]/20 dark:text-cyan-300">
-                <Users className="h-3 w-3" />
-                User management
-              </span>
-            </div>
-            <h1 className="text-xl font-semibold tracking-tight text-gray-900 dark:text-white">
-              Loan Officers
-            </h1>
-            <p className="mt-0.5 text-sm text-gray-500 dark:text-gray-400">
+            <h1 className="ds-page-title">Loan Officers</h1>
+            <p className="ds-page-subtitle">
               {activeTab === "activity"
                 ? "Track applications, contacts, messages, and profile updates across your team."
                 : "Manage and monitor your loan officer team."}
@@ -880,50 +797,76 @@ export default function LoanOfficersPage() {
             <div className="flex flex-wrap items-center gap-2">
               <button
                 type="button"
-                onClick={() => fetchOfficers()}
-                disabled={loading || isSearching}
-                className="inline-flex h-9 items-center justify-center gap-1.5 rounded-lg border border-gray-200 bg-white px-3 text-xs font-semibold text-gray-700 transition hover:bg-gray-50 disabled:opacity-60 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-200 dark:hover:bg-gray-800"
-              >
-                <RefreshCw
-                  className={`h-3.5 w-3.5 ${loading ? "animate-spin" : ""}`}
-                />
-                Refresh
-              </button>
-              <button
-                type="button"
                 onClick={handleCopyInviteLink}
                 disabled={copyingInvite}
-                className="group relative inline-flex h-9 items-center justify-center gap-1.5 rounded-lg bg-[#13538A] px-3 text-xs font-semibold text-white shadow-sm transition hover:bg-[#1a6aad] disabled:opacity-60"
+                className="ds-btn-secondary h-10 px-4 text-sm disabled:opacity-60"
               >
-                <span className="absolute -right-1 -top-1 rounded bg-emerald-500 px-1 py-px text-[8px] font-bold uppercase tracking-wide text-white shadow-sm">
-                  Share
-                </span>
                 <Link2
-                  className={`h-3.5 w-3.5 ${copyingInvite ? "animate-pulse" : ""}`}
+                  className={`h-4 w-4 ${copyingInvite ? "animate-pulse" : ""}`}
                 />
                 {copyingInvite ? "Creating..." : "Copy invite link"}
               </button>
               <button
                 type="button"
                 onClick={openCreateModal}
-                className="inline-flex h-9 items-center justify-center gap-1.5 rounded-lg border border-[#13538A]/25 bg-white px-3 text-xs font-semibold text-[#13538A] transition hover:bg-[#13538A]/5 dark:border-[#13538A]/40 dark:bg-gray-900 dark:hover:bg-[#13538A]/10"
+                className="ds-btn-primary shrink-0"
               >
-                <Plus className="h-3.5 w-3.5" />
-                Create loan officer
+                <Plus size={16} />
+                Add loan officer
               </button>
             </div>
           ) : null}
         </div>
 
-        {/* Tabs */}
-        <div className="inline-flex w-full gap-1 rounded-lg border border-gray-200 bg-white p-0.5 dark:border-gray-800 dark:bg-gray-900 sm:w-auto">
+        {activeTab === "officers" ? (
+          <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3">
+            <StatPill
+              icon={<Users size={14} />}
+              label="Total"
+              value={listStats.total}
+              color="blue"
+              loading={loading && listStats.total === 0}
+              active={statusFilter === ""}
+              onClick={() => {
+                setStatusFilter("");
+                setPage(1);
+              }}
+            />
+            <StatPill
+              icon={<UserCheck size={14} />}
+              label="Active"
+              value={listStats.active}
+              color="emerald"
+              loading={loading && listStats.total === 0}
+              active={statusFilter === "ACTIVE"}
+              onClick={() => {
+                setStatusFilter("ACTIVE");
+                setPage(1);
+              }}
+            />
+            <StatPill
+              icon={<UserX size={14} />}
+              label="Suspended"
+              value={listStats.disabled}
+              color="rose"
+              loading={loading && listStats.total === 0}
+              active={statusFilter === "DISABLED"}
+              onClick={() => {
+                setStatusFilter("DISABLED");
+                setPage(1);
+              }}
+            />
+          </div>
+        ) : null}
+
+        <div className="inline-flex w-full gap-1 rounded-xl border border-border bg-white p-1 dark:border-slate-700 dark:bg-slate-950 sm:w-auto">
           <button
             type="button"
             onClick={() => setActiveTab("officers")}
-            className={`inline-flex flex-1 items-center justify-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-semibold transition sm:flex-none sm:px-3.5 ${
+            className={`inline-flex flex-1 items-center justify-center gap-1.5 rounded-lg px-3.5 py-1.5 text-xs font-semibold transition sm:flex-none ${
               activeTab === "officers"
-                ? "bg-[#13538A] text-white shadow-sm"
-                : "text-gray-600 hover:bg-gray-50 dark:text-gray-300 dark:hover:bg-gray-800"
+                ? "bg-[#4C78F5] text-white"
+                : "text-text-secondary hover:bg-surface hover:text-[#4C78F5] dark:text-slate-300 dark:hover:bg-slate-900"
             }`}
           >
             <Users className="h-3.5 w-3.5" />
@@ -932,39 +875,16 @@ export default function LoanOfficersPage() {
           <button
             type="button"
             onClick={() => setActiveTab("activity")}
-            className={`inline-flex flex-1 items-center justify-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-semibold transition sm:flex-none sm:px-3.5 ${
+            className={`inline-flex flex-1 items-center justify-center gap-1.5 rounded-lg px-3.5 py-1.5 text-xs font-semibold transition sm:flex-none ${
               activeTab === "activity"
-                ? "bg-[#13538A] text-white shadow-sm"
-                : "text-gray-600 hover:bg-gray-50 dark:text-gray-300 dark:hover:bg-gray-800"
+                ? "bg-[#4C78F5] text-white"
+                : "text-text-secondary hover:bg-surface hover:text-[#4C78F5] dark:text-slate-300 dark:hover:bg-slate-900"
             }`}
           >
             <Activity className="h-3.5 w-3.5" />
             Activity
           </button>
         </div>
-
-        {activeTab === "officers" ? (
-          <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
-            <StatCard
-              icon={Users}
-              label="Total officers"
-              value={loading ? "—" : stats.total}
-              iconWrap="bg-sky-50 text-sky-700 dark:bg-sky-500/15 dark:text-sky-300"
-            />
-            <StatCard
-              icon={UserCheck}
-              label="Active"
-              value={loading ? "—" : stats.active}
-              iconWrap="bg-emerald-50 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300"
-            />
-            <StatCard
-              icon={UserX}
-              label="Disabled"
-              value={loading ? "—" : stats.disabled}
-              iconWrap="bg-amber-50 text-amber-700 dark:bg-amber-500/15 dark:text-amber-300"
-            />
-          </div>
-        ) : null}
 
         {activeTab === "activity" ? (
           <LoanOfficerActivityPanel
@@ -973,439 +893,316 @@ export default function LoanOfficersPage() {
           />
         ) : (
         <>
-        {/* Toolbar + table card */}
-        <div className="overflow-hidden rounded-xl border border-gray-200/80 bg-white shadow-[0_1px_3px_rgba(15,23,42,0.06)] dark:border-gray-800 dark:bg-gray-900">
-          <div className="border-b border-gray-100 px-3 py-2.5 dark:border-gray-800 sm:px-4">
-            <div className="flex flex-col gap-2.5 lg:flex-row lg:items-center lg:justify-between">
-              <div className="min-w-0">
-                <h2 className="text-sm font-semibold text-gray-900 dark:text-white">
-                  All loan officers
-                </h2>
-                <p className="text-xs text-gray-500 dark:text-gray-400">
-                  {loading || isSearching
-                    ? isSearching
-                      ? "Searching..."
-                      : "Loading team members..."
-                    : `${total} loan officer${total === 1 ? "" : "s"}${
-                        debouncedSearch ? ` matching "${debouncedSearch}"` : ""
-                      }${
-                        statusFilter
-                          ? ` · ${statusFilter === "ACTIVE" ? "Active" : "Disabled"}`
-                          : ""
-                      }`}
-                </p>
-              </div>
-
-              <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:justify-end">
-                <div className="relative w-full sm:w-56">
-                  <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-gray-400" />
-                  <input
-                    type="text"
-                    placeholder="Search loan officers..."
-                    className="h-9 w-full rounded-lg border border-gray-200 bg-white py-1.5 pl-8 pr-8 text-sm outline-none transition focus:border-[#13538A] focus:ring-2 focus:ring-[#13538A]/15 dark:border-gray-700 dark:bg-gray-950 dark:text-gray-100"
-                    value={search}
-                    onChange={(e) => setSearch(e.target.value)}
-                  />
-                  {search ? (
-                    <button
-                      type="button"
-                      onClick={() => setSearch("")}
-                      className="absolute right-2 top-1/2 -translate-y-1/2 rounded-md p-0.5 text-gray-400 hover:text-gray-600"
-                      aria-label="Clear search"
-                    >
-                      <X className="h-3.5 w-3.5" />
-                    </button>
-                  ) : null}
-                </div>
-
-                <div className="flex items-center gap-1">
-                  {(["", "ACTIVE", "DISABLED"] as const).map((value) => (
-                    <button
-                      key={value || "all"}
-                      type="button"
-                      onClick={() => setStatusFilter(value)}
-                      className={`rounded-md px-2.5 py-1.5 text-xs font-semibold transition ${
-                        statusFilter === value
-                          ? "bg-[#13538A] text-white"
-                          : "border border-gray-200 bg-white text-gray-600 hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-950 dark:text-gray-300"
-                      }`}
-                    >
-                      {value === ""
-                        ? "All"
-                        : value === "ACTIVE"
-                          ? "Active"
-                          : "Disabled"}
-                    </button>
-                  ))}
-                </div>
-
-                <label className="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
-                  Per page
-                  <select
-                    value={limit}
-                    onChange={(e) => setLimit(Number(e.target.value))}
-                    className="h-9 rounded-lg border border-gray-200 bg-white px-2 text-sm font-medium text-gray-700 outline-none transition focus:border-[#13538A] focus:ring-2 focus:ring-[#13538A]/15 dark:border-gray-700 dark:bg-gray-950 dark:text-gray-200"
+        <div className="overflow-hidden rounded-2xl border border-border bg-white dark:border-slate-700 dark:bg-slate-900">
+          <div className="flex flex-col gap-2.5 border-b border-border px-4 py-3.5 dark:border-slate-800 sm:flex-row sm:items-center sm:justify-between sm:px-5">
+            <div className="flex w-full flex-col gap-2.5 sm:flex-row sm:items-center lg:min-w-0 lg:flex-1">
+              <div className="group relative w-full sm:max-w-sm">
+                <Search className="pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-text-secondary transition-colors group-focus-within:text-[#4C78F5]" />
+                <input
+                  type="text"
+                  placeholder="Search loan officers..."
+                  className="h-10 w-full rounded-xl border border-border bg-white py-2 pr-9 pl-10 text-sm text-text-primary outline-none transition placeholder:text-text-secondary/70 focus:border-[#4C78F5]/50 focus:ring-2 focus:ring-[#4C78F5]/15 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                />
+                {search ? (
+                  <button
+                    type="button"
+                    onClick={() => setSearch("")}
+                    className="absolute top-1/2 right-2.5 -translate-y-1/2 rounded-md p-1 text-text-secondary hover:bg-surface"
+                    aria-label="Clear search"
                   >
-                    {PAGE_SIZE_OPTIONS.map((size) => (
-                      <option key={size} value={size}>
-                        {size}
-                      </option>
-                    ))}
-                  </select>
-                </label>
+                    <X size={14} />
+                  </button>
+                ) : null}
               </div>
+
+              <select
+                value={statusFilter}
+                onChange={(e) =>
+                  setStatusFilter(e.target.value as "" | "ACTIVE" | "DISABLED")
+                }
+                className="h-10 w-full rounded-xl border border-border bg-white px-3 text-sm text-text-primary outline-none transition focus:border-[#4C78F5]/50 focus:ring-2 focus:ring-[#4C78F5]/15 sm:w-[160px] dark:border-slate-700 dark:bg-slate-950"
+              >
+                <option value="">All statuses</option>
+                <option value="ACTIVE">Active</option>
+                <option value="DISABLED">Suspended</option>
+              </select>
+
+              <button
+                type="button"
+                onClick={() => fetchOfficers()}
+                disabled={loading || isSearching}
+                className="inline-flex h-10 items-center justify-center gap-2 rounded-xl border border-border bg-white px-3 text-sm font-medium text-text-secondary transition hover:bg-surface disabled:opacity-60 dark:border-slate-700 dark:bg-slate-950"
+              >
+                <RefreshCw
+                  className={`h-4 w-4 ${loading ? "animate-spin" : ""}`}
+                />
+                Refresh
+              </button>
             </div>
+
+            <select
+              value={limit}
+              onChange={(e) => setLimit(Number(e.target.value))}
+              className="h-10 w-full shrink-0 rounded-xl border border-border bg-white px-3 text-sm text-text-primary outline-none transition focus:border-[#4C78F5]/50 focus:ring-2 focus:ring-[#4C78F5]/15 sm:ml-auto sm:w-[120px] lg:ml-0 dark:border-slate-700 dark:bg-slate-950"
+            >
+              {PAGE_SIZE_OPTIONS.map((size) => (
+                <option key={size} value={size}>
+                  {size} / page
+                </option>
+              ))}
+            </select>
           </div>
 
-          {loading && !isSearching ? (
-            <div className="divide-y divide-gray-100 dark:divide-gray-800">
-              {Array.from({ length: 6 }).map((_, i) => (
-                <div
-                  key={i}
-                  className="flex animate-pulse items-center gap-4 px-5 py-4"
-                >
-                  <div className="h-4 w-6 rounded bg-gray-100 dark:bg-gray-800" />
-                  <div className="h-10 w-10 rounded-xl bg-gray-100 dark:bg-gray-800" />
-                  <div className="h-4 flex-1 max-w-[180px] rounded bg-gray-100 dark:bg-gray-800" />
-                  <div className="hidden h-4 w-40 rounded bg-gray-100 dark:bg-gray-800 md:block" />
-                  <div className="hidden h-6 w-20 rounded-full bg-gray-100 dark:bg-gray-800 sm:block" />
-                  <div className="ml-auto h-8 w-8 rounded-lg bg-gray-100 dark:bg-gray-800" />
-                </div>
-              ))}
-            </div>
-          ) : !loading && officers.length === 0 ? (
-            <div className="flex flex-col items-center py-20 text-center">
-              <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-[#13538A]/10 text-[#13538A]">
-                <Users size={24} />
-              </div>
-              <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
-                {search || statusFilter ? "No matching loan officers" : "No loan officers yet"}
-              </h3>
-              <p className="mt-1 max-w-md text-sm text-gray-500">
-                {search || debouncedSearch || statusFilter
-                  ? "Try adjusting your search or status filter."
-                  : "Create your first loan officer to start building your team."}
-              </p>
-              {!search && !debouncedSearch && !statusFilter && (
-                <button
-                  type="button"
-                  onClick={openCreateModal}
-                  className="mt-4 inline-flex items-center gap-2 rounded-xl bg-[#13538A] px-4 py-2 text-sm font-medium text-white hover:bg-[#1a6aad]"
-                >
-                  <Plus className="h-4 w-4" />
-                  Create Loan Officer
-                </button>
-              )}
-            </div>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full min-w-[880px] border-collapse text-left">
-                <thead className="sticky top-0 z-[1] border-b border-gray-200/80 bg-gradient-to-b from-slate-50 to-slate-50/90 backdrop-blur dark:border-gray-800 dark:from-gray-950 dark:to-gray-950/90">
+          <div className="overflow-x-auto">
+            <table className="ds-table min-w-[880px] w-full">
+              <thead>
+                <tr>
+                  <th>
+                    <SortHeader
+                      label="User"
+                      active={sortKey === "name"}
+                      direction={sortDir}
+                      onClick={() => toggleSort("name")}
+                    />
+                  </th>
+                  <th className="hidden sm:table-cell">Role</th>
+                  <th className="hidden md:table-cell">Co-Brokers</th>
+                  <th className="hidden lg:table-cell">Access</th>
+                  <th>
+                    <SortHeader
+                      label="Status"
+                      active={sortKey === "status"}
+                      direction={sortDir}
+                      onClick={() => toggleSort("status")}
+                    />
+                  </th>
+                  <th className="!text-right">Action</th>
+                </tr>
+              </thead>
+              <tbody>
+                {loading && !isSearching ? (
                   <tr>
-                    <th className="w-12 px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-[0.08em] text-gray-400">
-                      #
-                    </th>
-                    <th className="px-4 py-3 text-left">
-                      <SortHeader
-                        label="Officer"
-                        active={sortKey === "name"}
-                        direction={sortDir}
-                        onClick={() => toggleSort("name")}
-                      />
-                    </th>
-                    <th className="hidden px-4 py-3 text-left lg:table-cell">
-                      <SortHeader
-                        label="Contact"
-                        active={sortKey === "email"}
-                        direction={sortDir}
-                        onClick={() => toggleSort("email")}
-                      />
-                    </th>
-                    <th className="px-4 py-3 text-left">
-                      <SortHeader
-                        label="Status"
-                        active={sortKey === "status"}
-                        direction={sortDir}
-                        onClick={() => toggleSort("status")}
-                      />
-                    </th>
-                    <th className="hidden px-4 py-3 text-left md:table-cell">
-                      <span className="text-[11px] font-semibold uppercase tracking-[0.08em] text-gray-500 dark:text-gray-400">
-                        Co-Brokers
-                      </span>
-                    </th>
-                    <th className="hidden px-4 py-3 text-left sm:table-cell">
-                      <span className="text-[11px] font-semibold uppercase tracking-[0.08em] text-gray-500 dark:text-gray-400">
-                        Permissions
-                      </span>
-                    </th>
-                    <th className="hidden px-4 py-3 text-left xl:table-cell">
-                      <SortHeader
-                        label="Joined"
-                        active={sortKey === "createdAt"}
-                        direction={sortDir}
-                        onClick={() => toggleSort("createdAt")}
-                      />
-                    </th>
-                    <th className="sticky right-0 w-[72px] bg-slate-50/95 px-4 py-3 text-right dark:bg-gray-950/95">
-                      <span className="text-[11px] font-semibold uppercase tracking-[0.08em] text-gray-500 dark:text-gray-400">
-                        Actions
-                      </span>
-                    </th>
+                    <td colSpan={6} className="px-5 py-14 text-center">
+                      <div className="inline-flex items-center gap-2 text-sm text-text-secondary">
+                        <Users className="h-4 w-4 animate-pulse text-[#4C78F5]" />
+                        Loading loan officers…
+                      </div>
+                    </td>
                   </tr>
-                </thead>
-                <tbody>
-                  {officers.map((o, index) => {
+                ) : !loading && officers.length === 0 ? (
+                  <tr>
+                    <td colSpan={6} className="!px-5 !py-14 text-center">
+                      <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-xl bg-[#4C78F5]/10 text-[#4C78F5]">
+                        <Users className="h-5 w-5" />
+                      </div>
+                      <p className="text-sm font-semibold text-text-primary">
+                        {search || statusFilter
+                          ? "No loan officers match your filters"
+                          : "No loan officers yet"}
+                      </p>
+                      <p className="mx-auto mt-1.5 max-w-sm text-xs text-text-secondary">
+                        {search || debouncedSearch || statusFilter
+                          ? "Try a different search term or status filter."
+                          : "Add your first loan officer to get started."}
+                      </p>
+                      {!search && !debouncedSearch && !statusFilter ? (
+                        <button
+                          type="button"
+                          onClick={openCreateModal}
+                          className="ds-btn-primary mt-4 h-9 px-4 text-xs"
+                        >
+                          <Plus size={14} />
+                          Add loan officer
+                        </button>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setSearch("");
+                            setStatusFilter("");
+                            setPage(1);
+                          }}
+                          className="mt-4 text-xs font-semibold text-[#4C78F5] hover:underline"
+                        >
+                          Clear filters
+                        </button>
+                      )}
+                    </td>
+                  </tr>
+                ) : (
+                  officers.map((o) => {
                     const fullName = `${o.firstName} ${o.lastName}`.trim();
                     const isActive = o.status === "ACTIVE";
+                    const busy = togglingId === o.id;
 
                     return (
-                      <tr
-                        key={o.id}
-                        className={`group border-b border-gray-100 transition-colors last:border-b-0 dark:border-gray-800/80 ${
-                          isActive
-                            ? "hover:bg-[#13538A]/[0.04] dark:hover:bg-cyan-500/[0.04]"
-                            : "bg-slate-50/50 hover:bg-slate-100/70 dark:bg-gray-950/40 dark:hover:bg-gray-900/60"
-                        }`}
-                      >
-                        <td className="px-4 py-3.5 text-xs font-medium tabular-nums text-gray-400">
-                          {(page - 1) * limit + index + 1}
-                        </td>
-
-                        <td className="px-4 py-3.5">
-                          <div className="flex min-w-0 items-center gap-3">
-                            <span className="relative flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-full bg-white shadow-sm ring-1 ring-gray-200/80 dark:bg-gray-900 dark:ring-gray-700">
-                              {o.profile?.avatarUrl ? (
-                                <img
-                                  src={`${API_BASE}${o.profile.avatarUrl}`}
-                                  alt={fullName}
-                                  className="h-full w-full object-cover"
-                                />
-                              ) : (
-                                <span
-                                  className={`flex h-full w-full items-center justify-center text-[11px] font-bold ${getAvatarTone(fullName)}`}
-                                >
-                                  {getInitials(o.firstName, o.lastName)}
-                                </span>
-                              )}
-                              <span
-                                className={`absolute bottom-0 right-0 h-2.5 w-2.5 rounded-full border-2 border-white dark:border-gray-900 ${
-                                  isActive ? "bg-emerald-500" : "bg-gray-400"
-                                }`}
+                      <tr key={o.id}>
+                        <td>
+                          <div className="flex items-center gap-3">
+                            {o.profile?.avatarUrl ? (
+                              <img
+                                src={`${API_BASE}${o.profile.avatarUrl}`}
+                                alt={fullName}
+                                className="h-9 w-9 shrink-0 rounded-full object-cover"
                               />
-                            </span>
-                            <div className="min-w-0">
-                              <p className="truncate text-sm font-semibold text-gray-900 dark:text-gray-100">
-                                {fullName}
-                              </p>
-                              <p className="truncate text-xs text-gray-500 dark:text-gray-400">
-                                {o.profile?.agentType || "Loan Officer"}
-                              </p>
-                              <div className="mt-1 space-y-0.5 lg:hidden">
-                                <a
-                                  href={`mailto:${o.email}`}
-                                  className="flex max-w-[220px] items-center gap-1.5 truncate text-xs text-gray-500 hover:text-[#13538A]"
-                                >
-                                  <Mail className="h-3 w-3 shrink-0" />
-                                  <span className="truncate">{o.email}</span>
-                                </a>
-                                {o.phone ? (
-                                  <a
-                                    href={`tel:${o.phone}`}
-                                    className="flex items-center gap-1.5 text-xs text-gray-500 hover:text-[#13538A]"
-                                  >
-                                    <Phone className="h-3 w-3 shrink-0" />
-                                    {formatPhone(o.phone)}
-                                  </a>
-                                ) : null}
+                            ) : (
+                              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#4C78F5] text-[11px] font-semibold text-white">
+                                {getInitials(o.firstName, o.lastName)}
                               </div>
+                            )}
+                            <div className="min-w-0">
+                              <p className="ds-table-title">{fullName || "Unnamed"}</p>
+                              <p className="ds-table-meta">{o.email || "No email"}</p>
+                              {o.phone ? (
+                                <p className="mt-0.5 flex items-center gap-1 text-[11px] text-text-secondary/80 sm:hidden">
+                                  <Phone className="h-3 w-3" />
+                                  {formatPhone(o.phone)}
+                                </p>
+                              ) : null}
                             </div>
                           </div>
                         </td>
 
-                        <td className="hidden px-4 py-3.5 lg:table-cell">
-                          <div className="min-w-0 space-y-1">
-                            <a
-                              href={`mailto:${o.email}`}
-                              className="flex max-w-[240px] items-center gap-2 text-sm text-gray-600 transition hover:text-[#13538A] dark:text-gray-300 dark:hover:text-cyan-400"
-                              title={o.email}
-                            >
-                              <Mail className="h-3.5 w-3.5 shrink-0 text-gray-400" />
-                              <span className="truncate">{o.email}</span>
-                            </a>
-                            {o.phone ? (
-                              <a
-                                href={`tel:${o.phone}`}
-                                className="flex items-center gap-2 text-xs text-gray-500 transition hover:text-[#13538A] dark:text-gray-400"
-                                title={formatPhone(o.phone)}
-                              >
-                                <Phone className="h-3.5 w-3.5 shrink-0 text-gray-400" />
-                                <span>{formatPhone(o.phone)}</span>
-                              </a>
-                            ) : (
-                              <span className="text-xs text-gray-400">No phone</span>
-                            )}
-                          </div>
+                        <td className="hidden sm:table-cell">
+                          <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2.5 py-1 text-[11px] font-semibold text-amber-700 ring-1 ring-inset ring-amber-200">
+                            <Shield className="h-3 w-3" />
+                            Loan Officer
+                          </span>
                         </td>
 
-                        <td className="px-4 py-3.5">
-                          <OfficerStatusBadge
-                            active={isActive}
-                            loading={togglingId === o.id}
-                            onClick={() => toggleStatus(o.id, o.status)}
-                          />
+                        <td className="hidden min-w-0 md:table-cell">
+                          {o.assignedCoBrokers?.length ? (
+                            <CoBrokerBadge brokers={o.assignedCoBrokers} />
+                          ) : (
+                            <span className="text-[12px] font-medium italic text-text-secondary/70">
+                              None
+                            </span>
+                          )}
                         </td>
 
-                        <td className="hidden min-w-0 px-4 py-3.5 md:table-cell">
-                          <CoBrokerBadge brokers={o.assignedCoBrokers} />
-                        </td>
-
-                        <td className="hidden px-4 py-3.5 sm:table-cell">
-                          <PermissionsBadge
+                        <td className="hidden lg:table-cell">
+                          <AccessBadge
                             permissions={o.permissions}
                             allowedKeys={allowedPermissionKeys}
                           />
                         </td>
 
-                        <td className="hidden px-4 py-3.5 xl:table-cell">
-                          <span
-                            className="block truncate text-sm text-gray-600 dark:text-gray-300"
-                            title={formatDate(o.createdAt)}
-                          >
-                            {formatDate(o.createdAt)}
-                          </span>
+                        <td>
+                          <StatusPill active={isActive} />
                         </td>
 
-                        <td className="sticky right-0 bg-white/90 px-4 py-3.5 text-right backdrop-blur group-hover:bg-[#13538A]/[0.04] dark:bg-gray-900/90 dark:group-hover:bg-cyan-500/[0.04]">
-                          <button
-                            type="button"
-                            data-menu-id={o.id}
-                            onClick={(event) => openRowMenu(o.id, event)}
-                            className={`inline-flex h-8 w-8 items-center justify-center rounded-lg border transition ${
-                              activeMenuId === o.id
-                                ? "border-[#13538A]/30 bg-[#13538A]/5 text-[#13538A] dark:border-cyan-500/30 dark:bg-cyan-500/10 dark:text-cyan-400"
-                                : "border-gray-200 bg-white text-gray-500 hover:border-gray-300 hover:bg-gray-50 hover:text-gray-800 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-400 dark:hover:border-gray-600 dark:hover:bg-gray-800 dark:hover:text-white"
-                            }`}
-                            title="More actions"
-                            aria-label="Open actions menu"
-                          >
-                            <MoreVertical className="h-4 w-4" />
-                          </button>
+                        <td className="text-right">
+                          <div className="inline-flex items-center justify-end gap-2">
+                            <button
+                              type="button"
+                              disabled={busy}
+                              onClick={() => toggleStatus(o.id, o.status)}
+                              className={`inline-flex h-8 items-center gap-1.5 rounded-lg px-3 text-xs font-semibold transition disabled:opacity-50 ${
+                                isActive
+                                  ? "border border-border bg-white text-text-secondary hover:bg-surface dark:border-slate-700 dark:bg-slate-950"
+                                  : "bg-[#4C78F5] text-white hover:bg-[#3B66E0]"
+                              }`}
+                            >
+                              <Lock className="h-3.5 w-3.5" />
+                              {busy
+                                ? "Updating…"
+                                : isActive
+                                  ? "Suspend"
+                                  : "Activate"}
+                            </button>
+                            <button
+                              type="button"
+                              data-menu-id={o.id}
+                              onClick={(event) => openRowMenu(o.id, event)}
+                              className={`inline-flex h-8 w-8 items-center justify-center rounded-full border transition ${
+                                activeMenuId === o.id
+                                  ? "border-[#4C78F5]/40 bg-[#4C78F5]/10 text-[#4C78F5]"
+                                  : "border-border bg-white text-text-secondary hover:bg-surface hover:text-text-primary dark:border-slate-700 dark:bg-slate-900"
+                              }`}
+                              title="More actions"
+                              aria-label="Open actions menu"
+                            >
+                              <MoreVertical className="h-4 w-4" />
+                            </button>
+                          </div>
                         </td>
                       </tr>
                     );
-                  })}
-                </tbody>
-              </table>
-            </div>
-          )}
+                  })
+                )}
+              </tbody>
+            </table>
+          </div>
 
-          {!loading && !isSearching && officers.length > 0 && (
-            <div className="flex flex-col gap-3 border-t border-gray-100 px-4 py-4 dark:border-gray-800 sm:flex-row sm:items-center sm:justify-between sm:px-5">
-              <p className="text-sm text-gray-500 dark:text-gray-400">
+          {!loading && !isSearching && officers.length > 0 ? (
+            <div className="flex flex-col gap-3 border-t border-border px-4 py-3.5 dark:border-slate-800 sm:flex-row sm:items-center sm:justify-between sm:px-5">
+              <p className="text-[13px] text-text-secondary">
                 Showing{" "}
-                <span className="font-medium text-gray-700 dark:text-gray-200">
-                  {total === 0 ? 0 : (page - 1) * limit + 1}-
+                <span className="font-semibold text-text-primary">
+                  {total === 0 ? 0 : (page - 1) * limit + 1}
+                </span>
+                –
+                <span className="font-semibold text-text-primary">
                   {Math.min(page * limit, total)}
                 </span>{" "}
                 of{" "}
-                <span className="font-medium text-gray-700 dark:text-gray-200">
-                  {total}
-                </span>
+                <span className="font-semibold text-text-primary">{total}</span>
               </p>
 
-              <div className="flex flex-wrap items-center gap-1.5">
-                <button
-                  type="button"
-                  disabled={page === 1 || loading}
-                  onClick={() => setPage((p) => Math.max(p - 1, 1))}
-                  className="rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-200"
-                >
-                  <span className="inline-flex items-center gap-1">
-                    <ChevronLeft className="h-4 w-4" />
-                    Prev
-                  </span>
-                </button>
+              {totalPages > 1 ? (
+                <div className="flex items-center gap-1.5">
+                  <button
+                    type="button"
+                    disabled={page <= 1 || loading}
+                    onClick={() => setPage((p) => Math.max(p - 1, 1))}
+                    className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-border bg-white transition hover:bg-surface disabled:opacity-40 dark:border-slate-700 dark:bg-slate-900"
+                  >
+                    <ChevronLeft size={16} />
+                  </button>
 
-                {Array.from({ length: Math.min(totalPages, 5) }).map((_, i) => {
-                  const half = Math.floor(5 / 2);
-                  let startPage = 1;
-                  if (totalPages <= 5) startPage = 1;
-                  else if (page <= half + 1) startPage = 1;
-                  else if (page >= totalPages - half) startPage = totalPages - 4;
-                  else startPage = page - half;
+                  {Array.from({ length: Math.min(totalPages, 5) }).map((_, i) => {
+                    const half = Math.floor(5 / 2);
+                    let startPage = 1;
+                    if (totalPages <= 5) startPage = 1;
+                    else if (page <= half + 1) startPage = 1;
+                    else if (page >= totalPages - half) startPage = totalPages - 4;
+                    else startPage = page - half;
 
-                  const pageNum = startPage + i;
-                  if (pageNum > totalPages) return null;
+                    const pageNum = startPage + i;
+                    if (pageNum > totalPages) return null;
 
-                  return (
-                    <button
-                      key={pageNum}
-                      type="button"
-                      onClick={() => setPage(pageNum)}
-                      disabled={loading}
-                      className={`min-w-8 rounded-lg border px-2.5 py-1.5 text-sm font-medium transition ${
-                        pageNum === page
-                          ? "border-[#13538A] bg-[#13538A] text-white"
-                          : "border-gray-200 bg-white text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-200"
-                      }`}
-                    >
-                      {pageNum}
-                    </button>
-                  );
-                })}
+                    return (
+                      <button
+                        key={pageNum}
+                        type="button"
+                        disabled={loading}
+                        onClick={() => setPage(pageNum)}
+                        className={`inline-flex h-9 min-w-9 items-center justify-center rounded-xl px-2.5 text-sm font-semibold transition ${
+                          pageNum === page
+                            ? "bg-[#4C78F5] text-white"
+                            : "border border-border bg-white hover:bg-surface dark:border-slate-700 dark:bg-slate-900"
+                        }`}
+                      >
+                        {pageNum}
+                      </button>
+                    );
+                  })}
 
-                <button
-                  type="button"
-                  disabled={page === totalPages || loading}
-                  onClick={() => setPage((p) => Math.min(p + 1, totalPages))}
-                  className="rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-200"
-                >
-                  <span className="inline-flex items-center gap-1">
-                    Next
-                    <ChevronRight className="h-4 w-4" />
-                  </span>
-                </button>
-              </div>
+                  <button
+                    type="button"
+                    disabled={page >= totalPages || loading}
+                    onClick={() => setPage((p) => Math.min(p + 1, totalPages))}
+                    className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-border bg-white transition hover:bg-surface disabled:opacity-40 dark:border-slate-700 dark:bg-slate-900"
+                  >
+                    <ChevronRight size={16} />
+                  </button>
+                </div>
+              ) : null}
             </div>
-          )}
+          ) : null}
         </div>
-
-        {totalPages > 1 && (loading || officers.length === 0) && (
-          <div className="flex items-center justify-between rounded-xl border border-gray-100 bg-white px-4 py-3 dark:border-gray-800 dark:bg-gray-900">
-            <p className="text-sm text-gray-500">
-              Page{" "}
-              <span className="font-semibold text-gray-800 dark:text-gray-200">
-                {page}
-              </span>{" "}
-              of{" "}
-              <span className="font-semibold text-gray-800 dark:text-gray-200">
-                {totalPages}
-              </span>
-            </p>
-
-            <div className="flex gap-2">
-              <button
-                type="button"
-                disabled={page === 1 || loading}
-                onClick={() => setPage((p) => Math.max(p - 1, 1))}
-                className="inline-flex items-center gap-1 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm font-medium text-gray-700 transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-200"
-              >
-                <ChevronLeft className="h-4 w-4" />
-                Prev
-              </button>
-              <button
-                type="button"
-                disabled={page === totalPages || loading}
-                onClick={() => setPage((p) => Math.min(p + 1, totalPages))}
-                className="inline-flex items-center gap-1 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm font-medium text-gray-700 transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-200"
-              >
-                Next
-                <ChevronRight className="h-4 w-4" />
-              </button>
-            </div>
-          </div>
-        )}
         </>
         )}
       </div>
@@ -1416,13 +1213,15 @@ export default function LoanOfficersPage() {
           <div
             ref={menuRef}
             style={{ position: "fixed", top: menuPos.top, left: menuPos.left }}
-            className="z-[9999] w-[168px] max-h-[min(232px,calc(100vh-16px))] overflow-y-auto rounded-lg border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-900"
+            className="z-[9999] max-h-[min(232px,calc(100vh-16px))] w-[168px] overflow-y-auto rounded-xl border border-border bg-white dark:border-slate-700 dark:bg-slate-950"
           >
-            <div className="border-b border-gray-100 px-3 py-2 dark:border-gray-800">
-              <p className="truncate text-[11px] font-semibold text-gray-900 dark:text-white">
+            <div className="border-b border-border px-3 py-2 dark:border-slate-800">
+              <p className="truncate text-[11px] font-semibold text-text-primary dark:text-white">
                 {activeMenuUser.firstName} {activeMenuUser.lastName}
               </p>
-              <p className="truncate text-[10px] text-gray-500">{activeMenuUser.email}</p>
+              <p className="truncate text-[10px] text-text-secondary">
+                {activeMenuUser.email}
+              </p>
             </div>
 
             <div className="py-0.5">
@@ -1432,9 +1231,9 @@ export default function LoanOfficersPage() {
                   closeRowMenu();
                   setActiveTab("activity", activeMenuUser.id);
                 }}
-                className="flex w-full items-center gap-2 px-3 py-2 text-xs text-gray-700 transition hover:bg-gray-50 dark:text-gray-200 dark:hover:bg-gray-800"
+                className="flex w-full items-center gap-2 px-3 py-2 text-xs text-text-primary transition hover:bg-[#4C78F5]/[0.06] dark:text-slate-200 dark:hover:bg-slate-900"
               >
-                <Activity className="h-3.5 w-3.5 text-sky-600" />
+                <Activity className="h-3.5 w-3.5 text-[#4C78F5]" />
                 Activity
               </button>
               <button
@@ -1443,9 +1242,9 @@ export default function LoanOfficersPage() {
                   closeRowMenu();
                   setViewOfficer(activeMenuUser);
                 }}
-                className="flex w-full items-center gap-2 px-3 py-2 text-xs text-gray-700 transition hover:bg-gray-50 dark:text-gray-200 dark:hover:bg-gray-800"
+                className="flex w-full items-center gap-2 px-3 py-2 text-xs text-text-primary transition hover:bg-[#4C78F5]/[0.06] dark:text-slate-200 dark:hover:bg-slate-900"
               >
-                <Eye className="h-3.5 w-3.5 text-[#13538A]" />
+                <Eye className="h-3.5 w-3.5 text-[#4C78F5]" />
                 View details
               </button>
               <button
@@ -1455,9 +1254,9 @@ export default function LoanOfficersPage() {
                   activeMenuUser.status !== "ACTIVE"
                 }
                 onClick={() => handleImpersonate(activeMenuUser)}
-                className="flex w-full items-center gap-2 px-3 py-2 text-xs text-gray-700 transition hover:bg-gray-50 disabled:opacity-50 dark:text-gray-200 dark:hover:bg-gray-800"
+                className="flex w-full items-center gap-2 px-3 py-2 text-xs text-text-primary transition hover:bg-[#4C78F5]/[0.06] disabled:opacity-50 dark:text-slate-200 dark:hover:bg-slate-900"
               >
-                <ExternalLink className="h-3.5 w-3.5 text-cyan-600" />
+                <ExternalLink className="h-3.5 w-3.5 text-[#4C78F5]" />
                 {impersonatingId === activeMenuUser.id
                   ? "Opening portal..."
                   : "Access portal"}
@@ -1468,7 +1267,7 @@ export default function LoanOfficersPage() {
                   closeRowMenu();
                   openEditModal(activeMenuUser);
                 }}
-                className="flex w-full items-center gap-2 px-3 py-2 text-xs text-gray-700 transition hover:bg-gray-50 dark:text-gray-200 dark:hover:bg-gray-800"
+                className="flex w-full items-center gap-2 px-3 py-2 text-xs text-text-primary transition hover:bg-[#4C78F5]/[0.06] dark:text-slate-200 dark:hover:bg-slate-900"
               >
                 <Pencil className="h-3.5 w-3.5 text-amber-600" />
                 Edit Profile
@@ -1477,14 +1276,16 @@ export default function LoanOfficersPage() {
                 type="button"
                 disabled={togglingId === activeMenuUser.id}
                 onClick={() => toggleStatus(activeMenuUser.id, activeMenuUser.status)}
-                className="flex w-full items-center gap-2 px-3 py-2 text-xs text-gray-700 transition hover:bg-gray-50 disabled:opacity-50 dark:text-gray-200 dark:hover:bg-gray-800"
+                className="flex w-full items-center gap-2 px-3 py-2 text-xs text-text-primary transition hover:bg-[#4C78F5]/[0.06] disabled:opacity-50 dark:text-slate-200 dark:hover:bg-slate-900"
               >
                 <Power
                   className={`h-3.5 w-3.5 ${
-                    activeMenuUser.status === "ACTIVE" ? "text-emerald-600" : "text-gray-500"
+                    activeMenuUser.status === "ACTIVE"
+                      ? "text-emerald-600"
+                      : "text-text-secondary"
                   }`}
                 />
-                {activeMenuUser.status === "ACTIVE" ? "Disable" : "Enable"}
+                {activeMenuUser.status === "ACTIVE" ? "Suspend" : "Activate"}
               </button>
             </div>
 

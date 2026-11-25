@@ -227,7 +227,7 @@ export default function Sidebar() {
     parentKey = "",
   ) => (
     <ul
-      className={`flex flex-col gap-0.5 ${level > 0 ? "ml-2 mt-1 border-l border-[#13538A]/15 pl-2.5 dark:border-[#13538A]/25" : ""}`}
+      className={`flex flex-col gap-0.5 ${level > 0 ? "ml-2 mt-1 border-l border-[#4C78F5]/15 pl-2.5 dark:border-[#4C78F5]/25" : ""}`}
     >
       {items.map((nav, index) => {
         const key = parentKey ? `${parentKey}-${index}` : `main-${index}`;
@@ -268,7 +268,7 @@ export default function Sidebar() {
                     <ChevronDownIcon
                       className={`ml-auto h-4 w-4 transition-all duration-200 ${
                         isOpen
-                          ? "rotate-180 text-[#13538A]"
+                          ? "rotate-180 text-[#4C78F5]"
                           : "text-gray-400 group-hover:text-gray-600"
                       }`}
                     />
@@ -307,7 +307,7 @@ export default function Sidebar() {
                     level > 0 && (
                       <span
                         className={`ml-1 h-1.5 w-1.5 shrink-0 rounded-full ${
-                          linkActive ? "bg-[#13538A]" : "bg-gray-300"
+                          linkActive ? "bg-[#4C78F5]" : "bg-gray-300"
                         }`}
                       />
                     )
@@ -334,31 +334,29 @@ export default function Sidebar() {
     window.location.href = "/loan-officer/login";
   };
 
+  const showLabels = isExpanded || isHovered || isMobileOpen;
+
   return (
     <aside
-      className={`fixed top-0 left-0 z-50 flex h-screen flex-col border-r border-gray-200 bg-white text-gray-800 shadow-[4px_0_24px_rgba(15,23,42,0.04)] transition-all duration-300 ease-in-out dark:border-gray-800 dark:bg-gray-950 dark:text-gray-100 dark:shadow-none
-        ${
-          isExpanded || isMobileOpen
-            ? "w-[290px]"
-            : isHovered
-              ? "w-[290px]"
-              : "w-[90px]"
-        }
+      className={`fixed top-0 left-0 z-50 flex h-screen flex-col border-r border-border bg-white text-text-primary transition-all duration-300 ease-in-out dark:border-gray-800 dark:bg-gray-950 dark:text-gray-100
+        ${showLabels ? "w-[260px]" : "w-[84px]"}
         ${isMobileOpen ? "translate-x-0" : "-translate-x-full"}
         lg:translate-x-0`}
       onMouseEnter={() => !isExpanded && setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
     >
       <div
-        className={`relative shrink-0 overflow-hidden border-b border-gray-100 dark:border-gray-800 ${
-          !isExpanded && !isHovered ? "lg:flex lg:justify-center lg:px-2 lg:py-4" : "px-4 py-5"
+        className={`flex shrink-0 items-center border-b border-border dark:border-gray-800 ${
+          showLabels ? "gap-2 px-3 py-4" : "justify-center px-2 py-4"
         }`}
       >
-        <div className="absolute inset-0 bg-gradient-to-br from-[#13538A]/6 via-transparent to-[#2C92D5]/8 dark:from-[#13538A]/12 dark:to-[#2C92D5]/12" />
-        <Link to="/loan-officer/dashboard" className="relative block">
-          {isExpanded || isHovered || isMobileOpen ? (
-            <div className="flex items-center gap-3">
-              <div className="h-11 w-11 shrink-0 overflow-hidden rounded-xl ring-2 ring-white shadow-sm dark:ring-gray-800">
+        <Link
+          to="/loan-officer/dashboard"
+          className={`min-w-0 ${showLabels ? "flex-1" : ""}`}
+        >
+          {showLabels ? (
+            <div className="flex items-center gap-2.5">
+              <div className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-full bg-brand-500 ring-2 ring-brand-100">
                 <img
                   src="/loanAutomation.jpeg"
                   alt="Loan Automation"
@@ -366,16 +364,16 @@ export default function Sidebar() {
                 />
               </div>
               <div className="min-w-0">
-                <p className="truncate text-sm font-bold text-gray-900 dark:text-white">
-                  Loan Automation
+                <p className="truncate text-[14px] font-semibold tracking-tight text-text-primary dark:text-white">
+                  LoanAutomation
                 </p>
-                <p className="truncate text-[10px] font-semibold uppercase tracking-[0.12em] text-[#13538A] dark:text-cyan-400">
-                  Loan Officer Portal
+                <p className="truncate text-[10px] font-semibold uppercase tracking-[0.14em] text-text-secondary">
+                  Loan Officer
                 </p>
               </div>
             </div>
           ) : (
-            <div className="mx-auto flex h-10 w-10 items-center justify-center overflow-hidden rounded-xl ring-2 ring-[#13538A]/15">
+            <div className="mx-auto flex h-9 w-9 items-center justify-center overflow-hidden rounded-full bg-brand-500 ring-2 ring-brand-100">
               <img
                 src="/loanAutomation.jpeg"
                 alt="Loan Automation"
@@ -386,17 +384,17 @@ export default function Sidebar() {
         </Link>
       </div>
 
-      <div className="sidebar-scrollbar-light min-h-0 flex-1 overflow-y-auto overflow-x-hidden px-3 py-4">
-        <nav className="pb-4">
+      <div className="sidebar-scrollbar-light min-h-0 flex-1 overflow-y-auto overflow-x-hidden px-2.5 py-3">
+        <nav>
           <h2
-            className={`mb-3 px-2 text-[10px] font-semibold uppercase tracking-[0.14em] text-gray-400 dark:text-gray-500 ${
-              !isExpanded && !isHovered ? "lg:text-center" : ""
+            className={`mb-2 px-2 text-[10px] font-semibold uppercase tracking-[0.16em] text-text-secondary ${
+              !showLabels ? "lg:text-center" : ""
             }`}
           >
-            {isExpanded || isHovered || isMobileOpen ? (
-              "Navigation"
+            {showLabels ? (
+              "Workspace"
             ) : (
-              <HorizontaLDots className="mx-auto size-5 text-gray-300" />
+              <HorizontaLDots className="mx-auto size-5 text-slate-300" />
             )}
           </h2>
 
@@ -404,8 +402,8 @@ export default function Sidebar() {
         </nav>
       </div>
 
-      {(isExpanded || isHovered || isMobileOpen) && (
-        <div className="shrink-0 space-y-2 border-t border-gray-100 px-4 py-3 dark:border-gray-800">
+      {showLabels ? (
+        <div className="shrink-0 border-t border-border px-3 py-3 dark:border-gray-800">
           <button
             type="button"
             onClick={handleLogout}
@@ -414,11 +412,8 @@ export default function Sidebar() {
             <LogOut size={15} />
             {isImpersonation ? "Close portal tab" : "Logout"}
           </button>
-          <p className="text-center text-[10px] font-medium uppercase tracking-wider text-gray-400 dark:text-gray-600">
-            Loan Automation Officer
-          </p>
         </div>
-      )}
+      ) : null}
     </aside>
   );
 }
