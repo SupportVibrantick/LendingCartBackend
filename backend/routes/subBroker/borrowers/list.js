@@ -1,22 +1,10 @@
 const {
-  resolveClientDisplayNameFromData,
-  resolveApplicationBorrowerEmail,
-  resolveClientPhoneFromData,
-} = require("../../../services/messaging/resolveClientDisplayName");
-const {
   findApplicationIdsBySubmissionFieldSearch,
   EMAIL_FIELD_KEYS,
 } = require("../../../services/applications/loanApplicationSearch");
-
-function getLatestSubmission(submissions = []) {
-  const active = submissions.filter((s) => s.status !== "SUPERSEDED");
-  if (!active.length) return null;
-  return active.reduce((latest, current) =>
-    !latest || new Date(current.createdAt) > new Date(latest.createdAt)
-      ? current
-      : latest,
-  );
-}
+const {
+  groupBorrowersByEmail,
+} = require("../../../services/broker/groupBorrowersByEmail");
 
 module.exports = async function subBrokerListBorrowersRoute(fastify) {
   fastify.get(
@@ -25,7 +13,8 @@ module.exports = async function subBrokerListBorrowersRoute(fastify) {
       preHandler: [fastify.authenticate, fastify.requireRole(["SUB_BROKER"])],
       schema: {
         tags: ["Sub Broker -> Borrowers"],
-        summary: "List borrowers from co-broker assigned applications",
+        summary:
+          "List assigned borrowers grouped by email/client portal, with nested applications",
         querystring: {
           type: "object",
           properties: {
@@ -71,7 +60,6 @@ module.exports = async function subBrokerListBorrowersRoute(fastify) {
         const search = (req.query.search || "").trim();
         const sortBy = req.query.sortBy || "createdAt";
         const sortOrder = req.query.sortOrder === "asc" ? "asc" : "desc";
-        const skip = (page - 1) * limit;
 
         const submissionEmailMatchIds = search
           ? await findApplicationIdsBySubmissionFieldSearch(prisma, search, {
@@ -146,121 +134,67 @@ module.exports = async function subBrokerListBorrowersRoute(fastify) {
             : {}),
         };
 
-        let orderBy;
-        switch (sortBy) {
-          case "name":
-            orderBy = { client: { legalName: sortOrder } };
-            break;
-          case "applicationNumber":
-            orderBy = { applicationNumber: sortOrder };
-            break;
-          case "email":
-          case "phone":
-            orderBy = [
-              { client: { legalName: sortOrder } },
-              { createdAt: sortOrder },
-            ];
-            break;
-          default:
-            orderBy = { createdAt: sortOrder };
-        }
-
-        const [applications, total, portalReadyCount, pendingLinkCount] =
-          await prisma.$transaction([
-          prisma.loanApplication.findMany({
-            where,
-            orderBy,
-            skip,
-            take: limit,
-            select: {
-              id: true,
-              applicationNumber: true,
-              status: true,
-              createdAt: true,
-              client: {
-                select: {
-                  id: true,
-                  legalName: true,
-                  contacts: {
-                    orderBy: [{ isPrimary: "desc" }, { id: "asc" }],
-                    select: {
-                      firstName: true,
-                      lastName: true,
-                      email: true,
-                      phone: true,
-                      isPrimary: true,
-                    },
-                  },
-                  portalUsers: {
-                    where: { isDeleted: { not: true }, isActive: true },
-                    orderBy: [{ lastLoginAt: "desc" }, { createdAt: "desc" }],
-                    take: 1,
-                    select: { email: true },
+        const applications = await prisma.loanApplication.findMany({
+          where,
+          orderBy: { createdAt: "desc" },
+          select: {
+            id: true,
+            applicationNumber: true,
+            status: true,
+            createdAt: true,
+            client: {
+              select: {
+                id: true,
+                legalName: true,
+                contacts: {
+                  orderBy: [{ isPrimary: "desc" }, { id: "asc" }],
+                  select: {
+                    firstName: true,
+                    lastName: true,
+                    email: true,
+                    phone: true,
+                    isPrimary: true,
                   },
                 },
+                portalUsers: {
+                  where: { isDeleted: { not: true }, isActive: true },
+                  orderBy: [{ lastLoginAt: "desc" }, { createdAt: "desc" }],
+                  take: 1,
+                  select: { email: true },
+                },
               },
-              submissions: {
-                where: { status: { not: "SUPERSEDED" } },
-                orderBy: { createdAt: "desc" },
-                select: {
-                  id: true,
-                  status: true,
-                  createdAt: true,
-                  fields: {
-                    select: {
-                      fieldKey: true,
-                      value: true,
-                      builderField: {
-                        select: { fieldKey: true },
-                      },
+            },
+            submissions: {
+              where: { status: { not: "SUPERSEDED" } },
+              orderBy: { createdAt: "desc" },
+              select: {
+                id: true,
+                status: true,
+                createdAt: true,
+                fields: {
+                  select: {
+                    fieldKey: true,
+                    value: true,
+                    builderField: {
+                      select: { fieldKey: true },
                     },
                   },
                 },
               },
             },
-          }),
-          prisma.loanApplication.count({ where }),
-          prisma.loanApplication.count({
-            where: { ...where, clientId: { not: null } },
-          }),
-          prisma.loanApplication.count({
-            where: { ...where, clientId: null },
-          }),
-        ]);
+          },
+        });
 
-        const data = applications.map((app) => {
-          const submissions = app.submissions || [];
-          const latestSubmission = getLatestSubmission(submissions);
-
-          return {
-            id: app.id,
-            applicationId: app.id,
-            applicationNumber: app.applicationNumber,
-            applicationStatus: app.status,
-            submissionId: latestSubmission?.id || null,
-            clientId: app.client?.id || null,
-            name: resolveClientDisplayNameFromData(app.client, submissions),
-            email:
-              resolveApplicationBorrowerEmail(app.client, submissions) || "",
-            phone: resolveClientPhoneFromData(app.client, submissions) || "",
-            createdAt: app.createdAt,
-          };
+        const result = groupBorrowersByEmail(applications, {
+          page,
+          limit,
+          sortBy,
+          sortOrder,
         });
 
         return reply.send({
           success: true,
-          data,
-          stats: {
-            total,
-            portalReady: portalReadyCount,
-            pendingLink: pendingLinkCount,
-          },
-          pagination: {
-            total,
-            page,
-            limit,
-            totalPages: Math.ceil(total / limit) || 1,
-          },
+          ...result,
         });
       } catch (error) {
         fastify.log.error({

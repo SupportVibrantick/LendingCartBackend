@@ -34,6 +34,33 @@ import {
 
 const ACTION_MENU_WIDTH = 180;
 const ACTION_MENU_HEIGHT = 148;
+const LOANS_MENU_WIDTH = 320;
+const LOANS_MENU_MAX_HEIGHT = 320;
+
+function computeLoansMenuPosition(rect: DOMRect) {
+  const padding = 8;
+  const estimatedHeight = Math.min(LOANS_MENU_MAX_HEIGHT, 280);
+  const spaceBelow = window.innerHeight - rect.bottom;
+  const spaceAbove = rect.top;
+  const openUpward =
+    spaceBelow < estimatedHeight + padding && spaceAbove > spaceBelow;
+
+  let top = openUpward ? rect.top - estimatedHeight - 6 : rect.bottom + 6;
+  top = Math.max(
+    padding,
+    Math.min(top, window.innerHeight - estimatedHeight - padding),
+  );
+
+  const left = Math.max(
+    padding,
+    Math.min(
+      rect.left,
+      window.innerWidth - LOANS_MENU_WIDTH - padding,
+    ),
+  );
+
+  return { top, left };
+}
 
 function computeActionMenuPosition(rect: DOMRect) {
   const padding = 8;
@@ -62,9 +89,17 @@ function computeActionMenuPosition(rect: DOMRect) {
 const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:4000";
 const SEARCH_DEBOUNCE_MS = 400;
 
+type BorrowerApplication = {
+  applicationId: string;
+  applicationNumber: string;
+  applicationStatus: string;
+  submissionId: string | null;
+  createdAt: string;
+};
+
 type BorrowerRow = {
   id: string;
-  applicationId: string;
+  applicationId: string | null;
   applicationNumber: string;
   applicationStatus: string;
   submissionId: string | null;
@@ -73,6 +108,8 @@ type BorrowerRow = {
   email: string;
   phone: string;
   createdAt: string;
+  applicationCount?: number;
+  applications?: BorrowerApplication[];
 };
 
 type ApiResponse = {
@@ -82,6 +119,7 @@ type ApiResponse = {
     total: number;
     portalReady: number;
     pendingLink: number;
+    applications?: number;
   };
   pagination: {
     total: number;
@@ -103,7 +141,7 @@ function resolveBorrowersPortalConfig() {
       previewPath: "/sub-broker/loan-pipeline-preview",
       pageTitle: "Borrowers | Co-Broker Portal",
       pageDescription:
-        "Borrowers from your assigned applications — name, contact details, and loan number.",
+        "One row per client portal email — open Loans to see every application and status.",
       canAccessBorrowerPortal: true,
     };
   }
@@ -116,7 +154,7 @@ function resolveBorrowersPortalConfig() {
       previewPath: "/loan-officer/loan-pipeline-preview",
       pageTitle: "Borrowers | Loan Officer Portal",
       pageDescription:
-        "Automatically extracted from loan applications — name, contact details, and loan number.",
+        "One row per client portal email — open Loans to see every application and status.",
       canAccessBorrowerPortal: hasPermission(
         "ACCESS_BORROWER_PORTAL",
         "loanOfficer",
@@ -131,7 +169,7 @@ function resolveBorrowersPortalConfig() {
     previewPath: "/loan-preview",
     pageTitle: "Borrowers | Broker Dashboard",
     pageDescription:
-      "Automatically extracted from loan applications — name, contact details, and loan number.",
+      "One row per client portal email — open Loans to see every application and status.",
     canAccessBorrowerPortal: true,
   };
 }
@@ -270,7 +308,10 @@ export default function BorrowersPage() {
   const [impersonatingId, setImpersonatingId] = useState<string | null>(null);
   const [activeMenuId, setActiveMenuId] = useState<string | null>(null);
   const [menuPos, setMenuPos] = useState({ top: 0, left: 0 });
+  const [loansMenuId, setLoansMenuId] = useState<string | null>(null);
+  const [loansMenuPos, setLoansMenuPos] = useState({ top: 0, left: 0 });
   const menuRef = useRef<HTMLDivElement | null>(null);
+  const loansMenuRef = useRef<HTMLDivElement | null>(null);
 
   const fetchBorrowers = useCallback(async () => {
     try {
@@ -371,13 +412,25 @@ export default function BorrowersPage() {
         menuRef.current?.contains(target) ||
         (target instanceof Element && target.closest("[data-menu-id]"))
       ) {
+        // keep actions menu
+      } else {
+        setActiveMenuId(null);
+      }
+
+      if (
+        loansMenuRef.current?.contains(target) ||
+        (target instanceof Element && target.closest("[data-loans-menu-id]"))
+      ) {
         return;
       }
-      setActiveMenuId(null);
+      setLoansMenuId(null);
     };
 
     const handleEscape = (event: KeyboardEvent) => {
-      if (event.key === "Escape") setActiveMenuId(null);
+      if (event.key === "Escape") {
+        setActiveMenuId(null);
+        setLoansMenuId(null);
+      }
     };
 
     document.addEventListener("mousedown", handleClickOutside);
@@ -409,27 +462,89 @@ export default function BorrowersPage() {
     };
   }, [activeMenuId]);
 
+  useEffect(() => {
+    if (!loansMenuId) return;
+
+    const reposition = () => {
+      const btn = document.querySelector(
+        `[data-loans-menu-id="${loansMenuId}"]`,
+      ) as HTMLElement | null;
+      if (!btn) return;
+      setLoansMenuPos(computeLoansMenuPosition(btn.getBoundingClientRect()));
+    };
+
+    reposition();
+    window.addEventListener("scroll", reposition, true);
+    window.addEventListener("resize", reposition);
+
+    return () => {
+      window.removeEventListener("scroll", reposition, true);
+      window.removeEventListener("resize", reposition);
+    };
+  }, [loansMenuId]);
+
   const openRowMenu = (id: string, event: ReactMouseEvent<HTMLButtonElement>) => {
     event.stopPropagation();
+    setLoansMenuId(null);
     setMenuPos(
       computeActionMenuPosition(event.currentTarget.getBoundingClientRect()),
     );
     setActiveMenuId((current) => (current === id ? null : id));
   };
 
+  const openLoansMenu = (
+    id: string,
+    event: ReactMouseEvent<HTMLButtonElement>,
+  ) => {
+    event.stopPropagation();
+    setActiveMenuId(null);
+    setLoansMenuPos(
+      computeLoansMenuPosition(event.currentTarget.getBoundingClientRect()),
+    );
+    setLoansMenuId((current) => (current === id ? null : id));
+  };
+
   const closeRowMenu = () => setActiveMenuId(null);
+  const closeLoansMenu = () => setLoansMenuId(null);
 
   const activeMenuBorrower = useMemo(
     () => borrowers.find((row) => row.id === activeMenuId) ?? null,
     [borrowers, activeMenuId],
   );
 
-  const openApplication = (row: BorrowerRow) => {
-    if (!row.submissionId) {
+  const activeLoansBorrower = useMemo(
+    () => borrowers.find((row) => row.id === loansMenuId) ?? null,
+    [borrowers, loansMenuId],
+  );
+
+  const getBorrowerApplications = (row: BorrowerRow): BorrowerApplication[] => {
+    if (Array.isArray(row.applications) && row.applications.length > 0) {
+      return row.applications;
+    }
+    if (!row.applicationId && !row.applicationNumber) return [];
+    return [
+      {
+        applicationId: row.applicationId || row.id,
+        applicationNumber: row.applicationNumber || "",
+        applicationStatus: row.applicationStatus,
+        submissionId: row.submissionId,
+        createdAt: row.createdAt,
+      },
+    ];
+  };
+
+  const openApplication = (
+    row: BorrowerRow,
+    loan?: BorrowerApplication | null,
+  ) => {
+    const target = loan || getBorrowerApplications(row)[0] || null;
+    if (!target?.submissionId) {
       toast.error("No submission found for this application");
       return;
     }
-    navigate(portalConfig.previewPath, { state: { submissionId: row.submissionId } });
+    navigate(portalConfig.previewPath, {
+      state: { submissionId: target.submissionId },
+    });
   };
 
   const handleImpersonate = async (row: BorrowerRow) => {
@@ -596,7 +711,7 @@ export default function BorrowersPage() {
                   <th className="hidden sm:table-cell">Role</th>
                   <th>
                     <SortHeader
-                      label="Loan #"
+                      label="Loans"
                       active={sortKey === "applicationNumber"}
                       direction={sortDir}
                       onClick={() => toggleSort("applicationNumber")}
@@ -610,7 +725,7 @@ export default function BorrowersPage() {
                       onClick={() => toggleSort("createdAt")}
                     />
                   </th>
-                  <th>Status</th>
+                  <th>Latest status</th>
                   <th className="!text-right">Action</th>
                 </tr>
               </thead>
@@ -660,6 +775,13 @@ export default function BorrowersPage() {
                     const openingPortal =
                       Boolean(row.clientId) &&
                       impersonatingId === row.clientId;
+                    const loans = getBorrowerApplications(row);
+                    const loanCount =
+                      row.applicationCount || loans.length || 0;
+                    const primaryLoan = loans[0] || null;
+                    const hasOpenableLoan = loans.some(
+                      (loan) => Boolean(loan.submissionId),
+                    );
 
                     return (
                       <tr key={row.id}>
@@ -693,10 +815,29 @@ export default function BorrowersPage() {
                         </td>
 
                         <td>
-                          {row.applicationNumber ? (
-                            <span className="inline-flex max-w-[160px] truncate rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-[11px] font-medium text-slate-600 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300">
-                              {row.applicationNumber}
-                            </span>
+                          {loanCount > 0 ? (
+                            <button
+                              type="button"
+                              data-loans-menu-id={row.id}
+                              onClick={(event) => openLoansMenu(row.id, event)}
+                              className={`inline-flex max-w-[220px] items-center gap-1.5 rounded-full border px-2.5 py-1 text-left text-[11px] font-semibold transition ${
+                                loansMenuId === row.id
+                                  ? "border-[#4C78F5]/40 bg-[#4C78F5]/10 text-[#4C78F5]"
+                                  : "border-slate-200 bg-slate-50 text-slate-700 hover:border-[#4C78F5]/30 hover:bg-[#4C78F5]/5 hover:text-[#4C78F5] dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300"
+                              }`}
+                              title="View applications"
+                            >
+                              <span className="truncate">
+                                {primaryLoan?.applicationNumber || "Application"}
+                              </span>
+                              {loanCount > 1 ? (
+                                <span className="shrink-0 rounded-full bg-[#4C78F5]/15 px-1.5 py-0.5 text-[10px] font-bold text-[#4C78F5]">
+                                  +{loanCount - 1}
+                                </span>
+                              ) : (
+                                <ChevronDown className="h-3 w-3 shrink-0 opacity-60" />
+                              )}
+                            </button>
                           ) : (
                             <span className="text-[12px] font-medium italic text-text-secondary/70">
                               Not set
@@ -713,15 +854,37 @@ export default function BorrowersPage() {
                         </td>
 
                         <td>
-                          <StatusPill status={row.applicationStatus} />
+                          <StatusPill
+                            status={
+                              primaryLoan?.applicationStatus ||
+                              row.applicationStatus
+                            }
+                          />
                         </td>
 
                         <td className="text-right">
                           <div className="inline-flex items-center justify-end gap-2">
                             <button
                               type="button"
-                              disabled={!row.submissionId}
-                              onClick={() => openApplication(row)}
+                              disabled={!hasOpenableLoan}
+                              onClick={() => {
+                                if (loanCount > 1) {
+                                  const btn = document.querySelector(
+                                    `[data-loans-menu-id="${row.id}"]`,
+                                  ) as HTMLButtonElement | null;
+                                  if (btn) {
+                                    setActiveMenuId(null);
+                                    setLoansMenuPos(
+                                      computeLoansMenuPosition(
+                                        btn.getBoundingClientRect(),
+                                      ),
+                                    );
+                                    setLoansMenuId(row.id);
+                                    return;
+                                  }
+                                }
+                                openApplication(row, primaryLoan);
+                              }}
                               className="inline-flex h-8 items-center gap-1.5 rounded-lg bg-[#4C78F5] px-3 text-xs font-semibold text-white transition hover:bg-[#3B66E0] disabled:opacity-50"
                             >
                               <Eye className="h-3.5 w-3.5" />
@@ -834,6 +997,65 @@ export default function BorrowersPage() {
         </div>
       </div>
 
+      {activeLoansBorrower &&
+        loansMenuId &&
+        createPortal(
+          <div
+            ref={loansMenuRef}
+            style={{
+              position: "fixed",
+              top: loansMenuPos.top,
+              left: loansMenuPos.left,
+              width: LOANS_MENU_WIDTH,
+            }}
+            className="z-[9999] overflow-hidden rounded-xl border border-border bg-white dark:border-slate-700 dark:bg-slate-950"
+          >
+            <div className="border-b border-border px-3 py-2.5 dark:border-slate-800">
+              <p className="truncate text-[12px] font-semibold text-text-primary dark:text-white">
+                {activeLoansBorrower.name || "Borrower"}
+              </p>
+              <p className="truncate text-[11px] text-text-secondary">
+                {activeLoansBorrower.email || "No email"} ·{" "}
+                {getBorrowerApplications(activeLoansBorrower).length} loan
+                {getBorrowerApplications(activeLoansBorrower).length === 1
+                  ? ""
+                  : "s"}
+              </p>
+            </div>
+
+            <div className="max-h-[260px] overflow-y-auto py-1">
+              {getBorrowerApplications(activeLoansBorrower).map((loan) => (
+                <button
+                  key={loan.applicationId}
+                  type="button"
+                  disabled={!loan.submissionId}
+                  onClick={() => {
+                    closeLoansMenu();
+                    openApplication(activeLoansBorrower, loan);
+                  }}
+                  className="flex w-full items-start gap-3 px-3 py-2.5 text-left transition hover:bg-[#4C78F5]/[0.06] disabled:cursor-not-allowed disabled:opacity-40 dark:hover:bg-slate-900"
+                >
+                  <div className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-[#4C78F5]/10 text-[#4C78F5]">
+                    <Eye className="h-3.5 w-3.5" />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-[12px] font-semibold text-text-primary dark:text-slate-100">
+                      {loan.applicationNumber || "Untitled application"}
+                    </p>
+                    <div className="mt-1 flex flex-wrap items-center gap-2">
+                      <StatusPill status={loan.applicationStatus} />
+                      <span className="text-[10px] text-text-secondary">
+                        {formatDate(loan.createdAt)}
+                      </span>
+                    </div>
+                  </div>
+                </button>
+              ))}
+            </div>
+          </div>,
+          document.body,
+        )}
+
       {activeMenuBorrower &&
         activeMenuId &&
         createPortal(
@@ -855,15 +1077,32 @@ export default function BorrowersPage() {
             <div className="py-0.5">
               <button
                 type="button"
-                disabled={!activeMenuBorrower.submissionId}
+                disabled={
+                  !getBorrowerApplications(activeMenuBorrower).some(
+                    (loan) => loan.submissionId,
+                  )
+                }
                 onClick={() => {
+                  const loans = getBorrowerApplications(activeMenuBorrower);
                   closeRowMenu();
-                  openApplication(activeMenuBorrower);
+                  if (loans.length > 1) {
+                    const btn = document.querySelector(
+                      `[data-loans-menu-id="${activeMenuBorrower.id}"]`,
+                    ) as HTMLButtonElement | null;
+                    if (btn) {
+                      setLoansMenuPos(
+                        computeLoansMenuPosition(btn.getBoundingClientRect()),
+                      );
+                      setLoansMenuId(activeMenuBorrower.id);
+                      return;
+                    }
+                  }
+                  openApplication(activeMenuBorrower, loans[0]);
                 }}
                 className="flex w-full items-center gap-2 px-3 py-2 text-xs text-text-primary transition hover:bg-[#4C78F5]/[0.06] disabled:cursor-not-allowed disabled:opacity-40 dark:text-slate-200 dark:hover:bg-slate-900"
               >
                 <Eye className="h-3.5 w-3.5 text-[#4C78F5]" />
-                View application
+                View applications
               </button>
 
               {canAccessBorrowerPortal ? (
