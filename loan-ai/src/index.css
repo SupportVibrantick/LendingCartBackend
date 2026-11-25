@@ -43,6 +43,48 @@ body {
   color: #fff;
 }
 
+/* Global thin scrollbars */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: #c5cedb transparent;
+}
+
+*::-webkit-scrollbar {
+  width: 4px;
+  height: 4px;
+}
+
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+*::-webkit-scrollbar-thumb {
+  background-color: #c5cedb;
+  border-radius: 999px;
+  border: 1px solid transparent;
+  background-clip: content-box;
+}
+
+*::-webkit-scrollbar-thumb:hover {
+  background-color: #4b83ff;
+}
+
+*::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
+html.dark * {
+  scrollbar-color: #475569 transparent;
+}
+
+html.dark *::-webkit-scrollbar-thumb {
+  background-color: #475569;
+}
+
+html.dark *::-webkit-scrollbar-thumb:hover {
+  background-color: #4b83ff;
+}
+
 /* Pricing "Save 17%" badge — gentle wiggle + pulse so it stays noticeable */
 @keyframes save-badge-wiggle {
   0%,
