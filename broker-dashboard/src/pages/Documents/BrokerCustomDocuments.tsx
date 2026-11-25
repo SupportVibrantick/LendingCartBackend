@@ -6,6 +6,7 @@ import {
   FileText,
   FilterX,
   Loader2,
+  MoreVertical,
   Pencil,
   Plus,
   RefreshCw,
@@ -14,6 +15,7 @@ import {
   X,
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import toast from "react-hot-toast";
 import Swal from "sweetalert2";
 import PageMeta from "../../components/common/PageMeta";
@@ -73,19 +75,49 @@ function formatRelative(value?: string) {
   return formatDate(value);
 }
 
+const ACTION_MENU_WIDTH = 168;
+const ACTION_MENU_HEIGHT = 120;
+
+function computeActionMenuPosition(rect: DOMRect) {
+  const padding = 8;
+  const spaceBelow = window.innerHeight - rect.bottom;
+  const spaceAbove = rect.top;
+  const openUpward =
+    spaceBelow < ACTION_MENU_HEIGHT + padding && spaceAbove > spaceBelow;
+
+  let top = openUpward ? rect.top - ACTION_MENU_HEIGHT - 6 : rect.bottom + 6;
+  top = Math.max(
+    padding,
+    Math.min(top, window.innerHeight - ACTION_MENU_HEIGHT - padding),
+  );
+
+  const left = Math.max(
+    padding,
+    Math.min(
+      rect.right - ACTION_MENU_WIDTH,
+      window.innerWidth - ACTION_MENU_WIDTH - padding,
+    ),
+  );
+
+  return { top, left };
+}
+
 function UsagePill({ count }: { count: number }) {
   if (count > 0) {
     return (
-      <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2.5 py-1 text-[11px] font-semibold text-emerald-700 ring-1 ring-inset ring-emerald-200">
-        <CheckCircle2 className="h-3.5 w-3.5" />
-        {count} app{count === 1 ? "" : "s"}
+      <span className="inline-flex max-w-full items-center gap-1.5 whitespace-nowrap rounded-full bg-emerald-50 px-2.5 py-1 text-[11px] font-semibold text-emerald-700 ring-1 ring-inset ring-emerald-200">
+        <CheckCircle2 className="h-3.5 w-3.5 shrink-0" />
+        <span className="inline-flex items-baseline gap-1 whitespace-nowrap">
+          <span className="tabular-nums">{count}</span>
+          <span>app{count === 1 ? "" : "s"}</span>
+        </span>
       </span>
     );
   }
 
   return (
-    <span className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2.5 py-1 text-[11px] font-semibold text-slate-600 ring-1 ring-inset ring-slate-200">
-      <CircleDashed className="h-3.5 w-3.5" />
+    <span className="inline-flex items-center gap-1.5 whitespace-nowrap rounded-full bg-slate-100 px-2.5 py-1 text-[11px] font-semibold text-slate-600 ring-1 ring-inset ring-slate-200">
+      <CircleDashed className="h-3.5 w-3.5 shrink-0" />
       Unused
     </span>
   );
@@ -121,6 +153,9 @@ export default function BrokerCustomDocuments() {
     null,
   );
   const [form, setForm] = useState<DocumentFormState>(emptyForm);
+  const [activeMenuId, setActiveMenuId] = useState<string | null>(null);
+  const [menuPos, setMenuPos] = useState({ top: 0, left: 0 });
+  const menuRef = useRef<HTMLDivElement | null>(null);
   const abortRef = useRef<AbortController | null>(null);
 
   useEffect(() => {
@@ -274,6 +309,73 @@ export default function BrokerCustomDocuments() {
     setForm(emptyForm);
   };
 
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as Node;
+      if (menuRef.current?.contains(target)) return;
+      if (
+        target instanceof Element &&
+        target.closest("[data-menu-id]")
+      ) {
+        return;
+      }
+      setActiveMenuId(null);
+    };
+
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setActiveMenuId(null);
+    };
+
+    document.addEventListener("mousedown", handleClickOutside);
+    document.addEventListener("keydown", handleEscape);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+      document.removeEventListener("keydown", handleEscape);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!activeMenuId) return;
+
+    const reposition = () => {
+      const btn = document.querySelector(
+        `[data-menu-id="${activeMenuId}"]`,
+      ) as HTMLElement | null;
+      if (!btn) return;
+      setMenuPos(computeActionMenuPosition(btn.getBoundingClientRect()));
+    };
+
+    reposition();
+    window.addEventListener("scroll", reposition, true);
+    window.addEventListener("resize", reposition);
+    return () => {
+      window.removeEventListener("scroll", reposition, true);
+      window.removeEventListener("resize", reposition);
+    };
+  }, [activeMenuId]);
+
+  const openRowMenu = (
+    id: string,
+    event: React.MouseEvent<HTMLButtonElement>,
+  ) => {
+    event.stopPropagation();
+    setMenuPos(
+      computeActionMenuPosition(event.currentTarget.getBoundingClientRect()),
+    );
+    setActiveMenuId((current) => (current === id ? null : id));
+  };
+
+  const closeRowMenu = () => setActiveMenuId(null);
+
+  const activeMenuDoc = useMemo(
+    () => documents.find((doc) => doc.id === activeMenuId) ?? null,
+    [documents, activeMenuId],
+  );
+
+  const editingUsageCount = editingDoc?.usageCount || 0;
+  const isProductLocked =
+    Boolean(editingDoc) && (editingUsageCount > 0 || Boolean(editingDoc?.isProtected));
+
   const handleSave = async () => {
     if (!canManage) {
       toast.error("You have view-only access to custom documents");
@@ -288,15 +390,21 @@ export default function BrokerCustomDocuments() {
       return;
     }
 
-    if (!loanProductId) {
+    // Product is only required when creating. While editing an in-use document
+    // the field is locked, so we must not block name/description updates.
+    if (!editingDoc && !loanProductId) {
       toast.error("Select a loan product");
       return;
     }
 
-    const loanProductIds = expandLoanProductIds(
-      [loanProductId],
-      loanProducts,
-    );
+    if (editingDoc && !isProductLocked && !loanProductId) {
+      toast.error("Select a loan product");
+      return;
+    }
+
+    const loanProductIds = loanProductId
+      ? expandLoanProductIds([loanProductId], loanProducts)
+      : [];
 
     try {
       setSaving(true);
@@ -304,6 +412,7 @@ export default function BrokerCustomDocuments() {
         await updateBrokerCustomDocument(editingDoc.id, {
           name,
           description,
+          ...(isProductLocked ? {} : { loanProductIds }),
         });
         toast.success("Custom document updated");
       } else {
@@ -637,7 +746,7 @@ export default function BrokerCustomDocuments() {
                           )}
                         </td>
 
-                        <td>
+                        <td className="whitespace-nowrap">
                           <UsagePill count={usageCount} />
                         </td>
 
@@ -662,26 +771,21 @@ export default function BrokerCustomDocuments() {
 
                         {canManage ? (
                           <td className="text-right">
-                            <div className="inline-flex items-center justify-end gap-2">
-                              <button
-                                type="button"
-                                disabled={doc.isProtected}
-                                onClick={() => openEditModal(doc)}
-                                className="inline-flex h-8 items-center gap-1.5 rounded-lg bg-[#4C78F5] px-3 text-xs font-semibold text-white transition hover:bg-[#3B66E0] disabled:opacity-40"
-                              >
-                                <Pencil className="h-3.5 w-3.5" />
-                                Edit
-                              </button>
-                              <button
-                                type="button"
-                                disabled={doc.isProtected}
-                                onClick={() => void handleDeactivate(doc)}
-                                className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-border bg-white px-3 text-xs font-semibold text-text-secondary transition hover:border-rose-200 hover:bg-rose-50 hover:text-rose-700 disabled:opacity-40 dark:border-slate-700 dark:bg-slate-950"
-                              >
-                                <Trash2 className="h-3.5 w-3.5" />
-                                Remove
-                              </button>
-                            </div>
+                            <button
+                              type="button"
+                              data-menu-id={doc.id}
+                              disabled={doc.isProtected}
+                              onClick={(event) => openRowMenu(doc.id, event)}
+                              className={`inline-flex h-8 w-8 items-center justify-center rounded-full border transition disabled:opacity-40 ${
+                                activeMenuId === doc.id
+                                  ? "border-[#4C78F5]/40 bg-[#4C78F5]/10 text-[#4C78F5]"
+                                  : "border-border bg-white text-text-secondary hover:bg-surface hover:text-text-primary dark:border-slate-700 dark:bg-slate-900"
+                              }`}
+                              title="More actions"
+                              aria-label="Open actions menu"
+                            >
+                              <MoreVertical className="h-4 w-4" />
+                            </button>
                           </td>
                         ) : null}
                       </tr>
@@ -764,6 +868,55 @@ export default function BrokerCustomDocuments() {
         </div>
       </div>
 
+      {activeMenuDoc &&
+        activeMenuId &&
+        createPortal(
+          <div
+            ref={menuRef}
+            style={{ position: "fixed", top: menuPos.top, left: menuPos.left }}
+            className="z-[9999] w-[168px] overflow-hidden rounded-xl border border-border bg-white dark:border-slate-700 dark:bg-slate-950"
+          >
+            <div className="border-b border-border px-3 py-2 dark:border-slate-800">
+              <p className="truncate text-[11px] font-semibold text-text-primary dark:text-white">
+                {activeMenuDoc.name}
+              </p>
+              <p className="truncate text-[10px] text-text-secondary">
+                {activeMenuDoc.isProtected
+                  ? "System document"
+                  : activeMenuDoc.id.slice(0, 8).toUpperCase()}
+              </p>
+            </div>
+
+            <div className="py-0.5">
+              <button
+                type="button"
+                disabled={activeMenuDoc.isProtected}
+                onClick={() => {
+                  closeRowMenu();
+                  openEditModal(activeMenuDoc);
+                }}
+                className="flex w-full items-center gap-2 px-3 py-2 text-xs text-text-primary transition hover:bg-[#4C78F5]/[0.06] disabled:opacity-40 dark:text-slate-200 dark:hover:bg-slate-900"
+              >
+                <Pencil className="h-3.5 w-3.5 text-[#4C78F5]" />
+                Edit
+              </button>
+              <button
+                type="button"
+                disabled={activeMenuDoc.isProtected}
+                onClick={() => {
+                  closeRowMenu();
+                  void handleDeactivate(activeMenuDoc);
+                }}
+                className="flex w-full items-center gap-2 px-3 py-2 text-xs text-rose-600 transition hover:bg-rose-50 disabled:opacity-40 dark:text-rose-400 dark:hover:bg-rose-500/10"
+              >
+                <Trash2 className="h-3.5 w-3.5" />
+                Remove
+              </button>
+            </div>
+          </div>,
+          document.body,
+        )}
+
       {modalOpen && (
         <div className="fixed inset-0 z-[100000] flex items-center justify-center bg-black/40 p-4">
           <div className="w-full max-w-lg rounded-2xl bg-white shadow-xl">
@@ -805,7 +958,7 @@ export default function BrokerCustomDocuments() {
 
               <div>
                 <label className="mb-1.5 block text-sm font-medium text-slate-700">
-                  Loan product *
+                  Loan product {editingDoc && isProductLocked ? "" : "*"}
                 </label>
                 <select
                   value={form.loanProductId}
@@ -816,17 +969,19 @@ export default function BrokerCustomDocuments() {
                     }))
                   }
                   disabled={
-                    Boolean(editingDoc) ||
+                    isProductLocked ||
                     saving ||
                     loadingProducts ||
                     selectableLoanProducts.length === 0
                   }
-                  className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none transition focus:border-[#4C78F5] focus:ring-2 focus:ring-[#4C78F5]/10 disabled:opacity-60"
+                  className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none transition focus:border-[#4C78F5] focus:ring-2 focus:ring-[#4C78F5]/10 disabled:cursor-not-allowed disabled:bg-slate-50 disabled:opacity-70"
                 >
                   <option value="">
                     {loadingProducts
                       ? "Loading loan products..."
-                      : "Select loan product"}
+                      : editingDoc && !form.loanProductId
+                        ? "No loan product assigned"
+                        : "Select loan product"}
                   </option>
                   {selectableLoanProducts.map((product) => (
                     <option key={product.id} value={product.id}>
@@ -834,13 +989,30 @@ export default function BrokerCustomDocuments() {
                     </option>
                   ))}
                 </select>
-                <p className="mt-1.5 text-xs text-slate-500">
-                  {editingDoc
-                    ? "Loan product cannot be changed while editing."
-                    : selectedFormProduct
-                      ? `Available for ${selectedFormProduct.name}, only to your broker organization.`
-                      : "Select one loan product. Access stays limited to your broker organization."}
-                </p>
+                {editingDoc && isProductLocked ? (
+                  <div className="mt-2 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2.5 text-xs leading-relaxed text-amber-800">
+                    <p className="font-semibold">
+                      Loan product is locked
+                    </p>
+                    <p className="mt-0.5">
+                      {editingDoc.isProtected
+                        ? "This is a system document, so the loan product cannot be changed."
+                        : `This document is already used on ${editingUsageCount} application${
+                            editingUsageCount === 1 ? "" : "s"
+                          }, so the loan product cannot be changed. You can still update the name and description.`}
+                    </p>
+                  </div>
+                ) : (
+                  <p className="mt-1.5 text-xs text-slate-500">
+                    {editingDoc
+                      ? selectedFormProduct
+                        ? `Currently set to ${selectedFormProduct.name}. Unused documents can change product.`
+                        : "Choose a loan product for this unused document."
+                      : selectedFormProduct
+                        ? `Available for ${selectedFormProduct.name}, only to your broker organization.`
+                        : "Select one loan product. Access stays limited to your broker organization."}
+                  </p>
+                )}
               </div>
 
               <div>

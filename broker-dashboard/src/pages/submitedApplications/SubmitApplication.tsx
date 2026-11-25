@@ -19,7 +19,6 @@ import {
   SearchX,
   ChevronLeft,
   ChevronRight,
-  ExternalLink,
   MoreHorizontal,
   Plus,
   Send,
@@ -1784,7 +1783,7 @@ export default function LoanApplicationsPage() {
           </div>
 
           <div className="w-full overflow-x-auto">
-            <table className="ds-table min-w-[980px] w-full">
+            <table className="ds-table w-full min-w-[760px]">
               <thead>
                 <tr>
                   {[
@@ -1794,11 +1793,11 @@ export default function LoanApplicationsPage() {
                     "Stage",
                     "Team",
                     "Received",
-                    "Portal",
+                    "Action",
                   ].map((label) => (
                     <th
                       key={label}
-                      className={label === "Portal" ? "!text-right" : undefined}
+                      className={label === "Action" ? "!text-right" : undefined}
                     >
                       {label}
                     </th>
@@ -1942,23 +1941,7 @@ export default function LoanApplicationsPage() {
                         className="text-right"
                         onClick={(e) => e.stopPropagation()}
                       >
-                        <div className="inline-flex shrink-0 items-center justify-end gap-2">
-                          <button
-                            type="button"
-                            title={
-                              row.status === "INCOMPLETE"
-                                ? "Continue application"
-                                : "Open application"
-                            }
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              openApplicationRow(row);
-                            }}
-                            className="inline-flex items-center gap-1 text-[13px] font-semibold text-[#4C78F5] transition hover:text-[#3B66E0] hover:underline"
-                          >
-                            Open
-                            <ExternalLink size={13} />
-                          </button>
+                        <div className="inline-flex shrink-0 items-center justify-end">
                           <button
                             type="button"
                             title="More actions"
