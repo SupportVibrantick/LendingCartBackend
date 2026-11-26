@@ -391,6 +391,19 @@ export default function ClientPortalChrome({
             <Menu size={16} />
           </button>
 
+          {mode === "workspace" && onBackToApplications ? (
+            <button
+              type="button"
+              onClick={onBackToApplications}
+              className="inline-flex h-8 shrink-0 items-center gap-1.5 rounded-lg border border-[#4C78F5]/25 bg-[#4C78F5]/10 px-2.5 text-[12px] font-semibold text-[#4C78F5] transition hover:bg-[#4C78F5]/15 sm:px-3"
+              title="Back to Applications"
+            >
+              <ChevronLeft size={15} strokeWidth={2.4} className="shrink-0" />
+              <span className="hidden sm:inline">Back to Applications</span>
+              <span className="sm:hidden">Back</span>
+            </button>
+          ) : null}
+
           <div className="hidden min-w-0 items-center gap-1.5 sm:flex">
             <span className="truncate text-[13px] font-semibold text-[#111827]">
               LoanAutomation
