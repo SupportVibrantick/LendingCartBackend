@@ -16,10 +16,17 @@ export default function ResetPassword() {
   const token = searchParams.get("token");
   const portal = parsePortal(searchParams.get("portal"));
 
+  const pageTitle =
+    portal === "loan-officer"
+      ? "Reset Password | Loan Officer Portal"
+      : portal === "sub-broker"
+        ? "Reset Password | Co-Broker Portal"
+        : "Reset Password | Broker Portal";
+
   return (
     <>
-      <PageMeta title="Reset Password | Loan Automation" description="" />
-      <AuthLayout>
+      <PageMeta title={pageTitle} description="" />
+      <AuthLayout portal={portal}>
         {token ? (
           <ResetPasswordForm token={token} portal={portal} />
         ) : (

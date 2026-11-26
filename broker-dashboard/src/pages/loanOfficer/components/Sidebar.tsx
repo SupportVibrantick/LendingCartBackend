@@ -1,9 +1,11 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useLocation } from "react-router";
 import {
+  ChevronDown,
   FilePlus,
   FolderOpen,
   LogOut,
+  PanelLeftOpen,
   // MessageSquare,
   PlugZap,
   Store,
@@ -26,12 +28,45 @@ import {
   clearLoanOfficerSession,
   exitLoanOfficerImpersonation,
   isLoanOfficerImpersonationSession,
+  LO_PROFILE_UPDATED_EVENT,
+  LO_USER_KEY,
 } from "../../../lib/loanOfficerApi";
 import { hydrateOrgEntitlements } from "../../../lib/brokerEntitlements";
 
 type NavItem = LoanOfficerNavItem & {
   icon?: React.ReactNode;
 };
+
+function getUserInitials(
+  firstName?: string,
+  lastName?: string,
+  fallback = "LO",
+) {
+  const first = (firstName || "").trim();
+  const last = (lastName || "").trim();
+  if (first && last) return `${first[0]}${last[0]}`.toUpperCase();
+  if (first) return first.slice(0, 2).toUpperCase();
+  if (last) return last.slice(0, 2).toUpperCase();
+  return String(fallback || "LO").slice(0, 2).toUpperCase();
+}
+
+function toTitleCase(value?: string) {
+  if (!value) return "";
+  return value
+    .toLowerCase()
+    .split(" ")
+    .filter(Boolean)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(" ");
+}
+
+function resolveLoanOfficerRoleLabel(roles: string[]) {
+  if (roles.includes("BROKER_OFFICER") || roles.includes("LOAN_OFFICER")) {
+    return "Officer";
+  }
+  if (roles[0]) return roles[0].replace(/_/g, " ");
+  return "Officer";
+}
 
 const navItems: NavItem[] = [
   {
@@ -107,14 +142,14 @@ const navItems: NavItem[] = [
     name: "Payments",
     subItems: [
       {
-        name: "Commissions",
-        path: "/loan-officer/commissions",
-        permission: "VIEW_COMMISSIONS",
-      },
-      {
         name: "Invoices",
         path: "/loan-officer/invoices",
         permission: "VIEW_INVOICES",
+      },
+      {
+        name: "Commissions",
+        path: "/loan-officer/commissions",
+        permission: "VIEW_COMMISSIONS",
       },
       {
         name: "Banking",
@@ -149,21 +184,33 @@ const navItems: NavItem[] = [
 ];
 
 export default function Sidebar() {
-  const { isExpanded, isMobileOpen, isHovered, setIsHovered } = useSidebar();
+  const {
+    isExpanded,
+    isMobileOpen,
+    isHovered,
+    setIsHovered,
+    toggleSidebar,
+  } = useSidebar();
   const location = useLocation();
   const [openMenus, setOpenMenus] = useState<Record<string, boolean>>({});
   const isImpersonation = isLoanOfficerImpersonationSession();
+  const [userMenuOpen, setUserMenuOpen] = useState(false);
+  const userMenuRef = useRef<HTMLDivElement | null>(null);
+  const [userTick, setUserTick] = useState(0);
 
   const [permTick, setPermTick] = useState(0);
 
   useEffect(() => {
     void hydrateOrgEntitlements();
     const refresh = () => setPermTick((value) => value + 1);
+    const onProfileUpdated = () => setUserTick((value) => value + 1);
     window.addEventListener(LO_PERMISSIONS_UPDATED_EVENT, refresh);
     window.addEventListener(ORG_ENTITLEMENTS_UPDATED_EVENT, refresh);
+    window.addEventListener(LO_PROFILE_UPDATED_EVENT, onProfileUpdated);
     return () => {
       window.removeEventListener(LO_PERMISSIONS_UPDATED_EVENT, refresh);
       window.removeEventListener(ORG_ENTITLEMENTS_UPDATED_EVENT, refresh);
+      window.removeEventListener(LO_PROFILE_UPDATED_EVENT, onProfileUpdated);
     };
   }, []);
 
@@ -326,6 +373,7 @@ export default function Sidebar() {
   );
 
   const handleLogout = () => {
+    setUserMenuOpen(false);
     if (isImpersonation) {
       exitLoanOfficerImpersonation();
       return;
@@ -336,6 +384,67 @@ export default function Sidebar() {
 
   const showLabels = isExpanded || isHovered || isMobileOpen;
 
+  const sidebarUser = useMemo(() => {
+    let stored: any = {};
+    try {
+      stored = JSON.parse(sessionStorage.getItem(LO_USER_KEY) || "{}");
+    } catch {
+      stored = {};
+    }
+
+    const user = stored?.user || stored || {};
+    const firstName = user.firstName || "";
+    const lastName = user.lastName || "";
+    const name =
+      `${firstName} ${lastName}`.trim() ||
+      user.name ||
+      "Loan Officer";
+
+    let roles: string[] = [];
+    try {
+      roles = JSON.parse(sessionStorage.getItem("roles") || "[]");
+    } catch {
+      roles = Array.isArray(user.roles) ? user.roles : [];
+    }
+
+    const orgName =
+      stored?.organization?.name ||
+      user?.organization?.name ||
+      user?.organizationName ||
+      "Loan Officer Portal";
+
+    return {
+      name: toTitleCase(name) || "Loan Officer",
+      orgName,
+      roleLabel: resolveLoanOfficerRoleLabel(roles),
+      initials: getUserInitials(firstName, lastName, name.charAt(0) || "L"),
+    };
+  }, [location.pathname, userTick]);
+
+  useEffect(() => {
+    setUserMenuOpen(false);
+  }, [location.pathname]);
+
+  useEffect(() => {
+    if (!userMenuOpen) return;
+
+    const onPointerDown = (event: MouseEvent) => {
+      if (!userMenuRef.current?.contains(event.target as Node)) {
+        setUserMenuOpen(false);
+      }
+    };
+    const onEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setUserMenuOpen(false);
+    };
+
+    document.addEventListener("mousedown", onPointerDown);
+    document.addEventListener("keydown", onEscape);
+    return () => {
+      document.removeEventListener("mousedown", onPointerDown);
+      document.removeEventListener("keydown", onEscape);
+    };
+  }, [userMenuOpen]);
+
   return (
     <aside
       className={`fixed top-0 left-0 z-50 flex h-screen flex-col border-r border-border bg-white text-text-primary transition-all duration-300 ease-in-out dark:border-gray-800 dark:bg-gray-950 dark:text-gray-100
@@ -343,7 +452,10 @@ export default function Sidebar() {
         ${isMobileOpen ? "translate-x-0" : "-translate-x-full"}
         lg:translate-x-0`}
       onMouseEnter={() => !isExpanded && setIsHovered(true)}
-      onMouseLeave={() => setIsHovered(false)}
+      onMouseLeave={() => {
+        setIsHovered(false);
+        setUserMenuOpen(false);
+      }}
     >
       <div
         className={`flex shrink-0 items-center border-b border-border dark:border-gray-800 ${
@@ -402,18 +514,84 @@ export default function Sidebar() {
         </nav>
       </div>
 
-      {showLabels ? (
-        <div className="shrink-0 border-t border-border px-3 py-3 dark:border-gray-800">
+      <div
+        ref={userMenuRef}
+        className={`relative shrink-0 border-t border-border dark:border-gray-800 ${
+          showLabels ? "p-3" : "px-2 py-3"
+        }`}
+      >
+        {userMenuOpen ? (
+          <div
+            className={`absolute bottom-[calc(100%-2px)] z-50 overflow-hidden rounded-xl border border-border bg-white shadow-sm dark:border-slate-700 dark:bg-slate-900 ${
+              showLabels
+                ? "right-3 left-3"
+                : "left-1/2 w-40 -translate-x-1/2"
+            }`}
+          >
+            <button
+              type="button"
+              onClick={handleLogout}
+              className="flex w-full items-center gap-2.5 px-3.5 py-2.5 text-sm font-semibold text-rose-600 transition hover:bg-rose-50 dark:text-rose-400 dark:hover:bg-rose-500/10"
+            >
+              <LogOut size={15} strokeWidth={1.75} />
+              {isImpersonation ? "Close portal tab" : "Sign out"}
+            </button>
+          </div>
+        ) : null}
+
+        {showLabels ? (
           <button
             type="button"
-            onClick={handleLogout}
-            className="flex w-full items-center justify-center gap-2 rounded-xl border border-red-200/70 bg-red-50/70 px-3 py-2.5 text-[13px] font-medium text-red-600 transition hover:bg-red-100 dark:border-red-500/20 dark:bg-red-500/10 dark:text-red-400 dark:hover:bg-red-500/20"
+            onClick={() => setUserMenuOpen((open) => !open)}
+            className="flex w-full items-center gap-2.5 rounded-xl border border-border bg-white px-2.5 py-2 text-left transition hover:bg-surface dark:border-slate-700 dark:bg-slate-900 dark:hover:bg-slate-800"
+            aria-expanded={userMenuOpen}
+            aria-haspopup="menu"
           >
-            <LogOut size={15} />
-            {isImpersonation ? "Close portal tab" : "Logout"}
+            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-brand-500 text-[11px] font-bold text-white">
+              {sidebarUser.initials}
+            </span>
+            <span className="min-w-0 flex-1">
+              <span className="block truncate text-[13px] font-semibold text-text-primary dark:text-white">
+                {sidebarUser.name}
+              </span>
+              <span className="block truncate text-[11px] text-text-secondary">
+                {sidebarUser.roleLabel} · {sidebarUser.orgName}
+              </span>
+            </span>
+            <ChevronDown
+              size={16}
+              className={`shrink-0 text-text-secondary transition ${
+                userMenuOpen ? "rotate-180" : ""
+              }`}
+            />
           </button>
-        </div>
-      ) : null}
+        ) : (
+          <div className="flex flex-col items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setUserMenuOpen((open) => !open)}
+              className="flex h-9 w-9 items-center justify-center rounded-full bg-brand-500 text-[11px] font-bold text-white"
+              title={sidebarUser.name}
+              aria-label="Account menu"
+              aria-expanded={userMenuOpen}
+            >
+              {sidebarUser.initials}
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setIsHovered(false);
+                toggleSidebar();
+              }}
+              className="hidden h-8 w-8 items-center justify-center rounded-lg border border-border text-text-secondary transition hover:bg-surface hover:text-brand-500 lg:flex"
+              title="Expand sidebar"
+              aria-label="Expand sidebar"
+            >
+              <PanelLeftOpen size={16} strokeWidth={1.75} />
+            </button>
+          </div>
+        )}
+      </div>
     </aside>
   );
 }

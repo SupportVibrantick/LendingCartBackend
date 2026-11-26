@@ -50,14 +50,14 @@ const navItems: NavItem[] = [
     name: "Payments",
     subItems: [
       {
-        name: "Commissions",
-        path: "/sub-broker/commissions",
-        permission: "VIEW_COMMISSIONS",
-      },
-      {
         name: "Invoices",
         path: "/sub-broker/invoices",
         permission: "VIEW_INVOICES",
+      },
+      {
+        name: "Commissions",
+        path: "/sub-broker/commissions",
+        permission: "VIEW_COMMISSIONS",
       },
       {
         name: "Banking",

@@ -67,18 +67,18 @@ function SummaryCard({
       className={`rounded-2xl border p-4 text-left transition-all ${
         active
           ? "border-[#4C78F5] bg-[#4C78F5]/5 shadow-sm"
-          : "border-slate-200 bg-white hover:border-slate-300 dark:border-gray-800 dark:bg-gray-900"
+          : "border-border bg-white hover:border-slate-300 dark:border-slate-700 dark:bg-slate-900"
       }`}
     >
-      <p className="text-sm text-slate-500">{title}</p>
+      <p className="text-sm text-text-secondary">{title}</p>
       <p
         className={`mt-2 text-2xl font-semibold ${
-          tone === "danger" ? "text-rose-600" : "text-slate-900 dark:text-white"
+          tone === "danger" ? "text-rose-600" : "text-text-primary dark:text-white"
         }`}
       >
         {formatCommissionCurrency(amount)}
       </p>
-      <p className="mt-1 text-xs text-slate-500">
+      <p className="mt-1 text-xs text-text-secondary">
         {count} invoice{count === 1 ? "" : "s"}
       </p>
     </button>
@@ -211,16 +211,19 @@ export default function StaffInvoicesPage({
     <>
       <PageMeta title={pageTitle} description={pageDescription} />
 
-      <div className="space-y-6">
-        <div className="overflow-hidden rounded-2xl border border-[#4C78F5]/15 bg-gradient-to-br from-[#4C78F5] via-[#1a6aad] to-[#4C78F5] p-6 text-white shadow-sm sm:p-8">
-          <p className="text-xs font-semibold uppercase tracking-widest text-white/70">
-            Commissions
-          </p>
-          <h1 className="mt-1 text-2xl font-bold sm:text-3xl">Invoices</h1>
-          <p className="mt-2 max-w-2xl text-sm text-white/80">{pageDescription}</p>
+      <div className="space-y-4">
+        <div className="flex flex-wrap items-start justify-between gap-2">
+          <div>
+            <h2 className="text-[16px] font-semibold tracking-tight text-text-primary dark:text-white">
+              Invoices
+            </h2>
+            <p className="mt-0.5 text-[13px] text-text-secondary">
+              {pageDescription}
+            </p>
+          </div>
         </div>
 
-        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
           <SummaryCard
             title="Invoice(s) in Draft"
             count={summary?.draft.count || 0}
@@ -252,9 +255,9 @@ export default function StaffInvoicesPage({
           />
         </div>
 
-        <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-gray-800 dark:bg-gray-900">
-          <div className="flex flex-wrap items-center gap-3 border-b border-slate-100 px-4 py-4 md:px-6 dark:border-gray-800">
-            <div className="flex min-w-[220px] flex-1 items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 dark:border-gray-700 dark:bg-gray-950">
+        <div className="overflow-hidden rounded-2xl border border-border bg-white dark:border-slate-700 dark:bg-slate-900">
+          <div className="flex flex-wrap items-center gap-3 border-b border-border px-4 py-3.5 md:px-5 dark:border-slate-800">
+            <div className="flex min-w-[220px] flex-1 items-center gap-2 rounded-xl border border-border bg-surface px-3 py-2 dark:border-slate-700 dark:bg-slate-950">
               <input
                 type="date"
                 value={startDate}
@@ -262,9 +265,9 @@ export default function StaffInvoicesPage({
                   setStartDate(e.target.value);
                   setPage(1);
                 }}
-                className="w-full bg-transparent text-sm text-slate-700 outline-none dark:text-gray-200"
+                className="w-full bg-transparent text-sm text-text-primary outline-none dark:text-gray-200"
               />
-              <span className="text-slate-400">→</span>
+              <span className="text-text-secondary">→</span>
               <input
                 type="date"
                 value={endDate}
@@ -272,18 +275,18 @@ export default function StaffInvoicesPage({
                   setEndDate(e.target.value);
                   setPage(1);
                 }}
-                className="w-full bg-transparent text-sm text-slate-700 outline-none dark:text-gray-200"
+                className="w-full bg-transparent text-sm text-text-primary outline-none dark:text-gray-200"
               />
             </div>
 
-            <div className="flex min-w-[220px] flex-1 items-center gap-2 rounded-xl border border-slate-200 px-3 py-2 dark:border-gray-700">
-              <Search className="h-4 w-4 text-slate-400" />
+            <div className="flex min-w-[220px] flex-1 items-center gap-2 rounded-xl border border-border px-3 py-2 dark:border-slate-700">
+              <Search className="h-4 w-4 text-text-secondary" />
               <input
                 type="text"
                 value={searchInput}
                 onChange={(e) => setSearchInput(e.target.value)}
                 placeholder="Search invoice or deal..."
-                className="w-full bg-transparent text-sm text-slate-700 outline-none dark:text-gray-200"
+                className="w-full bg-transparent text-sm text-text-primary outline-none dark:text-gray-200"
               />
             </div>
 
@@ -296,81 +299,91 @@ export default function StaffInvoicesPage({
                 setEndDate("");
                 setStatusFilter("ALL");
                 setPage(1);
-                loadInvoices();
+                void loadInvoices();
               }}
-              className="inline-flex items-center gap-2 rounded-xl border border-slate-200 px-3 py-2 text-sm text-slate-600 hover:bg-slate-50 dark:border-gray-700 dark:text-gray-300"
+              className="ds-btn-secondary h-10 px-3 text-xs"
             >
-              <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
+              <RefreshCw className={`h-3.5 w-3.5 ${loading ? "animate-spin" : ""}`} />
               Refresh
             </button>
           </div>
 
           {loading ? (
-            <div className="px-6 py-12 text-sm text-slate-500">Loading invoices...</div>
+            <div className="px-5 py-12 text-center text-sm text-text-secondary">
+              Loading invoices…
+            </div>
           ) : rows.length === 0 ? (
-            <div className="px-6 py-12 text-center">
-              <p className="text-sm text-slate-500">No invoices found.</p>
-              <p className="mt-2 text-xs text-slate-400">
-                Generate invoices from your commission earnings on the dashboard.
+            <div className="px-5 py-14 text-center">
+              <p className="text-sm font-semibold text-text-primary">
+                No invoices found
+              </p>
+              <p className="mt-1.5 text-xs text-text-secondary">
+                Generate invoices from your commission earnings.
               </p>
               <button
                 type="button"
                 onClick={() => navigate(dashboardPath)}
-                className="mt-4 text-sm font-medium text-[#4C78F5] hover:underline"
+                className="mt-4 text-sm font-semibold text-[#4C78F5] hover:underline"
               >
                 Go to dashboard
               </button>
             </div>
           ) : (
             <div className="overflow-x-auto">
-              <table className="min-w-full text-sm">
-                <thead className="bg-slate-50 text-left text-slate-500 dark:bg-gray-800">
+              <table className="ds-table min-w-[880px] w-full">
+                <thead>
                   <tr>
-                    <th className="px-5 py-3 font-medium">Deal</th>
-                    <th className="px-5 py-3 font-medium">Invoice Number</th>
-                    <th className="px-5 py-3 font-medium">Client</th>
-                    <th className="px-5 py-3 font-medium">Issue Date</th>
-                    <th className="px-5 py-3 font-medium">Amount</th>
-                    <th className="px-5 py-3 font-medium">Status</th>
-                    <th className="px-5 py-3 font-medium text-right">Actions</th>
+                    {[
+                      "Deal",
+                      "Invoice Number",
+                      "Client",
+                      "Issue Date",
+                      "Amount",
+                      "Status",
+                      "Actions",
+                    ].map((label) => (
+                      <th
+                        key={label}
+                        className={label === "Actions" ? "!text-right" : undefined}
+                      >
+                        {label}
+                      </th>
+                    ))}
                   </tr>
                 </thead>
                 <tbody>
                   {rows.map((row) => (
-                    <tr
-                      key={row.id}
-                      className="border-t border-slate-100 dark:border-gray-800"
-                    >
-                      <td className="px-5 py-4">
-                        <div className="font-medium text-slate-900 dark:text-white">
+                    <tr key={row.id}>
+                      <td>
+                        <p className="ds-table-title">
                           {row.applicationNumber || "—"}
-                        </div>
-                        <div className="text-xs text-slate-500">
+                        </p>
+                        <p className="ds-table-meta">
                           {row.dealName || row.clientName || "Commission invoice"}
-                        </div>
+                        </p>
                       </td>
-                      <td className="px-5 py-4 font-medium text-slate-800 dark:text-gray-200">
+                      <td className="font-medium text-text-primary dark:text-gray-200">
                         {row.invoiceNumber}
                       </td>
-                      <td className="px-5 py-4 text-slate-600 dark:text-gray-300">
-                        {row.clientName || "—"}
-                      </td>
-                      <td className="px-5 py-4 text-slate-600 dark:text-gray-300">
+                      <td className="ds-table-muted">{row.clientName || "—"}</td>
+                      <td className="ds-table-muted whitespace-nowrap">
                         {formatIssueDate(row.issueDate)}
                       </td>
-                      <td className="px-5 py-4 font-semibold text-slate-900 dark:text-white">
-                        {formatCommissionCurrency(row.amount)}
+                      <td>
+                        <span className="ds-table-amount">
+                          {formatCommissionCurrency(row.amount)}
+                        </span>
                       </td>
-                      <td className="px-5 py-4">
+                      <td>
                         <span
-                          className={`inline-flex rounded-full px-2.5 py-1 text-xs font-medium ring-1 ring-inset ${invoiceStatusBadgeClass(
+                          className={`inline-flex rounded-full px-2.5 py-1 text-[11px] font-semibold ring-1 ring-inset ${invoiceStatusBadgeClass(
                             row.paymentStatus,
                           )}`}
                         >
                           {formatInvoicePaymentStatus(row.paymentStatus)}
                         </span>
                       </td>
-                      <td className="relative px-5 py-4 text-right">
+                      <td className="relative !text-right">
                         <button
                           type="button"
                           onClick={() =>
@@ -378,26 +391,28 @@ export default function StaffInvoicesPage({
                               current === row.id ? null : row.id,
                             )
                           }
-                          className="inline-flex rounded-lg p-2 text-slate-500 hover:bg-slate-100 dark:hover:bg-gray-800"
+                          className="inline-flex rounded-lg p-2 text-text-secondary hover:bg-surface dark:hover:bg-slate-800"
                         >
                           <MoreVertical className="h-4 w-4" />
                         </button>
 
                         {openMenuId === row.id ? (
-                          <div className="absolute right-5 top-12 z-20 w-44 rounded-xl border border-slate-200 bg-white py-1 shadow-lg dark:border-gray-700 dark:bg-gray-900">
+                          <div className="absolute right-3 top-12 z-20 w-44 rounded-xl border border-border bg-white py-1 shadow-lg dark:border-slate-700 dark:bg-slate-900">
                             <button
                               type="button"
-                              onClick={() => handleDownload(row)}
+                              onClick={() => void handleDownload(row)}
                               disabled={downloadingId === row.id}
-                              className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-slate-700 hover:bg-slate-50 disabled:opacity-60 dark:text-gray-200 dark:hover:bg-gray-800"
+                              className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-text-primary hover:bg-surface disabled:opacity-60 dark:text-gray-200 dark:hover:bg-slate-800"
                             >
                               <Download className="h-4 w-4" />
-                              {downloadingId === row.id ? "Downloading..." : "Download PDF"}
+                              {downloadingId === row.id
+                                ? "Downloading..."
+                                : "Download PDF"}
                             </button>
                             <button
                               type="button"
                               onClick={() => handleViewDeal(row)}
-                              className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-slate-700 hover:bg-slate-50 dark:text-gray-200 dark:hover:bg-gray-800"
+                              className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-text-primary hover:bg-surface dark:text-gray-200 dark:hover:bg-slate-800"
                             >
                               <ExternalLink className="h-4 w-4" />
                               View Deal
@@ -412,8 +427,8 @@ export default function StaffInvoicesPage({
             </div>
           )}
 
-          <div className="flex flex-wrap items-center justify-between gap-3 border-t border-slate-100 px-4 py-4 md:px-6 dark:border-gray-800">
-            <p className="text-sm text-slate-500">
+          <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border px-4 py-3.5 md:px-5 dark:border-slate-800">
+            <p className="text-sm text-text-secondary">
               Page {page} of {totalPages}
             </p>
             <div className="flex items-center gap-2">
@@ -423,7 +438,7 @@ export default function StaffInvoicesPage({
                   setLimit(Number(e.target.value));
                   setPage(1);
                 }}
-                className="rounded-lg border border-slate-200 px-2 py-1.5 text-sm text-slate-700 dark:border-gray-700 dark:bg-gray-950 dark:text-gray-200"
+                className="rounded-lg border border-border px-2 py-1.5 text-sm text-text-primary dark:border-slate-700 dark:bg-slate-950 dark:text-gray-200"
               >
                 <option value={10}>10 / page</option>
                 <option value={20}>20 / page</option>
@@ -433,7 +448,7 @@ export default function StaffInvoicesPage({
                 type="button"
                 disabled={page <= 1}
                 onClick={() => setPage((current) => Math.max(1, current - 1))}
-                className="inline-flex items-center gap-1 rounded-lg border border-slate-200 px-3 py-1.5 text-sm text-slate-700 disabled:opacity-50 dark:border-gray-700 dark:text-gray-200"
+                className="inline-flex items-center gap-1 rounded-lg border border-border px-3 py-1.5 text-sm text-text-primary disabled:opacity-50 dark:border-slate-700 dark:text-gray-200"
               >
                 <ChevronLeft className="h-4 w-4" />
                 Previous
@@ -442,7 +457,7 @@ export default function StaffInvoicesPage({
                 type="button"
                 disabled={page >= totalPages}
                 onClick={() => setPage((current) => current + 1)}
-                className="inline-flex items-center gap-1 rounded-lg border border-slate-200 px-3 py-1.5 text-sm text-slate-700 disabled:opacity-50 dark:border-gray-700 dark:text-gray-200"
+                className="inline-flex items-center gap-1 rounded-lg border border-border px-3 py-1.5 text-sm text-text-primary disabled:opacity-50 dark:border-slate-700 dark:text-gray-200"
               >
                 Next
                 <ChevronRight className="h-4 w-4" />

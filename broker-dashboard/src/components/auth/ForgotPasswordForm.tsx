@@ -15,6 +15,28 @@ function getSignInPath(portal: Portal) {
   return "/signin";
 }
 
+function getPortalLabel(portal: Portal) {
+  if (portal === "sub-broker") return "Co-Broker Portal";
+  if (portal === "loan-officer") return "Officer Portal";
+  return "Broker Portal";
+}
+
+function getEmailHelpCopy(portal: Portal) {
+  if (portal === "loan-officer") {
+    return "Enter your loan officer email and we'll send a secure link to set a new password.";
+  }
+  if (portal === "sub-broker") {
+    return "Enter your co-broker email and we'll send a secure link to set a new password.";
+  }
+  return "Enter your broker email and we'll send a secure link to set a new password.";
+}
+
+function getEmailPlaceholder(portal: Portal) {
+  if (portal === "loan-officer") return "you@company.com";
+  if (portal === "sub-broker") return "you@company.com";
+  return "you@brokerage.com";
+}
+
 function inputWrap(hasError: boolean) {
   return `flex items-center gap-3 rounded-xl border px-4 py-3.5 transition focus-within:ring-2 focus-within:ring-[#4C78F5]/25 ${
     hasError
@@ -34,6 +56,7 @@ export default function ForgotPasswordForm({
   const [emailError, setEmailError] = useState<string | undefined>();
 
   const signInPath = getSignInPath(portal);
+  const portalLabel = getPortalLabel(portal);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -92,7 +115,7 @@ export default function ForgotPasswordForm({
         <div>
           <p className="text-lg font-semibold text-[#4C78F5]">Loan Automation</p>
           <p className="text-[10px] font-medium uppercase tracking-wider text-[#94A3B8]">
-            Broker Portal
+            {portalLabel}
           </p>
         </div>
       </div>
@@ -104,7 +127,7 @@ export default function ForgotPasswordForm({
       >
         <span className="mb-4 inline-flex items-center gap-1.5 rounded-full border border-[#4C78F5]/20 bg-[#4C78F5]/10 px-3 py-1 text-xs font-semibold text-[#4C78F5]">
           <ShieldCheck size={12} />
-          Account recovery
+          {portalLabel} recovery
         </span>
 
         {emailSent ? (
@@ -131,8 +154,7 @@ export default function ForgotPasswordForm({
               Forgot password?
             </h1>
             <p className="mt-2 text-[13px] leading-relaxed text-[#64748B]">
-              Enter your broker email and we&apos;ll send a secure link to set a
-              new password.
+              {getEmailHelpCopy(portal)}
             </p>
 
             <form onSubmit={handleSubmit} className="mt-8 space-y-5">
@@ -148,7 +170,7 @@ export default function ForgotPasswordForm({
                   <input
                     type="email"
                     autoComplete="email"
-                    placeholder="you@brokerage.com"
+                    placeholder={getEmailPlaceholder(portal)}
                     value={email}
                     onChange={(e) => {
                       setEmail(e.target.value);

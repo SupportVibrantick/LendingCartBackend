@@ -71,6 +71,7 @@ import CoBrokerDashboard from "./pages/subBroker/Dashboard/CoBrokerDashboard";
 import CoBrokerInvoicesPage from "./pages/subBroker/Invoices/CoBrokerInvoicesPage";
 import CoBrokerCommissionsPage from "./pages/subBroker/Commissions/CoBrokerCommissionsPage";
 import CoBrokerBankingPage from "./pages/subBroker/Payments/CoBrokerBankingPage";
+import CoBrokerPaymentsLayout from "./pages/subBroker/Payments/CoBrokerPaymentsLayout";
 // import Dashboard from "./pages/subBroker/Dashboard/Dashboard";
 import LoanPipeline from "./pages/subBroker/LoanPipeline/LoanPipeline";
 import CoBrokerLoanPreview from "./pages/subBroker/LoanPipeline/LoanPreview";
@@ -89,6 +90,7 @@ import LoanOfficerDashboard from "./pages/loanOfficer/Dashboard/LoanOfficerDashb
 import LoanOfficerInvoicesPage from "./pages/loanOfficer/Invoices/LoanOfficerInvoicesPage";
 import LoanOfficerCommissionsPage from "./pages/loanOfficer/Commissions/LoanOfficerCommissionsPage";
 import LoanOfficerBankingPage from "./pages/loanOfficer/Payments/LoanOfficerBankingPage";
+import LoanOfficerPaymentsLayout from "./pages/loanOfficer/Payments/LoanOfficerPaymentsLayout";
 import LoanOfficerMessagesPage from "./pages/loanOfficer/Messages/LoanOfficerMessagesPage";
 import LoanOfficerApplication from "./pages/loanOfficer/LoanApplication/LoanApplication";
 import LoanOfficerContacts from "./pages/loanOfficer/Contacts/ContactPage";
@@ -571,25 +573,25 @@ export default function App() {
 
             <Route path="dashboard" element={<CoBrokerDashboard />} />
 
-            <Route
-              path="invoices"
-              element={
-                <CoBrokerRequirePermission permission="VIEW_INVOICES">
-                  <CoBrokerInvoicesPage />
-                </CoBrokerRequirePermission>
-              }
-            />
-
-            <Route
-              path="commissions"
-              element={
-                <CoBrokerRequirePermission permission="VIEW_COMMISSIONS">
-                  <CoBrokerCommissionsPage />
-                </CoBrokerRequirePermission>
-              }
-            />
-
-            <Route path="banking" element={<CoBrokerBankingPage />} />
+            <Route element={<CoBrokerPaymentsLayout />}>
+              <Route
+                path="invoices"
+                element={
+                  <CoBrokerRequirePermission permission="VIEW_INVOICES">
+                    <CoBrokerInvoicesPage />
+                  </CoBrokerRequirePermission>
+                }
+              />
+              <Route
+                path="commissions"
+                element={
+                  <CoBrokerRequirePermission permission="VIEW_COMMISSIONS">
+                    <CoBrokerCommissionsPage />
+                  </CoBrokerRequirePermission>
+                }
+              />
+              <Route path="banking" element={<CoBrokerBankingPage />} />
+            </Route>
 
             <Route
               path="loan-pipeline"
@@ -659,23 +661,25 @@ export default function App() {
             <Route element={<LoanOfficerLayout />}>
             <Route index element={<Navigate to="dashboard" replace />} />
             <Route path="dashboard" element={<LoanOfficerDashboard />} />
-            <Route
-              path="invoices"
-              element={
-                <LoRequirePermission permission="VIEW_INVOICES">
-                  <LoanOfficerInvoicesPage />
-                </LoRequirePermission>
-              }
-            />
-            <Route
-              path="commissions"
-              element={
-                <LoRequirePermission permission="VIEW_COMMISSIONS">
-                  <LoanOfficerCommissionsPage />
-                </LoRequirePermission>
-              }
-            />
-            <Route path="banking" element={<LoanOfficerBankingPage />} />
+            <Route element={<LoanOfficerPaymentsLayout />}>
+              <Route
+                path="invoices"
+                element={
+                  <LoRequirePermission permission="VIEW_INVOICES">
+                    <LoanOfficerInvoicesPage />
+                  </LoRequirePermission>
+                }
+              />
+              <Route
+                path="commissions"
+                element={
+                  <LoRequirePermission permission="VIEW_COMMISSIONS">
+                    <LoanOfficerCommissionsPage />
+                  </LoRequirePermission>
+                }
+              />
+              <Route path="banking" element={<LoanOfficerBankingPage />} />
+            </Route>
             <Route
               path="loan-pipeline"
               element={

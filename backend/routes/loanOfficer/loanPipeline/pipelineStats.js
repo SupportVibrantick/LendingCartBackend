@@ -61,6 +61,7 @@ module.exports = async function loanOfficerPipelineStats(fastify) {
             submitted: statusCounts.submitted,
             clientPending: statusCounts.clientPending,
             approved: statusCounts.approved,
+            funded: statusCounts.funded,
             rejected: statusCounts.rejected,
             inReview: statusCounts.inReview,
             draft: statusCounts.draft,
