@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useLocation } from "react-router";
 import {
   Briefcase,
   Building2,
@@ -6,8 +7,10 @@ import {
   Check,
   Eye,
   EyeOff,
+  Globe,
   LockKeyhole,
   Mail,
+  MapPin,
   Pencil,
   Phone,
   ShieldCheck,
@@ -27,13 +30,278 @@ import {
 import { buildApiPublicFileUrl } from "../../../lib/publicFileUrl";
 import { isSessionExpiredError } from "../../../lib/sessionExpiry";
 import SelfBankingPanel from "../../../components/banking/SelfBankingPanel";
-import { formatPhone } from "../../UserManagement/loanOfficerShared";
+import { formatPhone, US_STATES } from "../../UserManagement/loanOfficerShared";
+
+const WEBSITE_PREFIX = "https://";
+const US_STATE_CODES = new Set(US_STATES.map((s) => s.code));
+const STATE_OPTIONS = US_STATES.map((s) => ({
+  value: s.code,
+  label: `${s.name} (${s.code})`,
+}));
 
 const inputClass =
-  "w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-2.5 text-sm text-gray-900 outline-none transition focus:border-[#4C78F5]/40 focus:bg-white focus:ring-2 focus:ring-[#4C78F5]/10 dark:border-gray-700 dark:bg-gray-800 dark:text-white";
+  "h-10 min-w-0 w-full overflow-hidden text-ellipsis whitespace-nowrap rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-800 outline-none transition focus:border-[#4C78F5]/50 focus:ring-2 focus:ring-[#4C78F5]/15 dark:border-slate-700 dark:bg-slate-950 dark:text-white";
 
 const displayClass =
-  "rounded-xl border border-gray-100 bg-gray-50 px-4 py-2.5 text-sm text-gray-800 dark:border-gray-700 dark:bg-gray-800/80 dark:text-gray-200";
+  "flex h-10 min-w-0 w-full items-center overflow-hidden text-ellipsis whitespace-nowrap rounded-lg border border-slate-200 bg-slate-50 px-3 text-sm text-slate-800 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200";
+
+const errorTextClass = "text-sm font-medium text-rose-500";
+
+const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
+const MAX_IMAGE_EDGE = 1600;
+const JPEG_QUALITY = 0.85;
+
+const NAME_PATTERN = /^[A-Za-z][A-Za-z\s'.-]*$/;
+const CITY_PATTERN = /^[A-Za-z][A-Za-z\s'.-]*$/;
+const LICENSE_PATTERN = /^[A-Za-z0-9][A-Za-z0-9-]*$/;
+const ZIP_PATTERN = /^\d{5}(-\d{4})?$/;
+const WEBSITE_HOST_PATTERN =
+  /^(?:[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?\.)+[a-zA-Z]{2,}(?:\/[\w\-./?#%&=]*)?$/;
+
+function formatBytes(bytes: number) {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(2)} MB`;
+}
+
+async function compressImage(
+  file: File,
+  maxBytes = MAX_IMAGE_BYTES,
+): Promise<File> {
+  if (typeof window === "undefined" || typeof document === "undefined") {
+    return file;
+  }
+  if (!file.type.startsWith("image/")) return file;
+
+  const img = await new Promise<HTMLImageElement>((resolve, reject) => {
+    const url = URL.createObjectURL(file);
+    const image = new Image();
+    image.onload = () => {
+      URL.revokeObjectURL(url);
+      resolve(image);
+    };
+    image.onerror = (err) => {
+      URL.revokeObjectURL(url);
+      reject(err);
+    };
+    image.src = url;
+  });
+
+  const longest = Math.max(img.width, img.height);
+  const scale = longest > MAX_IMAGE_EDGE ? MAX_IMAGE_EDGE / longest : 1;
+  const width = Math.round(img.width * scale);
+  const height = Math.round(img.height * scale);
+
+  const canvas = document.createElement("canvas");
+  canvas.width = width;
+  canvas.height = height;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) return file;
+  ctx.drawImage(img, 0, 0, width, height);
+
+  const isPng = file.type === "image/png";
+  const mime = isPng ? "image/png" : "image/jpeg";
+  const quality = isPng ? undefined : JPEG_QUALITY;
+
+  const blob = await new Promise<Blob | null>((resolve) => {
+    canvas.toBlob((b) => resolve(b), mime, quality);
+  });
+  if (!blob) return file;
+
+  const compressedFile = new File(
+    [blob],
+    file.name.replace(/\.(png|jpg|jpeg|webp)$/i, "") +
+      (mime === "image/png" ? ".png" : ".jpg"),
+    { type: mime, lastModified: Date.now() },
+  );
+
+  if (compressedFile.size >= file.size) return file;
+  if (compressedFile.size > maxBytes) return compressedFile;
+  return compressedFile;
+}
+
+const FIELD_LIMITS: Record<
+  string,
+  {
+    min?: number;
+    max?: number;
+    required?: boolean;
+    digitMin?: number;
+    digitMax?: number;
+    pattern?: { regex: RegExp; message: string };
+  }
+> = {
+  firstName: {
+    required: true,
+    min: 2,
+    max: 50,
+    pattern: {
+      regex: NAME_PATTERN,
+      message: "Use letters only (spaces, hyphens, and apostrophes allowed)",
+    },
+  },
+  lastName: {
+    max: 50,
+    pattern: {
+      regex: NAME_PATTERN,
+      message: "Use letters only (spaces, hyphens, and apostrophes allowed)",
+    },
+  },
+  phone: { digitMin: 10, digitMax: 10 },
+  company: { max: 100 },
+  licenseNumber: {
+    max: 30,
+    pattern: {
+      regex: LICENSE_PATTERN,
+      message: "Only letters, numbers, and dashes are allowed",
+    },
+  },
+  address: { max: 200 },
+  city: {
+    max: 50,
+    pattern: {
+      regex: CITY_PATTERN,
+      message: "Use letters only (spaces, hyphens, and apostrophes allowed)",
+    },
+  },
+  state: {
+    pattern: {
+      regex: /^[A-Z]{2}$/,
+      message: "Select a valid US state",
+    },
+  },
+  zipCode: {
+    pattern: {
+      regex: ZIP_PATTERN,
+      message: "Use 5 digits or ZIP+4 (e.g. 12345 or 12345-6789)",
+    },
+  },
+  website: {
+    max: 180,
+    pattern: {
+      regex: WEBSITE_HOST_PATTERN,
+      message: "Enter a domain like example.com",
+    },
+  },
+};
+
+function sanitizeZipCode(value: string) {
+  const digits = value.replace(/\D/g, "").slice(0, 9);
+  if (digits.length <= 5) return digits;
+  return `${digits.slice(0, 5)}-${digits.slice(5)}`;
+}
+
+function sanitizeLicenseNumber(value: string) {
+  return value.replace(/[^A-Za-z0-9-]/g, "").slice(0, 30);
+}
+
+function sanitizeName(value: string) {
+  return value.replace(/[^A-Za-z\s'.-]/g, "").slice(0, 50);
+}
+
+function sanitizeCity(value: string) {
+  return value.replace(/[^A-Za-z\s'.-]/g, "").slice(0, 50);
+}
+
+function normalizeStateCode(value: string): string {
+  const raw = String(value || "").trim();
+  if (!raw) return "";
+  const upper = raw.toUpperCase();
+  if (US_STATE_CODES.has(upper)) return upper;
+  const byName = US_STATES.find(
+    (s) => s.name.toLowerCase() === raw.toLowerCase(),
+  );
+  return byName?.code || "";
+}
+
+function stripWebsitePrefix(value: string): string {
+  return String(value || "")
+    .trim()
+    .replace(/^https?:\/\//i, "")
+    .replace(/^\/+/, "")
+    .replace(/\/$/, "");
+}
+
+function toWebsiteUrl(host: string): string {
+  const cleaned = stripWebsitePrefix(host);
+  if (!cleaned) return "";
+  return `${WEBSITE_PREFIX}${cleaned}`;
+}
+
+function sanitizeWebsiteHost(value: string): string {
+  return stripWebsitePrefix(value).replace(/\s+/g, "").slice(0, 180);
+}
+
+function getFieldError(key: string, value: string): string | null {
+  const rules = FIELD_LIMITS[key];
+  if (!rules) return null;
+  const trimmed = value ?? "";
+  const trimmedStr = trimmed.trim();
+  const rawLen = trimmed.length;
+  const trimmedLen = trimmedStr.length;
+
+  if (rules.required && trimmedLen === 0) return "This field is required";
+  if (!rules.required && trimmedLen === 0) return null;
+
+  if (rules.min !== undefined && trimmedLen > 0 && trimmedLen < rules.min) {
+    return `Minimum ${rules.min} characters (${trimmedLen}/${rules.min})`;
+  }
+  if (rules.max !== undefined && rawLen > rules.max) {
+    return `Maximum ${rules.max} characters (${rawLen}/${rules.max})`;
+  }
+  if (rules.digitMin !== undefined) {
+    const digits = trimmed.replace(/\D/g, "");
+    if (digits.length < rules.digitMin) {
+      return `Enter a valid ${rules.digitMin}-digit phone number (${digits.length}/${rules.digitMin})`;
+    }
+    if (rules.digitMax !== undefined && digits.length > rules.digitMax) {
+      return `Maximum ${rules.digitMax} digits allowed`;
+    }
+  }
+  if (key === "state" && trimmedStr && !US_STATE_CODES.has(trimmedStr)) {
+    return "Select a valid US state";
+  }
+  if (rules.pattern && trimmedStr && !rules.pattern.regex.test(trimmedStr)) {
+    return rules.pattern.message;
+  }
+  return null;
+}
+
+function getFieldCounter(key: string, value: string): string | null {
+  const rules = FIELD_LIMITS[key];
+  if (!rules) return null;
+  if (rules.max !== undefined) {
+    const minLabel = rules.min !== undefined ? `${rules.min}–` : "";
+    return `${minLabel}${rules.max} chars · ${value.length}/${rules.max}`;
+  }
+  if (rules.digitMin !== undefined) {
+    const digits = (value || "").replace(/\D/g, "");
+    const max = rules.digitMax ?? 15;
+    if (rules.digitMin === max) return `${max} digits · ${digits.length}/${max}`;
+    return `${rules.digitMin}–${max} digits · ${digits.length}/${max}`;
+  }
+  return null;
+}
+
+function validateProfileForm(fields: {
+  firstName: string;
+  lastName: string;
+  phone: string;
+  company: string;
+  licenseNumber: string;
+  address: string;
+  city: string;
+  state: string;
+  zipCode: string;
+  website: string;
+}) {
+  const errors: Record<string, string> = {};
+  (Object.keys(fields) as Array<keyof typeof fields>).forEach((key) => {
+    const message = getFieldError(key, fields[key] || "");
+    if (message) errors[key] = message;
+  });
+  return errors;
+}
 
 function validateNewPassword(password: string) {
   if (password.length < 8) return "Password must be at least 8 characters";
@@ -49,6 +317,7 @@ function validateNewPassword(password: string) {
 }
 
 export default function Profile() {
+  const location = useLocation();
   const [user, setUser] = useState<any>(null);
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
@@ -62,9 +331,14 @@ export default function Profile() {
   const [website, setWebsite] = useState("");
   const [profileImage, setProfileImage] = useState<File | null>(null);
   const [removeProfileImage, setRemoveProfileImage] = useState(false);
+  const [originalImageSize, setOriginalImageSize] = useState(0);
+  const [imageProcessing, setImageProcessing] = useState(false);
+  const [imageError, setImageError] = useState<string | null>(null);
   const [avatarLoadFailed, setAvatarLoadFailed] = useState(false);
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [formErrors, setFormErrors] = useState<Record<string, string>>({});
+  const [touched, setTouched] = useState<Record<string, boolean>>({});
 
   const [showPasswordSection, setShowPasswordSection] = useState(false);
   const [currentPassword, setCurrentPassword] = useState("");
@@ -73,6 +347,22 @@ export default function Profile() {
   const [showCurrentPassword, setShowCurrentPassword] = useState(false);
   const [showNewPassword, setShowNewPassword] = useState(false);
   const [changingPassword, setChangingPassword] = useState(false);
+  const [passwordErrors, setPasswordErrors] = useState<Record<string, string>>(
+    {},
+  );
+
+  const setFieldError = (key: string, value: string) => {
+    const message = getFieldError(key, value);
+    setFormErrors((prev) => {
+      if (!message) {
+        if (!prev[key]) return prev;
+        const { [key]: _drop, ...rest } = prev;
+        return rest;
+      }
+      if (prev[key] === message) return prev;
+      return { ...prev, [key]: message };
+    });
+  };
 
   async function loadUser() {
     try {
@@ -100,9 +390,9 @@ export default function Profile() {
       setLicenseNumber(bp.licenseNumber || "");
       setAddress(bp.address || "");
       setCity(bp.city || "");
-      setState(bp.state || "");
+      setState(normalizeStateCode(bp.state || ""));
       setZipCode(bp.zipCode || "");
-      setWebsite(bp.website || "");
+      setWebsite(stripWebsitePrefix(bp.website || ""));
     } catch (err) {
       if (isSessionExpiredError(err)) return;
       toast.error("Unable to load profile");
@@ -110,24 +400,74 @@ export default function Profile() {
   }
 
   useEffect(() => {
-    loadUser();
+    void loadUser();
   }, []);
 
   useEffect(() => {
     setAvatarLoadFailed(false);
   }, [user?.profileImage]);
 
+  useEffect(() => {
+    if (!user) return;
+
+    const hash = (location.hash || "").replace(/^#/, "").toLowerCase();
+    const fromState = Boolean(
+      (location.state as { focusPassword?: boolean } | null)?.focusPassword,
+    );
+    const wantsPassword =
+      fromState ||
+      hash === "password" ||
+      hash === "security" ||
+      hash === "change-password";
+    if (!wantsPassword) return;
+
+    setShowPasswordSection(true);
+
+    let cancelled = false;
+    let attempts = 0;
+
+    const scrollToPassword = () => {
+      if (cancelled) return;
+      const el = document.getElementById("profile-password");
+      if (!el) {
+        attempts += 1;
+        if (attempts < 20) window.setTimeout(scrollToPassword, 50);
+        return;
+      }
+      el.scrollIntoView({ behavior: "smooth", block: "start" });
+      const scrollParent = el.closest("main");
+      if (scrollParent instanceof HTMLElement) {
+        const parentRect = scrollParent.getBoundingClientRect();
+        const elRect = el.getBoundingClientRect();
+        const top =
+          elRect.top - parentRect.top + scrollParent.scrollTop - 24;
+        scrollParent.scrollTo({ top: Math.max(0, top), behavior: "smooth" });
+      }
+    };
+
+    const timer = window.setTimeout(scrollToPassword, 120);
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timer);
+    };
+  }, [user, location.hash, location.pathname, location.state]);
+
   if (!user) {
     return (
-      <div className="space-y-6">
-        <div className="h-32 animate-pulse rounded-2xl bg-gray-200 dark:bg-gray-800" />
-        <div className="h-96 animate-pulse rounded-2xl border border-gray-100 bg-white dark:border-gray-800 dark:bg-gray-900" />
+      <div className="w-full space-y-4">
+        <div className="h-28 animate-pulse rounded-xl border border-slate-200 bg-slate-100 dark:border-slate-800 dark:bg-slate-900" />
+        <div className="grid gap-4 lg:grid-cols-3">
+          <div className="h-96 animate-pulse rounded-xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-950 lg:col-span-2" />
+          <div className="h-64 animate-pulse rounded-xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-950" />
+        </div>
       </div>
     );
   }
 
   const displayName =
     [firstName, lastName].filter(Boolean).join(" ").trim() || "Loan Officer";
+  const roleLabel =
+    user.roles?.[0]?.replace(/_/g, " ") || "LOAN OFFICER";
   const fallbackAvatar = `https://ui-avatars.com/api/?name=${encodeURIComponent(
     displayName,
   )}&background=13538A&color=ffffff`;
@@ -154,15 +494,82 @@ export default function Profile() {
     licenseNumber !== (user.brokerProfile?.licenseNumber || "") ||
     address !== (user.brokerProfile?.address || "") ||
     city !== (user.brokerProfile?.city || "") ||
-    state !== (user.brokerProfile?.state || "") ||
+    state !== normalizeStateCode(user.brokerProfile?.state || "") ||
     zipCode !== (user.brokerProfile?.zipCode || "") ||
-    website !== (user.brokerProfile?.website || "") ||
+    stripWebsitePrefix(website) !==
+      stripWebsitePrefix(user.brokerProfile?.website || "") ||
     Boolean(profileImage) ||
     removeProfileImage;
 
+  const handleAvatarFileChange = async (
+    e: React.ChangeEvent<HTMLInputElement>,
+  ) => {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+    if (!file.type.startsWith("image/")) {
+      toast.error("Only image files allowed");
+      return;
+    }
+
+    setImageError(null);
+    setImageProcessing(true);
+    setRemoveProfileImage(false);
+    setAvatarLoadFailed(false);
+
+    try {
+      const wasOverLimit = file.size > MAX_IMAGE_BYTES;
+      const compressed = await compressImage(file);
+      if (compressed.size > MAX_IMAGE_BYTES) {
+        setImageError(
+          `Image is still too large (${formatBytes(compressed.size)}). Max ${formatBytes(MAX_IMAGE_BYTES)}.`,
+        );
+        toast.error("Image is too large after compression");
+        return;
+      }
+      setProfileImage(compressed);
+      setOriginalImageSize(file.size);
+      if (wasOverLimit) {
+        toast.success(
+          `Image compressed from ${formatBytes(file.size)} to ${formatBytes(compressed.size)}`,
+        );
+      }
+    } catch {
+      setImageError("Unable to process this image.");
+      toast.error("Unable to process this image");
+    } finally {
+      setImageProcessing(false);
+    }
+  };
+
   const handleSave = async () => {
-    if (!firstName.trim()) {
-      toast.error("First name is required");
+    const nextErrors = validateProfileForm({
+      firstName,
+      lastName,
+      phone,
+      company,
+      licenseNumber,
+      address,
+      city,
+      state,
+      zipCode,
+      website,
+    });
+    setFormErrors(nextErrors);
+    setTouched({
+      firstName: true,
+      lastName: true,
+      phone: true,
+      company: true,
+      licenseNumber: true,
+      address: true,
+      city: true,
+      state: true,
+      zipCode: true,
+      website: true,
+    });
+    if (Object.keys(nextErrors).length > 0) {
+      toast.error(Object.values(nextErrors)[0]);
       return;
     }
 
@@ -176,7 +583,7 @@ export default function Profile() {
     formData.append("city", city.trim());
     formData.append("state", state.trim());
     formData.append("zipCode", zipCode.trim());
-    formData.append("website", website.trim());
+    formData.append("website", toWebsiteUrl(website));
     if (profileImage) {
       formData.append("profileImage", profileImage);
     } else if (removeProfileImage) {
@@ -205,7 +612,11 @@ export default function Profile() {
       setEditing(false);
       setProfileImage(null);
       setRemoveProfileImage(false);
+      setOriginalImageSize(0);
+      setImageError(null);
       setAvatarLoadFailed(false);
+      setFormErrors({});
+      setTouched({});
 
       const stored = JSON.parse(sessionStorage.getItem(LO_USER_KEY) || "{}");
       sessionStorage.setItem(
@@ -242,7 +653,12 @@ export default function Profile() {
     setEditing(false);
     setProfileImage(null);
     setRemoveProfileImage(false);
+    setOriginalImageSize(0);
+    setImageError(null);
+    setImageProcessing(false);
     setAvatarLoadFailed(false);
+    setFormErrors({});
+    setTouched({});
     setFirstName(user.firstName || "");
     setLastName(user.lastName || "");
     setPhone(user.phone ? formatPhone(user.phone) : "");
@@ -251,9 +667,9 @@ export default function Profile() {
     setLicenseNumber(bp.licenseNumber || "");
     setAddress(bp.address || "");
     setCity(bp.city || "");
-    setState(bp.state || "");
+    setState(normalizeStateCode(bp.state || ""));
     setZipCode(bp.zipCode || "");
-    setWebsite(bp.website || "");
+    setWebsite(stripWebsitePrefix(bp.website || ""));
   };
 
   const resetPasswordForm = () => {
@@ -262,22 +678,24 @@ export default function Profile() {
     setConfirmPassword("");
     setShowCurrentPassword(false);
     setShowNewPassword(false);
+    setPasswordErrors({});
   };
 
   const handleChangePassword = async () => {
+    const nextErrors: Record<string, string> = {};
     if (!currentPassword.trim()) {
-      toast.error("Current password is required");
-      return;
+      nextErrors.currentPassword = "Current password is required";
     }
-
     const passwordError = validateNewPassword(newPassword);
-    if (passwordError) {
-      toast.error(passwordError);
-      return;
+    if (passwordError) nextErrors.newPassword = passwordError;
+    if (!confirmPassword.trim()) {
+      nextErrors.confirmPassword = "Please confirm your new password";
+    } else if (newPassword !== confirmPassword) {
+      nextErrors.confirmPassword = "Passwords do not match";
     }
-
-    if (newPassword !== confirmPassword) {
-      toast.error("Passwords do not match");
+    setPasswordErrors(nextErrors);
+    if (Object.keys(nextErrors).length > 0) {
+      toast.error(Object.values(nextErrors)[0]);
       return;
     }
 
@@ -290,20 +708,14 @@ export default function Profile() {
         {
           method: "PUT",
           headers: loAuthHeaders(true),
-          body: JSON.stringify({
-            currentPassword,
-            newPassword,
-          }),
+          body: JSON.stringify({ currentPassword, newPassword }),
         },
       );
-
       const json = await res.json();
       checkLoanOfficerResponse(res, json);
-
       if (!res.ok || json.success === false) {
         throw new Error(json.message || "Unable to change password");
       }
-
       resetPasswordForm();
       setShowPasswordSection(false);
       toast.success(json.message || "Password changed successfully", {
@@ -323,73 +735,43 @@ export default function Profile() {
     }
   };
 
+  const companyLabel = editing ? company.trim() : company || user.organizationName;
+  const stateDisplay =
+    state ? US_STATES.find((s) => s.code === state)?.name || state : "";
+
   return (
-    <div className="space-y-6">
-      {/* Profile card */}
-      <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm dark:border-gray-800 dark:bg-gray-900">
-        {/* Cover + page title */}
-        <div className="relative bg-gradient-to-br from-[#4C78F5] via-[#1a6aad] to-[#4C78F5] px-5 pb-16 pt-6 text-white sm:px-8 sm:pb-20 sm:pt-7">
-          <div className="pointer-events-none absolute inset-0 overflow-hidden">
-            <div className="absolute -right-10 -top-10 h-40 w-40 rounded-full bg-white/10 blur-2xl" />
-            <div className="absolute -bottom-16 left-1/3 h-36 w-36 rounded-full bg-cyan-300/20 blur-2xl" />
-          </div>
-
-          <div className="relative flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-            <div className="min-w-0 max-w-xl">
-              <p className="text-xs font-semibold uppercase tracking-widest text-white/70">
-                Account · Settings
-              </p>
-              <h1 className="mt-1 text-2xl font-semibold tracking-tight sm:text-3xl">
-                My Profile
-              </h1>
-              <p className="mt-2 text-sm text-white/80">
-                Manage your personal information, photo, and account details for
-                the loan officer portal.
-              </p>
-            </div>
-
-            <span className="inline-flex shrink-0 items-center gap-2 self-start rounded-full border border-white/25 bg-white/10 px-3 py-1.5 text-[11px] font-semibold uppercase tracking-wider text-white backdrop-blur-sm">
-              <span className="h-1.5 w-1.5 rounded-full bg-emerald-300" />
-              Loan Officer
-            </span>
-          </div>
-
-          <div className="absolute -bottom-14 left-4 z-10 sm:left-8">
-            <div className="group relative">
-              <div className="absolute -inset-1 rounded-full bg-white/90 dark:bg-gray-900" />
-              <div className="relative h-28 w-28 overflow-hidden rounded-full border-4 border-white shadow-lg dark:border-gray-900 sm:h-32 sm:w-32">
+    <div className="w-full space-y-4">
+      <section className="overflow-hidden rounded-xl border border-slate-200 bg-white p-4 shadow-none dark:border-slate-800 dark:bg-slate-950 sm:p-5">
+        <div className="flex min-w-0 flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex min-w-0 flex-1 flex-col gap-4 sm:flex-row sm:items-center">
+            <div className="group relative shrink-0">
+              <div className="relative h-20 w-20 overflow-hidden rounded-xl border border-slate-200 bg-slate-50 dark:border-slate-700 dark:bg-slate-900 sm:h-24 sm:w-24">
                 <img
                   key={remoteAvatarSrcFresh || "avatar-fallback"}
                   src={avatarSrc}
                   alt={displayName}
-                  className="h-full w-full bg-slate-50 object-contain dark:bg-gray-800"
+                  className="h-full w-full bg-slate-50 object-contain dark:bg-slate-900"
                   onError={(e) => {
-                    const src = e.currentTarget.currentSrc || e.currentTarget.src;
+                    const src =
+                      e.currentTarget.currentSrc || e.currentTarget.src;
                     if (!src || src.includes("ui-avatars.com")) return;
-                    if (remoteAvatarSrcFresh && src.startsWith(remoteAvatarSrc!)) {
+                    if (
+                      remoteAvatarSrcFresh &&
+                      src.startsWith(remoteAvatarSrc!)
+                    ) {
                       setAvatarLoadFailed(true);
                     }
                   }}
                 />
                 {editing && (
-                  <label className="absolute inset-0 flex cursor-pointer flex-col items-center justify-center bg-black/55 text-white opacity-0 transition group-hover:opacity-100">
-                    <Camera size={22} />
+                  <label className="absolute inset-0 flex cursor-pointer flex-col items-center justify-center bg-slate-900/55 text-white opacity-0 transition group-hover:opacity-100">
+                    <Camera size={18} />
                     <span className="mt-1 text-[10px] font-medium">Change</span>
                     <input
                       type="file"
                       accept="image/*"
                       className="hidden"
-                      onChange={(e) => {
-                        const file = e.target.files?.[0];
-                        e.target.value = "";
-                        if (file?.type.startsWith("image/")) {
-                          setRemoveProfileImage(false);
-                          setAvatarLoadFailed(false);
-                          setProfileImage(file);
-                        } else {
-                          toast.error("Only image files allowed");
-                        }
-                      }}
+                      onChange={handleAvatarFileChange}
                     />
                   </label>
                 )}
@@ -399,10 +781,12 @@ export default function Profile() {
                   type="button"
                   onClick={() => {
                     setProfileImage(null);
+                    setOriginalImageSize(0);
+                    setImageError(null);
                     setRemoveProfileImage(true);
                     setAvatarLoadFailed(false);
                   }}
-                  className="absolute -bottom-1 -right-1 inline-flex items-center justify-center rounded-full border border-white bg-red-500 p-1.5 text-white shadow-md transition hover:bg-red-600 dark:border-gray-900"
+                  className="absolute -bottom-1 -right-1 inline-flex items-center justify-center rounded-full border border-white bg-rose-500 p-1.5 text-white transition hover:bg-rose-600"
                   title="Remove photo"
                   aria-label="Remove profile photo"
                 >
@@ -410,39 +794,86 @@ export default function Profile() {
                 </button>
               )}
             </div>
-          </div>
-        </div>
 
-        {/* Identity row */}
-        <div className="flex flex-wrap items-start justify-between gap-4 px-4 pb-6 pt-16 sm:px-8 sm:pt-20">
-          <div>
-            <h2 className="text-xl font-bold text-gray-900 dark:text-white">
-              {displayName}
-            </h2>
-            <p className="mt-1 flex items-center gap-2 text-sm font-medium text-[#4C78F5] dark:text-[#6ba3d8]">
-              <Briefcase size={14} />
-              Loan Officer
-            </p>
-            {user.organizationName && (
-              <p className="mt-1 flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400">
-                <Building2 size={14} />
-                {user.organizationName}
+            <div className="min-w-0 flex-1 overflow-hidden">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[#4C78F5]">
+                Loan Officer Profile
               </p>
-            )}
-            {editing && removeProfileImage && !profileImage && (
-              <p className="mt-2 text-xs font-medium text-amber-600 dark:text-amber-400">
-                Photo will be removed when you save.
-              </p>
-            )}
+              <h1
+                className="mt-1 max-w-full overflow-hidden text-ellipsis whitespace-nowrap text-lg font-semibold tracking-tight text-slate-900 dark:text-white sm:text-xl"
+                title={displayName}
+              >
+                {displayName}
+              </h1>
+              <div className="mt-2 space-y-1 text-sm text-slate-500">
+                <p className="flex min-w-0 items-center gap-1.5 overflow-hidden">
+                  <Briefcase size={14} className="shrink-0 text-slate-400" />
+                  <span className="truncate" title={roleLabel}>
+                    {roleLabel}
+                  </span>
+                </p>
+                {companyLabel ? (
+                  <p className="flex min-w-0 items-center gap-1.5 overflow-hidden">
+                    <Building2 size={14} className="shrink-0 text-slate-400" />
+                    <span className="truncate" title={companyLabel}>
+                      {companyLabel}
+                    </span>
+                  </p>
+                ) : null}
+                {user.email ? (
+                  <p className="flex min-w-0 items-center gap-1.5 overflow-hidden">
+                    <Mail size={14} className="shrink-0 text-slate-400" />
+                    <span className="truncate" title={user.email}>
+                      {user.email}
+                    </span>
+                  </p>
+                ) : null}
+              </div>
+
+              {editing &&
+                (imageProcessing ||
+                  profileImage ||
+                  imageError ||
+                  removeProfileImage) && (
+                  <div className="mt-3 max-w-md space-y-1">
+                    {imageProcessing && (
+                      <p className="flex items-center gap-2 text-sm text-[#4C78F5]">
+                        <span className="h-2 w-2 animate-pulse rounded-full bg-[#4C78F5]" />
+                        Processing image…
+                      </p>
+                    )}
+                    {!imageProcessing &&
+                      removeProfileImage &&
+                      !profileImage && (
+                        <p className="text-sm font-medium text-amber-700 dark:text-amber-300">
+                          Photo will be removed when you save.
+                        </p>
+                      )}
+                    {!imageProcessing && profileImage && (
+                      <p className="text-sm text-slate-500">
+                        {formatBytes(profileImage.size)}
+                        {originalImageSize > MAX_IMAGE_BYTES
+                          ? ` · compressed from ${formatBytes(originalImageSize)}`
+                          : ""}
+                      </p>
+                    )}
+                    {!imageProcessing && imageError && (
+                      <p className="text-sm font-medium text-amber-700 dark:text-amber-300">
+                        {imageError}
+                      </p>
+                    )}
+                  </div>
+                )}
+            </div>
           </div>
 
           <button
             type="button"
             onClick={() => (editing ? cancelEdit() : setEditing(true))}
-            className={`inline-flex items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold transition ${
+            className={`inline-flex h-10 shrink-0 items-center gap-2 self-start rounded-lg px-3.5 text-sm font-semibold transition ${
               editing
-                ? "border border-gray-200 bg-gray-50 text-gray-700 hover:bg-gray-100 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200"
-                : "bg-[#4C78F5] text-white shadow-sm hover:bg-[#1a6aad]"
+                ? "border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-200"
+                : "bg-[#4C78F5] text-white hover:bg-[#3B66E0]"
             }`}
           >
             {editing ? (
@@ -458,137 +889,323 @@ export default function Profile() {
             )}
           </button>
         </div>
+      </section>
 
-        {/* Body */}
-        <div className="grid gap-6 border-t border-gray-100 p-4 dark:border-gray-800 sm:p-8 lg:grid-cols-3">
-          <div className="space-y-6 lg:col-span-2">
-            <section>
-              <h3 className="mb-4 text-sm font-semibold text-gray-900 dark:text-white">
-                Personal Information
-              </h3>
-              <div className="grid gap-4 md:grid-cols-2">
-                <ProfileField
-                  label="First Name"
-                  value={firstName}
-                  editing={editing}
-                  onChange={setFirstName}
-                  icon={<User size={14} />}
-                />
-                <ProfileField
-                  label="Last Name"
-                  value={lastName}
-                  editing={editing}
-                  onChange={setLastName}
-                  icon={<User size={14} />}
-                />
-                <ProfileField
-                  label="Phone"
-                  value={phone}
-                  editing={editing}
-                  onChange={(v) => setPhone(formatPhone(v))}
-                  icon={<Phone size={14} />}
-                  type="tel"
-                  maxLength={12}
-                  placeholder="888-888-8888"
-                />
-              </div>
-            </section>
-
-            <section>
-              <h3 className="mb-4 text-sm font-semibold text-gray-900 dark:text-white">
-                Professional Information
-              </h3>
-              <div className="grid gap-4 md:grid-cols-2">
-                <ProfileField
-                  label="Company"
-                  value={company}
-                  editing={editing}
-                  onChange={setCompany}
-                  icon={<Building2 size={14} />}
-                />
-                <ProfileField
-                  label="License Number"
-                  value={licenseNumber}
-                  editing={editing}
-                  onChange={setLicenseNumber}
-                  icon={<Briefcase size={14} />}
-                />
-                <ProfileField
-                  label="Address"
-                  value={address}
-                  editing={editing}
-                  onChange={setAddress}
-                  icon={<Building2 size={14} />}
-                />
-                <ProfileField
-                  label="City"
-                  value={city}
-                  editing={editing}
-                  onChange={setCity}
-                  icon={<Building2 size={14} />}
-                />
-                <ProfileField
-                  label="State"
-                  value={state}
-                  editing={editing}
-                  onChange={setState}
-                  icon={<Building2 size={14} />}
-                />
-                <ProfileField
-                  label="ZIP Code"
-                  value={zipCode}
-                  editing={editing}
-                  onChange={setZipCode}
-                  icon={<Building2 size={14} />}
-                />
-                <ProfileField
-                  label="Website"
-                  value={website}
-                  editing={editing}
-                  onChange={setWebsite}
-                  icon={<Briefcase size={14} />}
-                />
-              </div>
-            </section>
-
-            <section>
-              <h3 className="mb-4 text-sm font-semibold text-gray-900 dark:text-white">
-                Contact & Organization
-              </h3>
-              <div className="grid gap-4 md:grid-cols-2">
+      <div className="grid gap-4 lg:grid-cols-3">
+        <div className="space-y-4 lg:col-span-2">
+          <SectionCard
+            title="Personal Information"
+            description="Your name and phone as shown across the loan officer portal."
+          >
+            <div className="grid min-w-0 gap-4 md:grid-cols-2">
+              <ProfileField
+                label="First Name"
+                value={firstName}
+                editing={editing}
+                onChange={(v) => {
+                  const next = sanitizeName(v);
+                  setFirstName(next);
+                  setTouched((t) => ({ ...t, firstName: true }));
+                  setFieldError("firstName", next);
+                }}
+                onBlur={() => {
+                  setTouched((t) => ({ ...t, firstName: true }));
+                  setFieldError("firstName", firstName);
+                }}
+                icon={<User size={14} />}
+                error={
+                  touched.firstName || formErrors.firstName
+                    ? formErrors.firstName ||
+                      getFieldError("firstName", firstName) ||
+                      undefined
+                    : undefined
+                }
+                maxLength={50}
+                fieldKey="firstName"
+              />
+              <ProfileField
+                label="Last Name"
+                value={lastName}
+                editing={editing}
+                onChange={(v) => {
+                  const next = sanitizeName(v);
+                  setLastName(next);
+                  setTouched((t) => ({ ...t, lastName: true }));
+                  setFieldError("lastName", next);
+                }}
+                onBlur={() => {
+                  setTouched((t) => ({ ...t, lastName: true }));
+                  setFieldError("lastName", lastName);
+                }}
+                icon={<User size={14} />}
+                error={
+                  touched.lastName || formErrors.lastName
+                    ? formErrors.lastName ||
+                      getFieldError("lastName", lastName) ||
+                      undefined
+                    : undefined
+                }
+                maxLength={50}
+                fieldKey="lastName"
+              />
+              <ProfileField
+                label="Phone"
+                value={phone}
+                editing={editing}
+                onChange={(v) => {
+                  const next = formatPhone(v);
+                  setPhone(next);
+                  setTouched((t) => ({ ...t, phone: true }));
+                  setFieldError("phone", next);
+                }}
+                onBlur={() => {
+                  setTouched((t) => ({ ...t, phone: true }));
+                  setFieldError("phone", phone);
+                }}
+                icon={<Phone size={14} />}
+                error={
+                  touched.phone || formErrors.phone
+                    ? formErrors.phone ||
+                      getFieldError("phone", phone) ||
+                      undefined
+                    : undefined
+                }
+                maxLength={12}
+                type="tel"
+                placeholder="888-888-8888"
+                fieldKey="phone"
+              />
+              <div className="md:col-span-2">
                 <InfoCard
                   label="Email"
                   value={user.email}
                   icon={<Mail size={18} />}
-                />
-                <InfoCard
-                  label="Organization"
-                  value={user.organizationName || ""}
-                  icon={<ShieldCheck size={18} />}
+                  hint="Managed by your account — contact your broker admin to change."
                 />
               </div>
-            </section>
+            </div>
+          </SectionCard>
 
-            <SelfBankingPanel
-              portal="loanOfficer"
-              apiBase={LO_API_BASE}
-              getAuthHeaders={() => ({
-                "Content-Type": "application/json",
-                ...(getLoanOfficerToken()
-                  ? { Authorization: `Bearer ${getLoanOfficerToken()}` }
-                  : {}),
-              })}
-              checkResponse={checkLoanOfficerResponse}
-            />
+          <SectionCard
+            title="Professional Information"
+            description="Company, license, and location details used on applications."
+          >
+            <div className="grid min-w-0 gap-4 md:grid-cols-2">
+              <div className="min-w-0 md:col-span-2">
+                <ProfileField
+                  label="Company Name"
+                  value={company}
+                  editing={editing}
+                  onChange={(v) => {
+                    const next = v.slice(0, 100);
+                    setCompany(next);
+                    setTouched((t) => ({ ...t, company: true }));
+                    setFieldError("company", next);
+                  }}
+                  onBlur={() => {
+                    setTouched((t) => ({ ...t, company: true }));
+                    setFieldError("company", company);
+                  }}
+                  icon={<Building2 size={14} />}
+                  error={
+                    touched.company || formErrors.company
+                      ? formErrors.company ||
+                        getFieldError("company", company) ||
+                        undefined
+                      : undefined
+                  }
+                  maxLength={100}
+                  fieldKey="company"
+                />
+              </div>
+              <ProfileField
+                label="License Number"
+                value={licenseNumber}
+                editing={editing}
+                onChange={(v) => {
+                  const next = sanitizeLicenseNumber(v);
+                  setLicenseNumber(next);
+                  setTouched((t) => ({ ...t, licenseNumber: true }));
+                  setFieldError("licenseNumber", next);
+                }}
+                onBlur={() => {
+                  setTouched((t) => ({ ...t, licenseNumber: true }));
+                  setFieldError("licenseNumber", licenseNumber);
+                }}
+                icon={<Briefcase size={14} />}
+                error={
+                  touched.licenseNumber || formErrors.licenseNumber
+                    ? formErrors.licenseNumber ||
+                      getFieldError("licenseNumber", licenseNumber) ||
+                      undefined
+                    : undefined
+                }
+                maxLength={30}
+                fieldKey="licenseNumber"
+                placeholder="e.g. CA-123456"
+              />
+              <ProfileField
+                label="Address"
+                value={address}
+                editing={editing}
+                onChange={(v) => {
+                  const next = v.slice(0, 200);
+                  setAddress(next);
+                  setTouched((t) => ({ ...t, address: true }));
+                  setFieldError("address", next);
+                }}
+                onBlur={() => {
+                  setTouched((t) => ({ ...t, address: true }));
+                  setFieldError("address", address);
+                }}
+                icon={<MapPin size={14} />}
+                error={
+                  touched.address || formErrors.address
+                    ? formErrors.address ||
+                      getFieldError("address", address) ||
+                      undefined
+                    : undefined
+                }
+                maxLength={200}
+                fieldKey="address"
+              />
+              <ProfileField
+                label="City"
+                value={city}
+                editing={editing}
+                onChange={(v) => {
+                  const next = sanitizeCity(v);
+                  setCity(next);
+                  setTouched((t) => ({ ...t, city: true }));
+                  setFieldError("city", next);
+                }}
+                onBlur={() => {
+                  setTouched((t) => ({ ...t, city: true }));
+                  setFieldError("city", city);
+                }}
+                icon={<MapPin size={14} />}
+                error={
+                  touched.city || formErrors.city
+                    ? formErrors.city || getFieldError("city", city) || undefined
+                    : undefined
+                }
+                maxLength={50}
+                fieldKey="city"
+              />
+              <ProfileField
+                label="State"
+                value={state}
+                editing={editing}
+                onChange={(v) => {
+                  const next = normalizeStateCode(v);
+                  setState(next);
+                  setTouched((t) => ({ ...t, state: true }));
+                  setFieldError("state", next);
+                }}
+                onBlur={() => {
+                  setTouched((t) => ({ ...t, state: true }));
+                  setFieldError("state", state);
+                }}
+                icon={<MapPin size={14} />}
+                error={
+                  touched.state || formErrors.state
+                    ? formErrors.state ||
+                      getFieldError("state", state) ||
+                      undefined
+                    : undefined
+                }
+                fieldKey="state"
+                placeholder="Select state"
+                options={STATE_OPTIONS}
+                displayValue={stateDisplay}
+              />
+              <ProfileField
+                label="ZIP Code"
+                value={zipCode}
+                editing={editing}
+                onChange={(v) => {
+                  const next = sanitizeZipCode(v);
+                  setZipCode(next);
+                  setTouched((t) => ({ ...t, zipCode: true }));
+                  setFieldError("zipCode", next);
+                }}
+                onBlur={() => {
+                  setTouched((t) => ({ ...t, zipCode: true }));
+                  setFieldError("zipCode", zipCode);
+                }}
+                icon={<MapPin size={14} />}
+                error={
+                  touched.zipCode || formErrors.zipCode
+                    ? formErrors.zipCode ||
+                      getFieldError("zipCode", zipCode) ||
+                      undefined
+                    : undefined
+                }
+                maxLength={10}
+                fieldKey="zipCode"
+                type="tel"
+                placeholder="12345"
+              />
+              <ProfileField
+                label="Website"
+                value={website}
+                editing={editing}
+                onChange={(v) => {
+                  const next = sanitizeWebsiteHost(v);
+                  setWebsite(next);
+                  setTouched((t) => ({ ...t, website: true }));
+                  setFieldError("website", next);
+                }}
+                onBlur={() => {
+                  setTouched((t) => ({ ...t, website: true }));
+                  setFieldError("website", website);
+                }}
+                icon={<Globe size={14} />}
+                error={
+                  touched.website || formErrors.website
+                    ? formErrors.website ||
+                      getFieldError("website", website) ||
+                      undefined
+                    : undefined
+                }
+                maxLength={180}
+                fieldKey="website"
+                placeholder="example.com"
+                prefix={WEBSITE_PREFIX}
+                displayValue={website ? toWebsiteUrl(website) : ""}
+              />
+            </div>
+          </SectionCard>
 
-            <section className="overflow-hidden rounded-2xl border border-gray-100 dark:border-gray-800">
-              <div className="flex flex-wrap items-start justify-between gap-4 border-b border-gray-100 px-4 py-4 dark:border-gray-800 sm:px-5">
+          <SelfBankingPanel
+            portal="loanOfficer"
+            apiBase={LO_API_BASE}
+            getAuthHeaders={() => ({
+              "Content-Type": "application/json",
+              ...(getLoanOfficerToken()
+                ? { Authorization: `Bearer ${getLoanOfficerToken()}` }
+                : {}),
+            })}
+            checkResponse={checkLoanOfficerResponse}
+            title="Payout bank account"
+            description="US bank account used to receive commission ACH from your principal broker."
+          />
+
+          <SectionCard
+            title="Security"
+            description="Keep your loan officer account secure with a strong password."
+          >
+            <div
+              id="profile-password"
+              className="scroll-mt-24 rounded-xl border border-slate-200 p-3.5 dark:border-slate-700"
+            >
+              <div className="flex flex-wrap items-start justify-between gap-3">
                 <div>
-                  <h3 className="flex items-center gap-2 text-sm font-semibold text-gray-900 dark:text-white">
-                    <LockKeyhole size={16} className="text-[#4C78F5]" />
-                    Security
-                  </h3>
-                  <p className="mt-1 text-xs text-gray-500">
+                  <p className="flex items-center gap-2 text-sm font-semibold text-slate-900 dark:text-white">
+                    <LockKeyhole size={16} />
+                    Password
+                  </p>
+                  <p className="mt-1 text-sm text-slate-500">
                     Use at least 8 characters with upper, lower, number, and
                     special character.
                   </p>
@@ -599,124 +1216,240 @@ export default function Profile() {
                     setShowPasswordSection((prev) => !prev);
                     resetPasswordForm();
                   }}
-                  className="rounded-xl bg-[#4C78F5]/10 px-4 py-2 text-sm font-medium text-[#4C78F5] transition hover:bg-[#4C78F5]/15"
+                  className="inline-flex h-9 items-center rounded-lg border border-slate-200 bg-white px-3.5 text-sm font-semibold text-[#4C78F5] transition hover:bg-[#4C78F5]/[0.06] dark:border-slate-700 dark:bg-slate-950 dark:text-sky-300"
                 >
                   {showPasswordSection ? "Cancel" : "Change Password"}
                 </button>
               </div>
 
               {showPasswordSection && (
-                <div className="space-y-4 p-4 sm:p-5">
-                  <div className="grid gap-4 md:grid-cols-2">
-                    <PasswordField
-                      label="Current password"
-                      value={currentPassword}
-                      show={showCurrentPassword}
-                      onToggle={() => setShowCurrentPassword((prev) => !prev)}
-                      onChange={setCurrentPassword}
-                    />
-                    <PasswordField
-                      label="New password"
-                      value={newPassword}
-                      show={showNewPassword}
-                      onToggle={() => setShowNewPassword((prev) => !prev)}
-                      onChange={setNewPassword}
-                    />
-                    <PasswordField
-                      label="Confirm new password"
-                      value={confirmPassword}
-                      show={showNewPassword}
-                      onToggle={() => setShowNewPassword((prev) => !prev)}
-                      onChange={setConfirmPassword}
-                      className="md:col-span-2"
-                    />
-                  </div>
-                  <div className="flex justify-end">
+                <div className="mt-4 grid gap-3 border-t border-slate-200 pt-4 dark:border-slate-700 md:grid-cols-2">
+                  <PasswordField
+                    label="Current password"
+                    value={currentPassword}
+                    show={showCurrentPassword}
+                    onToggle={() => setShowCurrentPassword((prev) => !prev)}
+                    onChange={(v) => {
+                      setCurrentPassword(v);
+                      setPasswordErrors((prev) => {
+                        const { currentPassword: _drop, ...rest } = prev;
+                        return rest;
+                      });
+                    }}
+                    error={passwordErrors.currentPassword}
+                  />
+                  <PasswordField
+                    label="New password"
+                    value={newPassword}
+                    show={showNewPassword}
+                    onToggle={() => setShowNewPassword((prev) => !prev)}
+                    onChange={(v) => {
+                      setNewPassword(v);
+                      const message = validateNewPassword(v);
+                      setPasswordErrors((prev) => {
+                        const next = { ...prev };
+                        if (message) next.newPassword = message;
+                        else delete next.newPassword;
+                        if (confirmPassword && v !== confirmPassword) {
+                          next.confirmPassword = "Passwords do not match";
+                        } else if (confirmPassword) {
+                          delete next.confirmPassword;
+                        }
+                        return next;
+                      });
+                    }}
+                    error={passwordErrors.newPassword}
+                  />
+                  <PasswordField
+                    label="Confirm new password"
+                    value={confirmPassword}
+                    show={showNewPassword}
+                    onToggle={() => setShowNewPassword((prev) => !prev)}
+                    onChange={(v) => {
+                      setConfirmPassword(v);
+                      setPasswordErrors((prev) => {
+                        const next = { ...prev };
+                        if (!v.trim()) {
+                          next.confirmPassword =
+                            "Please confirm your new password";
+                        } else if (v !== newPassword) {
+                          next.confirmPassword = "Passwords do not match";
+                        } else {
+                          delete next.confirmPassword;
+                        }
+                        return next;
+                      });
+                    }}
+                    error={passwordErrors.confirmPassword}
+                  />
+                  <div className="flex justify-end md:col-span-2">
                     <button
                       type="button"
-                      onClick={handleChangePassword}
+                      onClick={() => void handleChangePassword()}
                       disabled={changingPassword}
-                      className="inline-flex items-center gap-2 rounded-xl bg-[#4C78F5] px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-[#1a6aad] disabled:opacity-50"
+                      className="inline-flex h-10 items-center rounded-lg bg-[#4C78F5] px-4 text-sm font-semibold text-white transition hover:bg-[#3B66E0] disabled:opacity-50"
                     >
-                      {changingPassword ? "Updating..." : "Update Password"}
+                      {changingPassword ? "Saving…" : "Update Password"}
                     </button>
                   </div>
                 </div>
               )}
-            </section>
-          </div>
-
-          {/* Sidebar stats */}
-          <aside className="space-y-4">
-            <div className="rounded-2xl border border-gray-100 bg-gray-50 p-5 dark:border-gray-700 dark:bg-gray-800/50">
-              <h4 className="font-semibold text-gray-900 dark:text-white">
-                Account Overview
-              </h4>
-              <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-                Your portal activity at a glance.
-              </p>
-
-              <div className="mt-4 flex items-center gap-2 rounded-xl border border-emerald-100 bg-emerald-50 px-3 py-2.5 text-sm font-medium text-emerald-700 dark:border-emerald-800/50 dark:bg-emerald-900/20 dark:text-emerald-400">
-                <span className="relative flex h-2 w-2">
-                  <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-40" />
-                  <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-500" />
-                </span>
-                {user.status === "DISABLED" ? "Inactive Account" : "Active Account"}
-              </div>
-
-              <div className="mt-4 grid grid-cols-2 gap-3">
-                <StatTile
-                  label="Assigned apps"
-                  value={String(user.assignedApplications ?? 0)}
-                />
-                <StatTile
-                  label="Role"
-                  value="Officer"
-                  compact
-                />
-              </div>
             </div>
-
-            <div className="rounded-2xl border border-[#4C78F5]/15 bg-[#4C78F5]/5 p-5 dark:border-[#4C78F5]/25 dark:bg-[#4C78F5]/10">
-              <p className="text-xs font-semibold uppercase tracking-wider text-[#4C78F5]">
-                Tip
-              </p>
-              <p className="mt-2 text-sm text-gray-600 dark:text-gray-300">
-                Keep your profile photo and name updated so brokers and clients
-                recognize you in the pipeline.
-              </p>
-            </div>
-          </aside>
+          </SectionCard>
         </div>
 
-        {editing && (
-          <div className="flex justify-end gap-3 border-t border-gray-100 px-4 py-4 dark:border-gray-800 sm:px-8">
-            <button
-              type="button"
-              onClick={cancelEdit}
-              className="rounded-xl border border-gray-200 px-5 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:text-gray-200 dark:hover:bg-gray-800"
-            >
-              Discard
-            </button>
-            <button
-              type="button"
-              onClick={handleSave}
-              disabled={saving || !isChanged}
-              className="inline-flex items-center gap-2 rounded-xl bg-[#4C78F5] px-6 py-2.5 text-sm font-semibold text-white hover:bg-[#1a6aad] disabled:opacity-50"
-            >
-              {saving ? (
-                "Saving..."
-              ) : (
-                <>
-                  <Check size={16} />
-                  Save Changes
-                </>
-              )}
-            </button>
+        <aside className="space-y-4 lg:sticky lg:top-6 lg:self-start">
+          <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-none dark:border-slate-800 dark:bg-slate-950">
+            <div className="border-b border-slate-200 px-4 py-3.5 dark:border-slate-800">
+              <h4 className="text-sm font-semibold text-slate-900 dark:text-white">
+                Account Overview
+              </h4>
+              <p className="mt-0.5 text-sm text-slate-500">
+                Your loan officer portal at a glance.
+              </p>
+            </div>
+            <div className="space-y-3 p-4">
+              <div
+                className={`flex items-center gap-2 rounded-lg border px-3 py-2.5 text-sm font-semibold ${
+                  user.status === "DISABLED"
+                    ? "border-amber-200 bg-amber-50 text-amber-800 dark:border-amber-800/50 dark:bg-amber-900/20 dark:text-amber-300"
+                    : "border-emerald-200 bg-emerald-50 text-emerald-800 dark:border-emerald-800/50 dark:bg-emerald-900/20 dark:text-emerald-300"
+                }`}
+              >
+                <span className="relative flex h-2 w-2">
+                  {user.status !== "DISABLED" && (
+                    <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-40" />
+                  )}
+                  <span
+                    className={`relative inline-flex h-2 w-2 rounded-full ${
+                      user.status === "DISABLED"
+                        ? "bg-amber-500"
+                        : "bg-emerald-500"
+                    }`}
+                  />
+                </span>
+                {user.status === "DISABLED"
+                  ? "Inactive Account"
+                  : "Active Account"}
+              </div>
+
+              <div className="grid grid-cols-2 gap-2.5">
+                <StatTile
+                  label="Applications"
+                  value={String(
+                    user.assignedApplications ?? user.applicationCount ?? 0,
+                  )}
+                />
+                <StatTile label="Role" value={roleLabel} compact />
+              </div>
+
+              <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-3 dark:border-slate-700 dark:bg-slate-900">
+                <p className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                  <ShieldCheck size={12} />
+                  Sign-in email
+                </p>
+                <p
+                  className="mt-1 overflow-hidden text-ellipsis whitespace-nowrap text-sm font-semibold text-slate-800 dark:text-slate-200"
+                  title={user.email}
+                >
+                  {user.email}
+                </p>
+              </div>
+
+              {user.organizationName ? (
+                <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-3 dark:border-slate-700 dark:bg-slate-900">
+                  <p className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                    <Building2 size={12} />
+                    Organization
+                  </p>
+                  <p
+                    className="mt-1 overflow-hidden text-ellipsis whitespace-nowrap text-sm font-semibold text-slate-800 dark:text-slate-200"
+                    title={user.organizationName}
+                  >
+                    {user.organizationName}
+                  </p>
+                </div>
+              ) : null}
+            </div>
           </div>
-        )}
+
+          <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-none dark:border-slate-800 dark:bg-slate-950">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[#4C78F5]">
+              Tip
+            </p>
+            <p className="mt-2 text-sm leading-relaxed text-slate-600 dark:text-slate-300">
+              Keep your photo, license, and contact details updated so brokers
+              and clients recognize you across the pipeline.
+            </p>
+          </div>
+        </aside>
       </div>
+
+      {editing && (
+        <div className="sticky bottom-4 z-20 mt-1 rounded-xl border border-slate-200 bg-white p-3.5 shadow-none dark:border-slate-800 dark:bg-slate-950">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div className="min-w-0">
+              <p className="text-sm font-semibold text-slate-900 dark:text-white">
+                {isChanged ? "Unsaved changes" : "Editing profile"}
+              </p>
+              <p className="mt-0.5 text-sm text-slate-500">
+                {isChanged
+                  ? "Save to update your loan officer profile across the portal."
+                  : "Make a change to enable Save."}
+              </p>
+            </div>
+            <div className="flex shrink-0 items-center gap-2">
+              <button
+                type="button"
+                onClick={cancelEdit}
+                className="inline-flex h-10 items-center rounded-lg border border-slate-200 px-4 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800"
+              >
+                Discard
+              </button>
+              <button
+                type="button"
+                onClick={() => void handleSave()}
+                disabled={saving || !isChanged}
+                className="inline-flex h-10 items-center gap-2 rounded-lg bg-[#4C78F5] px-4 text-sm font-semibold text-white transition hover:bg-[#3B66E0] disabled:cursor-not-allowed disabled:bg-slate-300 disabled:text-slate-500 dark:disabled:bg-slate-800 dark:disabled:text-slate-500"
+              >
+                {saving ? (
+                  "Saving…"
+                ) : (
+                  <>
+                    <Check size={16} />
+                    Save Changes
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
+  );
+}
+
+function SectionCard({
+  title,
+  description,
+  children,
+}: {
+  title: string;
+  description?: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <section className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-none dark:border-slate-800 dark:bg-slate-950">
+      <div className="border-b border-slate-200 px-4 py-3.5 dark:border-slate-800">
+        <h2 className="text-sm font-semibold text-slate-900 dark:text-white">
+          {title}
+        </h2>
+        {description ? (
+          <p className="mt-0.5 text-sm text-slate-500">{description}</p>
+        ) : null}
+      </div>
+      <div className="p-4">{children}</div>
+    </section>
   );
 }
 
@@ -725,40 +1458,127 @@ function ProfileField({
   value,
   editing,
   onChange,
+  onBlur,
   icon,
-  type = "text",
+  error,
   maxLength,
+  type = "text",
   placeholder,
+  fieldKey,
+  options,
+  prefix,
+  displayValue,
 }: {
   label: string;
   value: string;
   editing: boolean;
   onChange?: (value: string) => void;
+  onBlur?: () => void;
   icon: React.ReactNode;
-  type?: string;
+  error?: string;
   maxLength?: number;
+  type?: string;
   placeholder?: string;
+  fieldKey?: string;
+  options?: { value: string; label: string }[];
+  prefix?: string;
+  displayValue?: string;
 }) {
+  const counter = fieldKey ? getFieldCounter(fieldKey, value || "") : null;
+  const hasError = Boolean(error);
+  const errorBorderClass = hasError
+    ? "border-rose-400 bg-rose-50/60 focus:border-rose-500 focus:ring-rose-500/10 dark:bg-rose-950/20"
+    : "";
+  const shownValue = displayValue ?? value;
+
   return (
-    <div className="space-y-2">
-      <label className="flex items-center gap-2 text-xs font-medium text-gray-500 dark:text-gray-400">
-        {icon}
-        {label}
+    <div className="min-w-0 space-y-1.5">
+      <label className="flex items-center gap-2 text-sm font-semibold text-slate-600 dark:text-slate-300">
+        <span className="shrink-0 text-slate-400">{icon}</span>
+        <span className="truncate">{label}</span>
       </label>
       {editing && onChange ? (
-        <input
-          type={type}
-          value={value}
-          maxLength={maxLength}
-          placeholder={placeholder}
-          inputMode={type === "tel" ? "numeric" : undefined}
-          onChange={(e) => onChange(e.target.value)}
-          className={inputClass}
-        />
+        <>
+          {options ? (
+            <select
+              value={value}
+              onChange={(e) => onChange(e.target.value)}
+              onBlur={onBlur}
+              aria-invalid={hasError}
+              title={value || undefined}
+              className={`${inputClass} ${errorBorderClass} ${
+                !value ? "text-slate-400" : ""
+              }`}
+            >
+              <option value="">{placeholder || "Select"}</option>
+              {options.map((opt) => (
+                <option key={opt.value} value={opt.value}>
+                  {opt.label}
+                </option>
+              ))}
+            </select>
+          ) : prefix ? (
+            <div
+              className={`flex h-10 min-w-0 overflow-hidden rounded-lg border bg-white transition focus-within:ring-2 dark:bg-slate-950 ${
+                hasError
+                  ? "border-rose-400 focus-within:border-rose-500 focus-within:ring-rose-500/10"
+                  : "border-slate-200 focus-within:border-[#4C78F5]/50 focus-within:ring-[#4C78F5]/15 dark:border-slate-700"
+              }`}
+            >
+              <span className="flex shrink-0 items-center border-r border-slate-200 bg-slate-50 px-3 text-sm text-slate-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-400">
+                {prefix}
+              </span>
+              <input
+                type={type === "url" ? "text" : type}
+                value={value}
+                maxLength={maxLength}
+                placeholder={placeholder}
+                title={value || undefined}
+                onChange={(e) => onChange(e.target.value)}
+                onBlur={onBlur}
+                aria-invalid={hasError}
+                className="min-w-0 w-full overflow-hidden text-ellipsis whitespace-nowrap bg-transparent px-3 text-sm text-slate-800 outline-none dark:text-white"
+              />
+            </div>
+          ) : (
+            <input
+              type={type}
+              value={value}
+              maxLength={maxLength}
+              placeholder={placeholder}
+              title={value || undefined}
+              inputMode={type === "tel" ? "numeric" : undefined}
+              onChange={(e) => onChange(e.target.value)}
+              onBlur={onBlur}
+              aria-invalid={hasError}
+              className={`${inputClass} ${errorBorderClass}`}
+            />
+          )}
+          <div className="flex min-w-0 items-start justify-between gap-2">
+            <p
+              className={`min-h-[1rem] min-w-0 flex-1 break-words ${hasError ? errorTextClass : "text-transparent text-sm"}`}
+            >
+              {error || "·"}
+            </p>
+            {counter && !options && (
+              <p
+                className={`shrink-0 text-sm ${
+                  hasError
+                    ? "text-rose-400"
+                    : value.length === maxLength
+                      ? "text-amber-500"
+                      : "text-slate-400 dark:text-slate-500"
+                }`}
+              >
+                {counter}
+              </p>
+            )}
+          </div>
+        </>
       ) : (
-        <div className={displayClass}>
-          {value?.trim() ? (
-            value
+        <div className={displayClass} title={shownValue?.trim() || undefined}>
+          {shownValue?.trim() ? (
+            shownValue
           ) : (
             <span className="font-normal text-slate-400">Not provided</span>
           )}
@@ -772,25 +1592,35 @@ function InfoCard({
   label,
   value,
   icon,
+  hint,
 }: {
   label: string;
   value: string;
   icon: React.ReactNode;
+  hint?: string;
 }) {
   return (
-    <div className="flex items-start gap-3 rounded-xl border border-gray-100 bg-white p-4 dark:border-gray-800 dark:bg-gray-900/60">
-      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#4C78F5]/10 text-[#4C78F5]">
+    <div className="flex min-w-0 items-start gap-3 rounded-xl border border-slate-200 p-3.5 dark:border-slate-700">
+      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[#4C78F5]/10 text-[#4C78F5]">
         {icon}
       </div>
-      <div className="min-w-0">
-        <p className="text-xs font-medium text-gray-400">{label}</p>
-        <p className="mt-0.5 truncate text-sm font-medium text-gray-900 dark:text-white">
+      <div className="min-w-0 flex-1 overflow-hidden">
+        <p className="text-sm font-semibold text-slate-500">{label}</p>
+        <p
+          className="mt-0.5 overflow-hidden text-ellipsis whitespace-nowrap text-sm font-semibold text-slate-900 dark:text-white"
+          title={value?.trim() || undefined}
+        >
           {value?.trim() ? (
             value
           ) : (
             <span className="font-normal text-slate-400">Not provided</span>
           )}
         </p>
+        {hint ? (
+          <p className="mt-1 text-sm leading-snug text-slate-400 dark:text-slate-500">
+            {hint}
+          </p>
+        ) : null}
       </div>
     </div>
   );
@@ -806,14 +1636,15 @@ function StatTile({
   compact?: boolean;
 }) {
   return (
-    <div className="rounded-xl border border-gray-100 bg-white p-3 dark:border-gray-700 dark:bg-gray-900">
-      <p className="text-[10px] font-medium uppercase tracking-wider text-gray-400">
+    <div className="min-w-0 rounded-lg border border-slate-200 bg-white p-3 dark:border-slate-700 dark:bg-slate-950">
+      <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
         {label}
       </p>
       <p
-        className={`mt-1 font-bold text-gray-900 dark:text-white ${
-          compact ? "text-sm" : "text-2xl"
+        className={`mt-1 overflow-hidden text-ellipsis whitespace-nowrap font-semibold text-slate-900 dark:text-white ${
+          compact ? "text-sm" : "text-xl"
         }`}
+        title={value}
       >
         {value}
       </p>
@@ -827,18 +1658,19 @@ function PasswordField({
   show,
   onToggle,
   onChange,
-  className = "",
+  error,
 }: {
   label: string;
   value: string;
   show: boolean;
   onToggle: () => void;
   onChange: (value: string) => void;
-  className?: string;
+  error?: string;
 }) {
+  const hasError = Boolean(error);
   return (
-    <div className={`space-y-2 ${className}`}>
-      <label className="text-xs font-medium text-gray-500 dark:text-gray-400">
+    <div className="space-y-1.5">
+      <label className="text-sm font-semibold text-slate-600 dark:text-slate-300">
         {label}
       </label>
       <div className="relative">
@@ -847,16 +1679,22 @@ function PasswordField({
           value={value}
           onChange={(e) => onChange(e.target.value)}
           autoComplete="new-password"
-          className={`${inputClass} pr-11`}
+          aria-invalid={hasError}
+          className={`${inputClass} pr-11 ${
+            hasError
+              ? "border-rose-400 bg-rose-50/60 focus:border-rose-500 focus:ring-rose-500/10 dark:bg-rose-950/20"
+              : ""
+          }`}
         />
         <button
           type="button"
           onClick={onToggle}
-          className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+          className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300"
         >
           {show ? <EyeOff size={16} /> : <Eye size={16} />}
         </button>
       </div>
+      {hasError ? <p className={errorTextClass}>{error}</p> : null}
     </div>
   );
 }

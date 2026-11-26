@@ -16,10 +16,33 @@ import {
 } from "../../lib/brokerDashboardStats";
 import DashboardWidget from "./DashboardWidget";
 
+type Portal = "broker" | "loanOfficer";
+
 type Props = {
   stats: BrokerStats | null;
   loading: boolean;
+  portal?: Portal;
+  showMetricStrip?: boolean;
 };
+
+function portalPaths(portal: Portal) {
+  if (portal === "loanOfficer") {
+    return {
+      lenders: "/loan-officer/lender-marketplace",
+      officers: "/loan-officer/dashboard",
+      coBrokers: "/loan-officer/co-brokers",
+      borrowers: "/loan-officer/borrowers",
+      contacts: "/loan-officer/contacts",
+    };
+  }
+  return {
+    lenders: "/lender-marketplace",
+    officers: "/loan-officers",
+    coBrokers: "/sub-brokers",
+    borrowers: "/borrowers",
+    contacts: "/contacts-list",
+  };
+}
 
 const BRAND = "#4C78F5";
 const TEAL = "#14B8A6";
@@ -49,31 +72,38 @@ function emptyNetwork(): BrokerNetworkStats {
 
 function MetricStrip({
   network,
+  portal,
 }: {
   network: BrokerNetworkStats;
+  portal: Portal;
 }) {
+  const paths = portalPaths(portal);
   const items = [
     {
       label: "Lenders",
       value: network.lenders.connected,
       hint: `${network.lenders.inactive} inactive`,
-      to: "/lender-marketplace",
+      to: paths.lenders,
       icon: Store,
       tone: "bg-teal-50 text-teal-700",
     },
-    {
-      label: "Officers",
-      value: network.officers.active,
-      hint: `${network.officers.total} total`,
-      to: "/loan-officers",
-      icon: Users,
-      tone: "bg-violet-50 text-violet-600",
-    },
+    ...(portal === "broker"
+      ? [
+          {
+            label: "Officers",
+            value: network.officers.active,
+            hint: `${network.officers.total} total`,
+            to: paths.officers,
+            icon: Users,
+            tone: "bg-violet-50 text-violet-600",
+          },
+        ]
+      : []),
     {
       label: "Co-Brokers",
       value: network.coBrokers.active,
       hint: `${network.coBrokers.total} total`,
-      to: "/sub-brokers",
+      to: paths.coBrokers,
       icon: Building2,
       tone: "bg-amber-50 text-amber-600",
     },
@@ -81,7 +111,7 @@ function MetricStrip({
       label: "Borrowers",
       value: network.borrowers.clients || network.borrowers.portalReady,
       hint: `${network.borrowers.pendingLink} pending link`,
-      to: "/borrowers",
+      to: paths.borrowers,
       icon: UserRound,
       tone: "bg-rose-50 text-rose-600",
     },
@@ -89,14 +119,19 @@ function MetricStrip({
       label: "Contacts",
       value: network.contacts.total,
       hint: `${network.contacts.byType.length || 0} types`,
-      to: "/contacts-list",
+      to: paths.contacts,
       icon: Contact,
       tone: "bg-cyan-50 text-cyan-700",
     },
   ];
 
+  const stripCols =
+    portal === "loanOfficer"
+      ? "grid grid-cols-2 gap-3 md:grid-cols-4"
+      : "grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-5";
+
   return (
-    <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-5">
+    <div className={stripCols}>
       {items.map((item) => (
         <Link
           key={item.label}
@@ -131,10 +166,18 @@ function MetricStrip({
   );
 }
 
-function NetworkMixChart({ network }: { network: BrokerNetworkStats }) {
+function NetworkMixChart({
+  network,
+  portal,
+}: {
+  network: BrokerNetworkStats;
+  portal: Portal;
+}) {
   const rows = [
     { label: "Lenders", value: network.lenders.connected, color: TEAL },
-    { label: "Officers", value: network.officers.total, color: VIOLET },
+    ...(portal === "broker"
+      ? [{ label: "Officers", value: network.officers.total, color: VIOLET }]
+      : []),
     { label: "Co-Brokers", value: network.coBrokers.total, color: AMBER },
     {
       label: "Borrowers",
@@ -207,10 +250,24 @@ function NetworkMixChart({ network }: { network: BrokerNetworkStats }) {
   );
 }
 
-function TeamHealthChart({ network }: { network: BrokerNetworkStats }) {
-  const categories = ["Officers", "Co-Brokers"];
-  const active = [network.officers.active, network.coBrokers.active];
-  const disabled = [network.officers.disabled, network.coBrokers.disabled];
+function TeamHealthChart({
+  network,
+  portal,
+}: {
+  network: BrokerNetworkStats;
+  portal: Portal;
+}) {
+  const paths = portalPaths(portal);
+  const categories =
+    portal === "loanOfficer" ? ["Co-Brokers"] : ["Officers", "Co-Brokers"];
+  const active =
+    portal === "loanOfficer"
+      ? [network.coBrokers.active]
+      : [network.officers.active, network.coBrokers.active];
+  const disabled =
+    portal === "loanOfficer"
+      ? [network.coBrokers.disabled]
+      : [network.officers.disabled, network.coBrokers.disabled];
 
   const options: ApexOptions = {
     chart: {
@@ -265,7 +322,7 @@ function TeamHealthChart({ network }: { network: BrokerNetworkStats }) {
       minHeight="340px"
       right={
         <Link
-          to="/loan-officers"
+          to={portal === "loanOfficer" ? paths.coBrokers : paths.officers}
           className="text-[12px] font-semibold text-brand-500 hover:underline"
         >
           Manage
@@ -285,7 +342,14 @@ function TeamHealthChart({ network }: { network: BrokerNetworkStats }) {
   );
 }
 
-function BorrowerPortalChart({ network }: { network: BrokerNetworkStats }) {
+function BorrowerPortalChart({
+  network,
+  portal,
+}: {
+  network: BrokerNetworkStats;
+  portal: Portal;
+}) {
+  const paths = portalPaths(portal);
   const ready = network.borrowers.portalReady;
   const pending = network.borrowers.pendingLink;
   const total = ready + pending || network.borrowers.total;
@@ -351,7 +415,7 @@ function BorrowerPortalChart({ network }: { network: BrokerNetworkStats }) {
       minHeight="340px"
       right={
         <Link
-          to="/borrowers"
+          to={paths.borrowers}
           className="text-[12px] font-semibold text-brand-500 hover:underline"
         >
           View
@@ -393,7 +457,14 @@ function BorrowerPortalChart({ network }: { network: BrokerNetworkStats }) {
   );
 }
 
-function ContactTypesChart({ network }: { network: BrokerNetworkStats }) {
+function ContactTypesChart({
+  network,
+  portal,
+}: {
+  network: BrokerNetworkStats;
+  portal: Portal;
+}) {
+  const paths = portalPaths(portal);
   const rows = [...(network.contacts.byType || [])]
     .sort((a, b) => b.count - a.count)
     .slice(0, 6);
@@ -449,7 +520,7 @@ function ContactTypesChart({ network }: { network: BrokerNetworkStats }) {
       minHeight="340px"
       right={
         <Link
-          to="/contacts-list"
+          to={paths.contacts}
           className="text-[12px] font-semibold text-brand-500 hover:underline"
         >
           CRM
@@ -472,7 +543,14 @@ function ContactTypesChart({ network }: { network: BrokerNetworkStats }) {
   );
 }
 
-function TopOfficersChart({ network }: { network: BrokerNetworkStats }) {
+function TopOfficersChart({
+  network,
+  portal,
+}: {
+  network: BrokerNetworkStats;
+  portal: Portal;
+}) {
+  const paths = portalPaths(portal);
   const rows = [...(network.topOfficers || [])].filter(
     (row) => row.applications > 0,
   );
@@ -534,7 +612,7 @@ function TopOfficersChart({ network }: { network: BrokerNetworkStats }) {
       minHeight="340px"
       right={
         <Link
-          to="/loan-officers"
+          to={paths.officers}
           className="text-[12px] font-semibold text-brand-500 hover:underline"
         >
           Officers
@@ -565,10 +643,13 @@ function TopOfficersChart({ network }: { network: BrokerNetworkStats }) {
 function LenderCoverageCard({
   network,
   uniqueLendersAccessed,
+  portal,
 }: {
   network: BrokerNetworkStats;
   uniqueLendersAccessed: number;
+  portal: Portal;
 }) {
+  const paths = portalPaths(portal);
   const connected = network.lenders.connected;
   const coverage =
     connected > 0
@@ -582,7 +663,7 @@ function LenderCoverageCard({
       minHeight="340px"
       right={
         <Link
-          to="/lender-marketplace"
+          to={paths.lenders}
           className="text-[12px] font-semibold text-brand-500 hover:underline"
         >
           Marketplace
@@ -635,27 +716,120 @@ function LenderCoverageCard({
   );
 }
 
-export default function NetworkAnalyticsCharts({ stats, loading }: Props) {
+export default function NetworkAnalyticsCharts({
+  stats,
+  loading,
+  portal = "broker",
+  showMetricStrip = true,
+}: Props) {
   const network = stats?.network || emptyNetwork();
+  const stripCount = portal === "loanOfficer" ? 4 : 5;
 
   if (loading) {
     return (
       <div className="space-y-4">
-        <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-5">
-          {Array.from({ length: 5 }).map((_, index) => (
-            <div
-              key={index}
-              className="h-[118px] animate-pulse rounded-2xl border border-border bg-white dark:border-slate-800 dark:bg-slate-900"
-            />
-          ))}
-        </div>
+        {showMetricStrip ? (
+          <div
+            className={
+              portal === "loanOfficer"
+                ? "grid grid-cols-2 gap-3 md:grid-cols-4"
+                : "grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-5"
+            }
+          >
+            {Array.from({ length: stripCount }).map((_, index) => (
+              <div
+                key={index}
+                className="h-[118px] animate-pulse rounded-2xl border border-border bg-white dark:border-slate-800 dark:bg-slate-900"
+              />
+            ))}
+          </div>
+        ) : null}
         <div className="grid grid-cols-12 gap-4">
-          {Array.from({ length: 4 }).map((_, index) => (
-            <div
-              key={index}
-              className="col-span-12 h-[340px] animate-pulse rounded-2xl border border-border bg-white md:col-span-6 xl:col-span-3 dark:border-slate-800 dark:bg-slate-900"
+          {Array.from({ length: portal === "loanOfficer" ? 3 : 4 }).map(
+            (_, index) => (
+              <div
+                key={index}
+                className="col-span-12 h-[340px] animate-pulse rounded-2xl border border-border bg-white md:col-span-6 xl:col-span-4 dark:border-slate-800 dark:bg-slate-900"
+              />
+            ),
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  if (portal === "loanOfficer") {
+    return (
+      <div className="space-y-4">
+        {showMetricStrip ? (
+          <MetricStrip network={network} portal={portal} />
+        ) : null}
+
+        <div className="grid grid-cols-12 gap-4">
+          <div className="col-span-12 xl:col-span-4">
+            <NetworkMixChart network={network} portal={portal} />
+          </div>
+          <div className="col-span-12 md:col-span-6 xl:col-span-4">
+            <TeamHealthChart network={network} portal={portal} />
+          </div>
+          <div className="col-span-12 md:col-span-6 xl:col-span-4">
+            <BorrowerPortalChart network={network} portal={portal} />
+          </div>
+
+          <div className="col-span-12 md:col-span-6 xl:col-span-4">
+            <ContactTypesChart network={network} portal={portal} />
+          </div>
+          <div className="col-span-12 md:col-span-6 xl:col-span-4">
+            <LenderCoverageCard
+              network={network}
+              uniqueLendersAccessed={Number(stats?.uniqueLendersAccessed || 0)}
+              portal={portal}
             />
-          ))}
+          </div>
+          <div className="col-span-12 md:col-span-6 xl:col-span-4">
+            <DashboardWidget
+              title="New applications"
+              subtitle="Assigned files opened this period"
+              minHeight="340px"
+              right={
+                <Link
+                  to="/loan-officer/loan-application"
+                  className="text-[12px] font-semibold text-brand-500 hover:underline"
+                >
+                  New app
+                </Link>
+              }
+            >
+              <div className="flex flex-1 flex-col justify-center gap-4">
+                <div>
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-text-secondary">
+                    Applications
+                  </p>
+                  <p className="mt-2 text-[36px] font-bold leading-none tracking-tight text-text-primary dark:text-white">
+                    {formatCompactCount(Number(stats?.totalApplications || 0))}
+                  </p>
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="rounded-xl border border-border bg-sky-50/70 p-3 dark:border-slate-700 dark:bg-sky-950/20">
+                    <p className="text-[10px] font-semibold uppercase tracking-wide text-sky-700">
+                      Submitted
+                    </p>
+                    <p className="mt-1 text-xl font-bold text-sky-800 dark:text-sky-300">
+                      {formatCompactCount(Number(stats?.totalSubmitted || 0))}
+                    </p>
+                  </div>
+                  <div className="rounded-xl border border-border bg-surface p-3 dark:border-slate-700 dark:bg-slate-800">
+                    <p className="text-[10px] font-semibold uppercase tracking-wide text-text-secondary">
+                      Incomplete
+                    </p>
+                    <p className="mt-1 text-xl font-bold text-text-primary dark:text-white">
+                      {formatCompactCount(Number(stats?.totalIncomplete || 0))}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </DashboardWidget>
+          </div>
         </div>
       </div>
     );
@@ -663,29 +837,30 @@ export default function NetworkAnalyticsCharts({ stats, loading }: Props) {
 
   return (
     <div className="space-y-4">
-      <MetricStrip network={network} />
+      <MetricStrip network={network} portal={portal} />
 
       <div className="grid grid-cols-12 gap-4">
         <div className="col-span-12 xl:col-span-5">
-          <NetworkMixChart network={network} />
+          <NetworkMixChart network={network} portal={portal} />
         </div>
         <div className="col-span-12 md:col-span-6 xl:col-span-3">
-          <TeamHealthChart network={network} />
+          <TeamHealthChart network={network} portal={portal} />
         </div>
         <div className="col-span-12 md:col-span-6 xl:col-span-4">
-          <BorrowerPortalChart network={network} />
+          <BorrowerPortalChart network={network} portal={portal} />
         </div>
 
         <div className="col-span-12 md:col-span-6 xl:col-span-4">
-          <TopOfficersChart network={network} />
+          <TopOfficersChart network={network} portal={portal} />
         </div>
         <div className="col-span-12 md:col-span-6 xl:col-span-4">
-          <ContactTypesChart network={network} />
+          <ContactTypesChart network={network} portal={portal} />
         </div>
         <div className="col-span-12 xl:col-span-4">
           <LenderCoverageCard
             network={network}
             uniqueLendersAccessed={Number(stats?.uniqueLendersAccessed || 0)}
+            portal={portal}
           />
         </div>
       </div>

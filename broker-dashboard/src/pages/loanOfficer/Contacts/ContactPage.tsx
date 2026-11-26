@@ -1,20 +1,30 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
 import {
-  Building2,
+  ArrowUpDown,
+  ChevronDown,
   ChevronLeft,
   ChevronRight,
+  ChevronUp,
   Eye,
-  Mail,
-  MapPin,
+  MoreVertical,
   Pencil,
   Phone,
   Plus,
   RefreshCw,
   Search,
+  Shield,
   Trash2,
   Users,
   X,
 } from "lucide-react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type MouseEvent as ReactMouseEvent,
+} from "react";
+import { createPortal } from "react-dom";
 import toast from "react-hot-toast";
 import Swal from "sweetalert2";
 import PageMeta from "../../../components/common/PageMeta";
@@ -54,33 +64,87 @@ type ApiResponse = {
   };
 };
 
-const SEARCH_DEBOUNCE_MS = 350;
-const PAGE_SIZE = 10;
+type SortKey = "name" | "email" | "company" | "phone" | "createdAt";
+type SortDir = "asc" | "desc";
 
-const AVATAR_TONES = [
-  "bg-sky-100 text-sky-700 dark:bg-sky-500/15 dark:text-sky-300",
-  "bg-violet-100 text-violet-700 dark:bg-violet-500/15 dark:text-violet-300",
-  "bg-emerald-100 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300",
-  "bg-amber-100 text-amber-700 dark:bg-amber-500/15 dark:text-amber-300",
-  "bg-rose-100 text-rose-700 dark:bg-rose-500/15 dark:text-rose-300",
-];
+const SEARCH_DEBOUNCE_MS = 400;
+const ACTION_MENU_WIDTH = 168;
+const ACTION_MENU_HEIGHT = 168;
+const PAGE_SIZE_OPTIONS = [10, 15, 25] as const;
 
-const TYPE_TONES: Record<string, string> = {
-  ATTORNEY:
-    "bg-violet-50 text-violet-700 ring-violet-200 dark:bg-violet-500/10 dark:text-violet-300 dark:ring-violet-500/30",
-  LENDER:
-    "bg-emerald-50 text-emerald-700 ring-emerald-200 dark:bg-emerald-500/10 dark:text-emerald-300 dark:ring-emerald-500/30",
-  BROKER:
-    "bg-sky-50 text-sky-700 ring-sky-200 dark:bg-sky-500/10 dark:text-sky-300 dark:ring-sky-500/30",
-  TITLE_COMPANY:
-    "bg-amber-50 text-amber-700 ring-amber-200 dark:bg-amber-500/10 dark:text-amber-300 dark:ring-amber-500/30",
-  APPRAISER:
-    "bg-indigo-50 text-indigo-700 ring-indigo-200 dark:bg-indigo-500/10 dark:text-indigo-300 dark:ring-indigo-500/30",
-  INSURANCE:
-    "bg-rose-50 text-rose-700 ring-rose-200 dark:bg-rose-500/10 dark:text-rose-300 dark:ring-rose-500/30",
-  OTHER:
-    "bg-slate-50 text-slate-600 ring-slate-200 dark:bg-slate-500/10 dark:text-slate-300 dark:ring-slate-600",
-};
+const CONTACT_TYPE_OPTIONS = [
+  { value: "", label: "All types" },
+  { value: "LENDER", label: "Lender" },
+  { value: "BROKER", label: "Broker" },
+  { value: "PARTNER", label: "Partner" },
+  { value: "CLIENT", label: "Client" },
+  { value: "LOAN_OFFICER", label: "Loan Officer" },
+  { value: "CO_BROKER", label: "Co Broker" },
+  { value: "ATTORNEY", label: "Attorney" },
+  { value: "TITLE_COMPANY", label: "Title Company" },
+  { value: "APPRAISER", label: "Appraiser" },
+  { value: "INSURANCE", label: "Insurance" },
+  { value: "OTHER", label: "Other" },
+] as const;
+
+function computeActionMenuPosition(rect: DOMRect) {
+  const padding = 8;
+  const spaceBelow = window.innerHeight - rect.bottom;
+  const spaceAbove = rect.top;
+  const openUpward =
+    spaceBelow < ACTION_MENU_HEIGHT + padding && spaceAbove > spaceBelow;
+
+  let top = openUpward ? rect.top - ACTION_MENU_HEIGHT - 6 : rect.bottom + 6;
+  top = Math.max(
+    padding,
+    Math.min(top, window.innerHeight - ACTION_MENU_HEIGHT - padding),
+  );
+
+  const left = Math.max(
+    padding,
+    Math.min(
+      rect.right - ACTION_MENU_WIDTH,
+      window.innerWidth - ACTION_MENU_WIDTH - padding,
+    ),
+  );
+
+  return { top, left };
+}
+
+function SortHeader({
+  label,
+  active,
+  direction,
+  onClick,
+  align = "left",
+}: {
+  label: string;
+  active: boolean;
+  direction: SortDir;
+  onClick: () => void;
+  align?: "left" | "right";
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`group inline-flex w-full items-center gap-1 text-[11px] font-semibold uppercase tracking-[0.08em] transition ${
+        align === "right" ? "justify-end" : "justify-start"
+      } ${active ? "text-[#4C78F5]" : "text-text-secondary hover:text-[#4C78F5] dark:text-slate-400"}`}
+    >
+      {label}
+      {active ? (
+        direction === "asc" ? (
+          <ChevronUp className="h-3.5 w-3.5 shrink-0" />
+        ) : (
+          <ChevronDown className="h-3.5 w-3.5 shrink-0" />
+        )
+      ) : (
+        <ArrowUpDown className="h-3 w-3 shrink-0 opacity-0 transition group-hover:opacity-50" />
+      )}
+    </button>
+  );
+}
 
 function getInitials(first?: string, last?: string) {
   return (
@@ -88,25 +152,8 @@ function getInitials(first?: string, last?: string) {
   );
 }
 
-function getAvatarTone(seed: string) {
-  const index = seed
-    .split("")
-    .reduce((acc, char) => acc + char.charCodeAt(0), 0);
-  return AVATAR_TONES[index % AVATAR_TONES.length];
-}
-
-function formatContactType(value?: string) {
-  if (!value) return "Contact";
-  return value.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
-}
-
-function typeTone(value?: string) {
-  if (!value) return TYPE_TONES.OTHER;
-  return TYPE_TONES[value.toUpperCase()] || TYPE_TONES.OTHER;
-}
-
 function formatDate(value?: string) {
-  if (!value) return "—";
+  if (!value) return "";
   return new Date(value).toLocaleDateString(undefined, {
     month: "short",
     day: "numeric",
@@ -114,26 +161,39 @@ function formatDate(value?: string) {
   });
 }
 
-function StatChip({
-  icon,
-  label,
-  value,
-}: {
-  icon: React.ReactNode;
-  label: string;
-  value: number | string;
-}) {
-  return (
-    <div className="flex items-center gap-2.5 rounded-xl border border-white/20 bg-white/10 px-4 py-2.5 backdrop-blur-sm">
-      <span className="text-white/80">{icon}</span>
-      <div>
-        <p className="text-[10px] font-semibold uppercase tracking-wide text-white/70">
-          {label}
-        </p>
-        <p className="text-lg font-bold leading-tight text-white">{value}</p>
-      </div>
-    </div>
-  );
+function formatContactType(value?: string) {
+  if (!value) return "Contact";
+  return value.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
+function contactTypeBadgeClass(value?: string) {
+  switch (String(value || "").toUpperCase()) {
+    case "LENDER":
+      return "bg-emerald-100 text-emerald-700 ring-emerald-200";
+    case "BROKER":
+      return "bg-violet-100 text-violet-700 ring-violet-200";
+    case "LOAN_OFFICER":
+    case "LOAN OFFICER":
+      return "bg-amber-100 text-amber-700 ring-amber-200";
+    case "CO_BROKER":
+    case "CO BROKER":
+      return "bg-cyan-100 text-cyan-700 ring-cyan-200";
+    case "PARTNER":
+      return "bg-sky-100 text-sky-700 ring-sky-200";
+    case "CLIENT":
+    case "BORROWER":
+      return "bg-teal-100 text-teal-700 ring-teal-200";
+    case "ATTORNEY":
+      return "bg-violet-100 text-violet-700 ring-violet-200";
+    case "TITLE_COMPANY":
+      return "bg-amber-100 text-amber-700 ring-amber-200";
+    case "APPRAISER":
+      return "bg-indigo-100 text-indigo-700 ring-indigo-200";
+    case "INSURANCE":
+      return "bg-rose-100 text-rose-700 ring-rose-200";
+    default:
+      return "bg-slate-100 text-slate-700 ring-slate-200";
+  }
 }
 
 export default function ContactPage({
@@ -151,19 +211,25 @@ export default function ContactPage({
   const [viewContact, setViewContact] = useState<Contact | null>(null);
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
-  const [typeFilter, setTypeFilter] = useState("");
   const [page, setPage] = useState(1);
+  const [limit, setLimit] = useState(10);
   const [totalPages, setTotalPages] = useState(1);
   const [total, setTotal] = useState(0);
+  const [typeFilter, setTypeFilter] = useState("");
+  const [sortKey, setSortKey] = useState<SortKey>("createdAt");
+  const [sortDir, setSortDir] = useState<SortDir>("desc");
+  const [activeMenuId, setActiveMenuId] = useState<string | null>(null);
+  const [menuPos, setMenuPos] = useState({ top: 0, left: 0 });
+  const menuRef = useRef<HTMLDivElement | null>(null);
 
   const fetchContacts = useCallback(
-    async (pageNumber = 1, searchTerm = "") => {
+    async (pageNumber = page, searchTerm = debouncedSearch, pageLimit = limit) => {
       const config = getContactsPortalConfig(portal);
       try {
         setLoading(true);
 
         const res = await fetch(
-          config.listUrl(pageNumber, PAGE_SIZE, searchTerm),
+          config.listUrl(pageNumber, pageLimit, searchTerm),
           {
             method: "GET",
             headers: config.getHeaders(false),
@@ -178,6 +244,11 @@ export default function ContactPage({
           setTotal(data.pagination?.total ?? data.data?.length ?? 0);
           setTotalPages(data.pagination?.totalPages || 1);
           setPage(data.pagination?.page || pageNumber);
+        } else {
+          setContacts([]);
+          setTotal(0);
+          setTotalPages(1);
+          toast.error("Failed to fetch contacts");
         }
       } catch (err) {
         if (isSessionExpiredError(err)) return;
@@ -187,7 +258,7 @@ export default function ContactPage({
         setLoading(false);
       }
     },
-    [portal],
+    [debouncedSearch, limit, page, portal],
   );
 
   useEffect(() => {
@@ -202,32 +273,108 @@ export default function ContactPage({
   }, [search]);
 
   useEffect(() => {
-    fetchContacts(page, debouncedSearch);
-  }, [page, debouncedSearch, fetchContacts]);
+    void fetchContacts(page, debouncedSearch, limit);
+  }, [page, debouncedSearch, limit, fetchContacts]);
 
-  const typeOptions = useMemo(() => {
-    const counts = new Map<string, number>();
-    for (const contact of contacts) {
-      const key = contact.contactType || "OTHER";
-      counts.set(key, (counts.get(key) || 0) + 1);
-    }
-    return [...counts.entries()].sort((a, b) => a[0].localeCompare(b[0]));
-  }, [contacts]);
-
-  const filteredContacts = useMemo(() => {
-    if (!typeFilter) return contacts;
-    return contacts.filter(
-      (c) => (c.contactType || "OTHER").toUpperCase() === typeFilter,
-    );
-  }, [contacts, typeFilter]);
+  useEffect(() => {
+    setPage(1);
+  }, [typeFilter, limit]);
 
   const isSearching = search.trim() !== debouncedSearch;
+
+  const displayedContacts = useMemo(() => {
+    const filtered = typeFilter
+      ? contacts.filter(
+          (c) =>
+            String(c.contactType || "OTHER").toUpperCase() ===
+            typeFilter.toUpperCase(),
+        )
+      : contacts;
+
+    const sorted = [...filtered].sort((a, b) => {
+      const dir = sortDir === "asc" ? 1 : -1;
+      const nameA = `${a.firstName || ""} ${a.lastName || ""}`.trim();
+      const nameB = `${b.firstName || ""} ${b.lastName || ""}`.trim();
+
+      switch (sortKey) {
+        case "name":
+          return nameA.localeCompare(nameB) * dir;
+        case "email":
+          return (a.email || "").localeCompare(b.email || "") * dir;
+        case "company":
+          return (a.companyName || "").localeCompare(b.companyName || "") * dir;
+        case "phone":
+          return (a.phone || "").localeCompare(b.phone || "") * dir;
+        case "createdAt":
+        default: {
+          const ta = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+          const tb = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+          return (ta - tb) * dir;
+        }
+      }
+    });
+
+    return sorted;
+  }, [contacts, sortDir, sortKey, typeFilter]);
+
+  const activeMenuContact = useMemo(
+    () => displayedContacts.find((c) => c.id === activeMenuId) || null,
+    [activeMenuId, displayedContacts],
+  );
+
+  const displayTotal = typeFilter ? displayedContacts.length : total;
+
+  const toggleSort = (key: SortKey) => {
+    if (sortKey === key) {
+      setSortDir((prev) => (prev === "asc" ? "desc" : "asc"));
+      return;
+    }
+    setSortKey(key);
+    setSortDir(key === "createdAt" ? "desc" : "asc");
+  };
+
+  const closeRowMenu = () => setActiveMenuId(null);
+
+  const openRowMenu = (id: string, event: ReactMouseEvent<HTMLButtonElement>) => {
+    event.stopPropagation();
+    const rect = event.currentTarget.getBoundingClientRect();
+    setMenuPos(computeActionMenuPosition(rect));
+    setActiveMenuId((prev) => (prev === id ? null : id));
+  };
+
+  useEffect(() => {
+    if (!activeMenuId) return;
+
+    const onPointerDown = (event: MouseEvent) => {
+      const target = event.target as HTMLElement | null;
+      if (target?.closest?.(`[data-menu-id="${activeMenuId}"]`)) return;
+      if (menuRef.current?.contains(event.target as Node)) return;
+      closeRowMenu();
+    };
+
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") closeRowMenu();
+    };
+
+    const onScroll = () => closeRowMenu();
+
+    document.addEventListener("mousedown", onPointerDown);
+    document.addEventListener("keydown", onKeyDown);
+    window.addEventListener("scroll", onScroll, true);
+    return () => {
+      document.removeEventListener("mousedown", onPointerDown);
+      document.removeEventListener("keydown", onKeyDown);
+      window.removeEventListener("scroll", onScroll, true);
+    };
+  }, [activeMenuId]);
 
   const handleDelete = async (contact: Contact) => {
     if (!canDeleteContacts) {
       toast.error("You don't have permission to delete contacts");
       return;
     }
+
+    closeRowMenu();
 
     const result = await Swal.fire({
       title: "Delete contact?",
@@ -253,7 +400,7 @@ export default function ContactPage({
         throw new Error(json.message || "Delete failed");
       }
       toast.success("Contact deleted");
-      fetchContacts(page, debouncedSearch);
+      void fetchContacts(page, debouncedSearch, limit);
     } catch (err: unknown) {
       if (isSessionExpiredError(err)) return;
       toast.error(err instanceof Error ? err.message : "Delete failed");
@@ -278,6 +425,12 @@ export default function ContactPage({
     setOpen(true);
   };
 
+  const closeModal = () => {
+    setOpen(false);
+    setEditContact(null);
+    void fetchContacts(page, debouncedSearch, limit);
+  };
+
   const pageTitle =
     portal === "coBroker"
       ? "Contacts | Co-Broker Portal"
@@ -287,399 +440,447 @@ export default function ContactPage({
     <>
       <PageMeta title={pageTitle} description={portalConfig.heroDescription} />
 
-      <div className="space-y-5 text-gray-800 dark:text-gray-200">
-        <section className="overflow-hidden rounded-2xl border border-[#4C78F5]/15 bg-gradient-to-br from-[#4C78F5] via-[#1a6aad] to-[#4C78F5] p-6 text-white shadow-sm sm:p-8">
-          <div className="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
-            <div>
-              <p className="text-xs font-semibold uppercase tracking-widest text-white/70">
-                {portalConfig.heroEyebrow}
-              </p>
-              <h1 className="mt-1 text-2xl font-bold sm:text-3xl">
-                My Contacts
-              </h1>
-              <p className="mt-2 max-w-xl text-sm text-white/80">
-                {portalConfig.heroDescription}
-              </p>
-            </div>
-            <div className="flex flex-wrap gap-2">
-              <StatChip
-                icon={<Users className="h-3.5 w-3.5" />}
-                label="Total contacts"
-                value={loading && total === 0 ? "—" : total}
-              />
-              <StatChip
-                icon={<Building2 className="h-3.5 w-3.5" />}
-                label="On this page"
-                value={loading ? "—" : filteredContacts.length}
-              />
-            </div>
+      <div className="w-full min-w-0 space-y-4 pb-4 text-text-primary dark:text-slate-100">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+          <div className="min-w-0">
+            <h1 className="ds-page-title">Contacts</h1>
+            <p className="ds-page-subtitle">
+              Manage lenders, brokers, partners, and everyone in your loan
+              network.
+            </p>
           </div>
-        </section>
+          {canCreateContacts ? (
+            <button
+              type="button"
+              onClick={openCreateModal}
+              className="ds-btn-primary shrink-0"
+            >
+              <Plus size={16} />
+              Add contact
+            </button>
+          ) : null}
+        </div>
 
-        <section className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm dark:border-gray-800 dark:bg-gray-900">
-          <div className="border-b border-gray-100 p-4 dark:border-gray-800 sm:p-5">
-            <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-              <div className="relative w-full sm:max-w-md lg:flex-1">
-                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+        <div className="overflow-hidden rounded-2xl border border-border bg-white dark:border-slate-700 dark:bg-slate-900">
+          <div className="flex flex-col gap-2.5 border-b border-border px-4 py-3.5 dark:border-slate-800 sm:flex-row sm:items-center sm:justify-between sm:px-5">
+            <div className="flex w-full flex-col gap-2.5 sm:flex-row sm:items-center lg:min-w-0 lg:flex-1">
+              <div className="group relative w-full sm:max-w-sm">
+                <Search className="pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-text-secondary transition-colors group-focus-within:text-[#4C78F5]" />
                 <input
                   type="text"
-                  placeholder="Search by name, email, phone, or company..."
+                  placeholder="Search contacts..."
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
-                  className="h-11 w-full rounded-xl border border-gray-200 bg-gray-50 pl-10 pr-10 text-sm outline-none transition focus:border-[#4C78F5]/40 focus:bg-white focus:ring-2 focus:ring-[#4C78F5]/10 dark:border-gray-700 dark:bg-gray-950 dark:text-gray-100"
+                  className="h-10 w-full rounded-xl border border-border bg-white py-2 pr-9 pl-10 text-sm text-text-primary outline-none transition placeholder:text-text-secondary/70 focus:border-[#4C78F5]/50 focus:ring-2 focus:ring-[#4C78F5]/15 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
                 />
-                {search && (
+                {search ? (
                   <button
                     type="button"
                     onClick={() => setSearch("")}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-red-500"
+                    className="absolute top-1/2 right-2.5 -translate-y-1/2 rounded-md p-1 text-text-secondary hover:bg-surface"
+                    aria-label="Clear search"
                   >
-                    <X className="h-4 w-4" />
+                    <X size={14} />
                   </button>
-                )}
+                ) : null}
               </div>
 
-              <div className="flex shrink-0 items-center gap-2">
-                <button
-                  type="button"
-                  onClick={() => fetchContacts(page, debouncedSearch)}
-                  disabled={loading || isSearching}
-                  className="inline-flex h-11 items-center gap-2 rounded-xl border border-gray-200 bg-white px-4 text-sm font-medium text-gray-700 transition hover:bg-gray-50 disabled:opacity-50 dark:border-gray-700 dark:bg-gray-950 dark:text-gray-200"
-                >
-                  <RefreshCw
-                    className={`h-4 w-4 ${loading ? "animate-spin" : ""}`}
-                  />
-                  Refresh
-                </button>
-                {canCreateContacts && (
-                  <button
-                    type="button"
-                    onClick={openCreateModal}
-                    className="inline-flex h-11 items-center gap-2 rounded-xl bg-[#4C78F5] px-5 text-sm font-semibold text-white shadow-sm transition hover:bg-[#1a6aad]"
-                  >
-                    <Plus className="h-4 w-4" />
-                    Create Contact
-                  </button>
-                )}
-              </div>
+              <select
+                value={typeFilter}
+                onChange={(e) => setTypeFilter(e.target.value)}
+                className="h-10 w-full rounded-xl border border-border bg-white px-3 text-sm text-text-primary outline-none transition focus:border-[#4C78F5]/50 focus:ring-2 focus:ring-[#4C78F5]/15 sm:w-[160px] dark:border-slate-700 dark:bg-slate-950"
+              >
+                {CONTACT_TYPE_OPTIONS.map((option) => (
+                  <option key={option.value || "all"} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+
+              <button
+                type="button"
+                onClick={() => fetchContacts(page, debouncedSearch, limit)}
+                disabled={loading || isSearching}
+                className="inline-flex h-10 items-center justify-center gap-2 rounded-xl border border-border bg-white px-3 text-sm font-medium text-text-secondary transition hover:bg-surface disabled:opacity-60 dark:border-slate-700 dark:bg-slate-950"
+              >
+                <RefreshCw
+                  className={`h-4 w-4 ${loading ? "animate-spin" : ""}`}
+                />
+                Refresh
+              </button>
             </div>
 
-            {(typeOptions.length > 0 || typeFilter) && (
-              <div className="mt-4 flex flex-wrap items-center gap-2">
-                <span className="text-xs font-medium text-gray-500">Type:</span>
-                <button
-                  type="button"
-                  onClick={() => setTypeFilter("")}
-                  className={`rounded-full px-3 py-1 text-xs font-medium transition ${
-                    !typeFilter
-                      ? "bg-[#4C78F5] text-white"
-                      : "bg-gray-100 text-gray-600 hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-300"
-                  }`}
-                >
-                  All
-                </button>
-                {typeOptions.map(([type, count]) => (
-                  <button
-                    key={type}
-                    type="button"
-                    onClick={() =>
-                      setTypeFilter((prev) =>
-                        prev === type.toUpperCase() ? "" : type.toUpperCase(),
-                      )
-                    }
-                    className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium transition ${
-                      typeFilter === type.toUpperCase()
-                        ? "bg-[#4C78F5] text-white"
-                        : "bg-gray-100 text-gray-600 hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-300"
-                    }`}
-                  >
-                    {formatContactType(type)}
-                    <span
-                      className={`rounded-full px-1.5 py-0.5 text-[10px] ${
-                        typeFilter === type.toUpperCase()
-                          ? "bg-white/20"
-                          : "bg-white dark:bg-gray-900"
-                      }`}
-                    >
-                      {count}
-                    </span>
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
-
-          <div className="flex items-center justify-between gap-3 border-b border-gray-100 bg-gray-50/60 px-4 py-2.5 dark:border-gray-800 dark:bg-gray-800/40 sm:px-5">
-            <p className="text-xs text-gray-500 dark:text-gray-400">
-              {loading || isSearching ? (
-                isSearching ? "Searching..." : "Loading contacts..."
-              ) : (
-                <>
-                  <span className="font-semibold text-gray-800 dark:text-gray-200">
-                    {typeFilter ? filteredContacts.length : total}
-                  </span>{" "}
-                  contact
-                  {(typeFilter ? filteredContacts.length : total) === 1
-                    ? ""
-                    : "s"}
-                  {debouncedSearch ? ` matching "${debouncedSearch}"` : ""}
-                  {typeFilter
-                    ? ` · ${formatContactType(typeFilter)}`
-                    : ""}
-                </>
-              )}
-            </p>
+            <select
+              value={limit}
+              onChange={(e) => {
+                setLimit(Number(e.target.value));
+                setPage(1);
+              }}
+              className="h-10 w-full shrink-0 rounded-xl border border-border bg-white px-3 text-sm text-text-primary outline-none transition focus:border-[#4C78F5]/50 focus:ring-2 focus:ring-[#4C78F5]/15 sm:ml-auto sm:w-[120px] lg:ml-0 dark:border-slate-700 dark:bg-slate-950"
+            >
+              {PAGE_SIZE_OPTIONS.map((size) => (
+                <option key={size} value={size}>
+                  {size} / page
+                </option>
+              ))}
+            </select>
           </div>
 
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[880px] text-left">
+            <table className="ds-table min-w-[880px] w-full">
               <thead>
-                <tr className="border-b border-gray-100 text-[11px] font-semibold uppercase tracking-wider text-gray-500 dark:border-gray-800 dark:text-gray-400">
-                  <th className="px-5 py-3.5">Name</th>
-                  <th className="px-5 py-3.5">Contact</th>
-                  <th className="px-5 py-3.5">Company</th>
-                  <th className="px-5 py-3.5">Location</th>
-                  <th className="px-5 py-3.5">Created</th>
-                  <th className="px-5 py-3.5 text-right">Actions</th>
+                <tr>
+                  <th>
+                    <SortHeader
+                      label="User"
+                      active={sortKey === "name"}
+                      direction={sortDir}
+                      onClick={() => toggleSort("name")}
+                    />
+                  </th>
+                  <th className="hidden sm:table-cell">Role</th>
+                  <th className="hidden md:table-cell">
+                    <SortHeader
+                      label="Company"
+                      active={sortKey === "company"}
+                      direction={sortDir}
+                      onClick={() => toggleSort("company")}
+                    />
+                  </th>
+                  <th className="hidden lg:table-cell">
+                    <SortHeader
+                      label="Created"
+                      active={sortKey === "createdAt"}
+                      direction={sortDir}
+                      onClick={() => toggleSort("createdAt")}
+                    />
+                  </th>
+                  <th className="!text-right">Action</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
-                {loading &&
-                  Array.from({ length: 5 }).map((_, i) => (
-                    <tr key={i} className="animate-pulse">
-                      <td className="px-5 py-4" colSpan={6}>
-                        <div className="flex items-center gap-3">
-                          <div className="h-11 w-11 rounded-xl bg-gray-100 dark:bg-gray-800" />
-                          <div className="h-4 w-40 rounded bg-gray-100 dark:bg-gray-800" />
-                          <div className="ml-auto h-4 w-24 rounded bg-gray-100 dark:bg-gray-800" />
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-
-                {!loading &&
-                  filteredContacts.map((contact) => {
+              <tbody>
+                {loading && !isSearching ? (
+                  <tr>
+                    <td colSpan={5} className="px-5 py-14 text-center">
+                      <div className="inline-flex items-center gap-2 text-sm text-text-secondary">
+                        <Users className="h-4 w-4 animate-pulse text-[#4C78F5]" />
+                        Loading contacts…
+                      </div>
+                    </td>
+                  </tr>
+                ) : !loading && displayedContacts.length === 0 ? (
+                  <tr>
+                    <td colSpan={5} className="!px-5 !py-14 text-center">
+                      <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-xl bg-[#4C78F5]/10 text-[#4C78F5]">
+                        <Users className="h-5 w-5" />
+                      </div>
+                      <p className="text-sm font-semibold text-text-primary">
+                        {search || debouncedSearch || typeFilter
+                          ? "No contacts match your filters"
+                          : "No contacts yet"}
+                      </p>
+                      <p className="mx-auto mt-1.5 max-w-sm text-xs text-text-secondary">
+                        {search || debouncedSearch || typeFilter
+                          ? "Try a different search term or type filter."
+                          : "Add your first contact to manage lenders, brokers, and partners."}
+                      </p>
+                      {!search && !debouncedSearch && !typeFilter ? (
+                        canCreateContacts ? (
+                          <button
+                            type="button"
+                            onClick={openCreateModal}
+                            className="ds-btn-primary mt-4 h-9 px-4 text-xs"
+                          >
+                            <Plus size={14} />
+                            Add contact
+                          </button>
+                        ) : null
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setSearch("");
+                            setTypeFilter("");
+                            setPage(1);
+                          }}
+                          className="mt-4 text-xs font-semibold text-[#4C78F5] hover:underline"
+                        >
+                          Clear filters
+                        </button>
+                      )}
+                    </td>
+                  </tr>
+                ) : (
+                  displayedContacts.map((contact) => {
                     const fullName =
-                      `${contact.firstName || ""} ${contact.lastName || ""}`.trim() ||
-                      "Unnamed";
+                      `${contact.firstName} ${contact.lastName}`.trim();
                     const location = [contact.city, contact.state]
                       .filter(Boolean)
                       .join(", ");
+                    const company = contact.companyName?.trim() || "";
 
                     return (
-                      <tr
-                        key={contact.id}
-                        className="group transition hover:bg-slate-50/80 dark:hover:bg-gray-800/40"
-                      >
-                        <td className="px-5 py-4">
+                      <tr key={contact.id}>
+                        <td>
                           <div className="flex items-center gap-3">
-                            <div
-                              className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl text-sm font-bold ${getAvatarTone(
-                                contact.id || fullName,
-                              )}`}
-                            >
+                            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#4C78F5] text-[11px] font-semibold text-white">
                               {getInitials(contact.firstName, contact.lastName)}
                             </div>
                             <div className="min-w-0">
-                              <p className="truncate text-sm font-semibold text-gray-900 dark:text-white">
-                                {fullName}
+                              <p className="ds-table-title">
+                                {fullName || "Unnamed"}
                               </p>
-                              <span
-                                className={`mt-1 inline-flex rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide ring-1 ${typeTone(
-                                  contact.contactType,
-                                )}`}
-                              >
-                                {formatContactType(contact.contactType)}
-                              </span>
+                              <p className="ds-table-meta">
+                                {contact.email || "No email"}
+                              </p>
+                              {contact.phone || location ? (
+                                <p className="mt-0.5 flex items-center gap-1 text-[11px] text-text-secondary/80 sm:hidden">
+                                  {contact.phone ? (
+                                    <>
+                                      <Phone className="h-3 w-3" />
+                                      {contact.phone}
+                                    </>
+                                  ) : (
+                                    location
+                                  )}
+                                </p>
+                              ) : null}
                             </div>
                           </div>
                         </td>
 
-                        <td className="px-5 py-4">
-                          <div className="space-y-1.5">
-                            {contact.email ? (
-                              <a
-                                href={`mailto:${contact.email}`}
-                                className="flex max-w-[220px] items-center gap-1.5 truncate text-sm text-gray-600 transition hover:text-[#4C78F5] dark:text-gray-300"
-                                onClick={(e) => e.stopPropagation()}
-                              >
-                                <Mail className="h-3.5 w-3.5 shrink-0 text-gray-400" />
-                                <span className="truncate">{contact.email}</span>
-                              </a>
-                            ) : (
-                              <span className="text-sm text-gray-400">—</span>
-                            )}
-                            {contact.phone ? (
-                              <a
-                                href={`tel:${contact.phone}`}
-                                className="flex items-center gap-1.5 text-sm text-gray-600 transition hover:text-[#4C78F5] dark:text-gray-300"
-                                onClick={(e) => e.stopPropagation()}
-                              >
-                                <Phone className="h-3.5 w-3.5 shrink-0 text-gray-400" />
-                                {contact.phone}
-                              </a>
-                            ) : null}
-                          </div>
+                        <td className="hidden sm:table-cell">
+                          <span
+                            className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-semibold ring-1 ring-inset ${contactTypeBadgeClass(contact.contactType)}`}
+                          >
+                            <Shield className="h-3 w-3" />
+                            {formatContactType(contact.contactType)}
+                          </span>
                         </td>
 
-                        <td className="px-5 py-4">
-                          <div className="flex max-w-[200px] items-center gap-1.5 text-sm text-gray-700 dark:text-gray-300">
-                            {contact.companyName ? (
-                              <>
-                                <Building2 className="h-3.5 w-3.5 shrink-0 text-gray-400" />
-                                <span className="truncate">
-                                  {contact.companyName}
-                                </span>
-                              </>
-                            ) : (
-                              <span className="text-gray-400">—</span>
-                            )}
-                          </div>
-                        </td>
-
-                        <td className="px-5 py-4">
-                          {location ? (
-                            <div className="flex max-w-[160px] items-center gap-1.5 text-sm text-gray-600 dark:text-gray-300">
-                              <MapPin className="h-3.5 w-3.5 shrink-0 text-gray-400" />
-                              <span className="truncate">{location}</span>
-                            </div>
+                        <td className="hidden md:table-cell">
+                          {company ? (
+                            <span className="inline-flex max-w-[180px] truncate rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-[11px] font-medium lowercase text-slate-600 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300">
+                              {company}
+                            </span>
                           ) : (
-                            <span className="text-sm text-gray-400">—</span>
+                            <span className="text-[12px] font-medium italic text-text-secondary/70">
+                              Not set
+                            </span>
                           )}
                         </td>
 
-                        <td className="px-5 py-4 text-sm text-gray-500 dark:text-gray-400">
-                          {formatDate(contact.createdAt)}
+                        <td className="hidden ds-table-muted whitespace-nowrap lg:table-cell">
+                          {formatDate(contact.createdAt) || (
+                            <span className="text-[12px] font-medium italic text-text-secondary/70">
+                              Not set
+                            </span>
+                          )}
                         </td>
 
-                        <td className="px-5 py-4">
-                          <div className="flex items-center justify-end gap-1 opacity-80 transition group-hover:opacity-100">
+                        <td className="text-right">
+                          <div className="inline-flex items-center justify-end gap-2">
                             <button
                               type="button"
-                              title="View"
                               onClick={() => setViewContact(contact)}
-                              className="rounded-lg p-2 text-gray-500 transition hover:bg-[#4C78F5]/10 hover:text-[#4C78F5]"
+                              className="inline-flex h-8 items-center gap-1.5 rounded-lg bg-[#4C78F5] px-3 text-xs font-semibold text-white transition hover:bg-[#3B66E0]"
                             >
-                              <Eye size={16} />
+                              <Eye className="h-3.5 w-3.5" />
+                              View
                             </button>
-                            {canEditContacts && (
+                            {canEditContacts ? (
                               <button
                                 type="button"
-                                title="Edit"
                                 onClick={() => openEditModal(contact)}
-                                className="rounded-lg p-2 text-gray-500 transition hover:bg-amber-50 hover:text-amber-600 dark:hover:bg-amber-500/10"
+                                className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-border bg-white px-3 text-xs font-semibold text-text-secondary transition hover:bg-surface dark:border-slate-700 dark:bg-slate-950"
                               >
-                                <Pencil size={16} />
+                                <Pencil className="h-3.5 w-3.5" />
+                                Edit
                               </button>
-                            )}
-                            {canDeleteContacts && (
-                              <button
-                                type="button"
-                                title="Delete"
-                                onClick={() => handleDelete(contact)}
-                                className="rounded-lg p-2 text-gray-500 transition hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-500/10"
-                              >
-                                <Trash2 size={16} />
-                              </button>
-                            )}
+                            ) : null}
+                            <button
+                              type="button"
+                              data-menu-id={contact.id}
+                              onClick={(event) =>
+                                openRowMenu(contact.id, event)
+                              }
+                              className={`inline-flex h-8 w-8 items-center justify-center rounded-full border transition ${
+                                activeMenuId === contact.id
+                                  ? "border-[#4C78F5]/40 bg-[#4C78F5]/10 text-[#4C78F5]"
+                                  : "border-border bg-white text-text-secondary hover:bg-surface hover:text-text-primary dark:border-slate-700 dark:bg-slate-900"
+                              }`}
+                              title="More actions"
+                              aria-label="Open actions menu"
+                            >
+                              <MoreVertical className="h-4 w-4" />
+                            </button>
                           </div>
                         </td>
                       </tr>
                     );
-                  })}
+                  })
+                )}
               </tbody>
             </table>
           </div>
 
-          {!loading && filteredContacts.length === 0 && (
-            <div className="flex flex-col items-center px-6 py-16 text-center">
-              <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-[#4C78F5]/10 text-[#4C78F5]">
-                <Users className="h-6 w-6" />
-              </div>
-              <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
-                {search || typeFilter
-                  ? "No matching contacts"
-                  : "No contacts yet"}
-              </h3>
-              <p className="mt-1 max-w-sm text-sm text-gray-500">
-                {search || typeFilter
-                  ? "Try adjusting your search or type filter."
-                  : "Create your first contact to manage lenders, brokers, and partners."}
-              </p>
-              {!search && !typeFilter && canCreateContacts && (
-                <button
-                  type="button"
-                  onClick={openCreateModal}
-                  className="mt-4 inline-flex items-center gap-2 rounded-xl bg-[#4C78F5] px-4 py-2.5 text-sm font-medium text-white hover:bg-[#1a6aad]"
-                >
-                  <Plus className="h-4 w-4" />
-                  Create Contact
-                </button>
-              )}
-            </div>
-          )}
-
-          {!loading && filteredContacts.length > 0 && (
-            <div className="flex flex-col gap-3 border-t border-gray-100 px-4 py-4 dark:border-gray-800 sm:flex-row sm:items-center sm:justify-between sm:px-5">
-              <p className="text-sm text-gray-500 dark:text-gray-400">
-                Page{" "}
-                <span className="font-medium text-gray-800 dark:text-gray-200">
-                  {page}
+          {!loading && !isSearching && displayedContacts.length > 0 ? (
+            <div className="flex flex-col gap-3 border-t border-border px-4 py-3.5 dark:border-slate-800 sm:flex-row sm:items-center sm:justify-between sm:px-5">
+              <p className="text-[13px] text-text-secondary">
+                Showing{" "}
+                <span className="font-semibold text-text-primary">
+                  {displayTotal === 0 ? 0 : (page - 1) * limit + 1}
+                </span>
+                –
+                <span className="font-semibold text-text-primary">
+                  {Math.min(page * limit, displayTotal)}
                 </span>{" "}
-                of {totalPages}
+                of{" "}
+                <span className="font-semibold text-text-primary">
+                  {displayTotal}
+                </span>
               </p>
-              <div className="flex items-center gap-2">
+
+              {!typeFilter && totalPages > 1 ? (
+                <div className="flex items-center gap-1.5">
+                  <button
+                    type="button"
+                    disabled={page <= 1 || loading}
+                    onClick={() => setPage((p) => Math.max(p - 1, 1))}
+                    className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-border bg-white transition hover:bg-surface disabled:opacity-40 dark:border-slate-700 dark:bg-slate-900"
+                  >
+                    <ChevronLeft size={16} />
+                  </button>
+
+                  {Array.from({ length: Math.min(totalPages, 5) }).map(
+                    (_, i) => {
+                      const half = Math.floor(5 / 2);
+                      let startPage = 1;
+                      if (totalPages <= 5) startPage = 1;
+                      else if (page <= half + 1) startPage = 1;
+                      else if (page >= totalPages - half)
+                        startPage = totalPages - 4;
+                      else startPage = page - half;
+
+                      const pageNum = startPage + i;
+                      if (pageNum > totalPages) return null;
+
+                      return (
+                        <button
+                          key={pageNum}
+                          type="button"
+                          disabled={loading}
+                          onClick={() => setPage(pageNum)}
+                          className={`inline-flex h-9 min-w-9 items-center justify-center rounded-xl px-2.5 text-sm font-semibold transition ${
+                            pageNum === page
+                              ? "bg-[#4C78F5] text-white"
+                              : "border border-border bg-white hover:bg-surface dark:border-slate-700 dark:bg-slate-900"
+                          }`}
+                        >
+                          {pageNum}
+                        </button>
+                      );
+                    },
+                  )}
+
+                  <button
+                    type="button"
+                    disabled={page >= totalPages || loading}
+                    onClick={() => setPage((p) => Math.min(p + 1, totalPages))}
+                    className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-border bg-white transition hover:bg-surface disabled:opacity-40 dark:border-slate-700 dark:bg-slate-900"
+                  >
+                    <ChevronRight size={16} />
+                  </button>
+                </div>
+              ) : null}
+            </div>
+          ) : null}
+        </div>
+      </div>
+
+      {activeMenuContact &&
+        activeMenuId &&
+        createPortal(
+          <div
+            ref={menuRef}
+            style={{ position: "fixed", top: menuPos.top, left: menuPos.left }}
+            className="z-[9999] max-h-[min(168px,calc(100vh-16px))] w-[168px] overflow-y-auto rounded-xl border border-border bg-white dark:border-slate-700 dark:bg-slate-950"
+          >
+            <div className="border-b border-border px-3 py-2 dark:border-slate-800">
+              <p className="truncate text-[11px] font-semibold text-text-primary dark:text-white">
+                {activeMenuContact.firstName} {activeMenuContact.lastName}
+              </p>
+              <p className="truncate text-[10px] text-text-secondary">
+                {activeMenuContact.email}
+              </p>
+            </div>
+
+            <div className="py-0.5">
+              <button
+                type="button"
+                onClick={() => {
+                  closeRowMenu();
+                  setViewContact(activeMenuContact);
+                }}
+                className="flex w-full items-center gap-2 px-3 py-2 text-xs text-text-primary transition hover:bg-[#4C78F5]/[0.06] dark:text-slate-200 dark:hover:bg-slate-900"
+              >
+                <Eye className="h-3.5 w-3.5 text-[#4C78F5]" />
+                View details
+              </button>
+              {canEditContacts ? (
                 <button
                   type="button"
-                  disabled={page <= 1}
-                  onClick={() => setPage((p) => Math.max(1, p - 1))}
-                  className="inline-flex h-9 items-center gap-1.5 rounded-xl border border-gray-200 bg-white px-3 text-sm font-medium text-gray-700 transition hover:bg-gray-50 disabled:opacity-40 dark:border-gray-700 dark:bg-gray-950 dark:text-gray-200"
+                  onClick={() => {
+                    closeRowMenu();
+                    openEditModal(activeMenuContact);
+                  }}
+                  className="flex w-full items-center gap-2 px-3 py-2 text-xs text-text-primary transition hover:bg-[#4C78F5]/[0.06] dark:text-slate-200 dark:hover:bg-slate-900"
                 >
-                  <ChevronLeft className="h-4 w-4" />
-                  Previous
+                  <Pencil className="h-3.5 w-3.5 text-amber-600" />
+                  Edit
                 </button>
+              ) : null}
+            </div>
+
+            {canDeleteContacts ? (
+              <div className="border-t border-border py-0.5 dark:border-slate-800">
                 <button
                   type="button"
-                  disabled={page >= totalPages}
-                  onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-                  className="inline-flex h-9 items-center gap-1.5 rounded-xl border border-gray-200 bg-white px-3 text-sm font-medium text-gray-700 transition hover:bg-gray-50 disabled:opacity-40 dark:border-gray-700 dark:bg-gray-950 dark:text-gray-200"
+                  onClick={() => void handleDelete(activeMenuContact)}
+                  className="flex w-full items-center gap-2 px-3 py-2 text-xs text-red-600 transition hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-500/10"
                 >
-                  Next
-                  <ChevronRight className="h-4 w-4" />
+                  <Trash2 className="h-3.5 w-3.5" />
+                  Delete
                 </button>
               </div>
-            </div>
-          )}
-        </section>
-
-        {(open || editContact) && (
-          <CreateContactModal
-            portal={portal}
-            contact={editContact}
-            onClose={() => {
-              setOpen(false);
-              setEditContact(null);
-              fetchContacts(page, debouncedSearch);
-            }}
-          />
+            ) : null}
+          </div>,
+          document.body,
         )}
 
-        {viewContact && (
-          <ViewContactModal
-            contact={viewContact}
-            onClose={() => setViewContact(null)}
-            onEdit={
-              canEditContacts
-                ? () => {
-                    const contact = viewContact;
-                    setViewContact(null);
-                    openEditModal(contact);
-                  }
-                : undefined
-            }
-          />
-        )}
-      </div>
+      {(open || editContact) && (
+        <CreateContactModal
+          portal={portal}
+          contact={editContact}
+          onClose={closeModal}
+        />
+      )}
+
+      {viewContact && (
+        <ViewContactModal
+          contact={viewContact}
+          onClose={() => setViewContact(null)}
+          onEdit={
+            canEditContacts
+              ? () => {
+                  const contact = viewContact;
+                  setViewContact(null);
+                  openEditModal(contact);
+                }
+              : undefined
+          }
+        />
+      )}
     </>
   );
 }

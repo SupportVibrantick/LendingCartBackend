@@ -55,7 +55,13 @@ function inputWrap(hasError: boolean) {
   }`;
 }
 
-function MobileBrand() {
+function getPortalLabel(portal: Portal) {
+  if (portal === "sub-broker") return "Co-Broker Portal";
+  if (portal === "loan-officer") return "Officer Portal";
+  return "Broker Portal";
+}
+
+function MobileBrand({ portal = "broker" }: { portal?: Portal }) {
   return (
     <div className="mb-8 flex items-center gap-3 lg:hidden">
       <img
@@ -66,7 +72,7 @@ function MobileBrand() {
       <div>
         <p className="text-lg font-semibold text-[#4C78F5]">Loan Automation</p>
         <p className="text-[10px] font-medium uppercase tracking-wider text-[#94A3B8]">
-          Broker Portal
+          {getPortalLabel(portal)}
         </p>
       </div>
     </div>
@@ -171,7 +177,7 @@ export default function ResetPasswordForm({
   if (isValidating) {
     return (
       <div className="w-full font-[Inter,ui-sans-serif,system-ui,sans-serif] antialiased">
-        <MobileBrand />
+        <MobileBrand portal={portal} />
         <div className="flex items-center gap-3 rounded-2xl border border-[#E2E8F0] bg-[#F7F9FC] px-4 py-5">
           <span className="h-5 w-5 animate-spin rounded-full border-2 border-[#4C78F5] border-t-transparent" />
           <p className="text-sm text-[#64748B]">Validating your secure link…</p>
@@ -183,7 +189,7 @@ export default function ResetPasswordForm({
   if (!isTokenValid) {
     return (
       <div className="w-full font-[Inter,ui-sans-serif,system-ui,sans-serif] antialiased">
-        <MobileBrand />
+        <MobileBrand portal={portal} />
         <motion.div
           initial={{ opacity: 0, y: 12 }}
           animate={{ opacity: 1, y: 0 }}
@@ -219,7 +225,7 @@ export default function ResetPasswordForm({
   if (isComplete) {
     return (
       <div className="w-full font-[Inter,ui-sans-serif,system-ui,sans-serif] antialiased">
-        <MobileBrand />
+        <MobileBrand portal={portal} />
         <motion.div
           initial={{ opacity: 0, y: 12 }}
           animate={{ opacity: 1, y: 0 }}
@@ -232,8 +238,8 @@ export default function ResetPasswordForm({
             Password ready
           </h1>
           <p className="mt-2 text-[13px] text-[#64748B]">
-            Your broker account password is updated. Sign in to open your
-            dashboard.
+            Your {getPortalLabel(portal).toLowerCase()} password is updated.
+            Sign in to open your dashboard.
           </p>
           <Link
             to={signInPath}
@@ -249,7 +255,7 @@ export default function ResetPasswordForm({
 
   return (
     <div className="w-full font-[Inter,ui-sans-serif,system-ui,sans-serif] antialiased">
-      <MobileBrand />
+      <MobileBrand portal={portal} />
 
       <motion.div
         initial={{ opacity: 0, y: 16 }}

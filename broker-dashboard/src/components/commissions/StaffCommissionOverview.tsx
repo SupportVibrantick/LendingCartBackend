@@ -2,6 +2,7 @@ import { Link } from "react-router-dom";
 import { useCallback, useEffect, useState } from "react";
 import toast from "react-hot-toast";
 import CommissionSummaryChart from "./CommissionSummaryChart";
+import CommissionStatusChart from "./CommissionStatusChart";
 import {
   formatCommissionCurrency,
   formatCommissionRole,
@@ -129,7 +130,18 @@ export default function StaffCommissionOverview({
 
   return (
     <div className="space-y-4">
-      <CommissionSummaryChart summary={summary} loading={loading} title={title} />
+      <div className="grid grid-cols-12 gap-4">
+        <div className="col-span-12 lg:col-span-8">
+          <CommissionSummaryChart
+            summary={summary}
+            loading={loading}
+            title={title}
+          />
+        </div>
+        <div className="col-span-12 lg:col-span-4">
+          <CommissionStatusChart summary={summary} loading={loading} />
+        </div>
+      </div>
 
       <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
         <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 px-5 py-4">

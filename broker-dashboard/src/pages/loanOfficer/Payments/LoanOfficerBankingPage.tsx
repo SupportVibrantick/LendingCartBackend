@@ -21,21 +21,14 @@ export default function LoanOfficerBankingPage() {
         title="Banking | Payments | Loan Officer"
         description="Add or update your bank account for commission ACH payouts"
       />
-      <div className="mx-auto max-w-3xl space-y-6">
-        <div>
-          <h2 className="text-xl font-semibold text-slate-900">Banking</h2>
-          <p className="mt-1 text-sm text-slate-500">
-            Keep your US bank account current so the principal broker can send
-            commission ACH to you.
-          </p>
-        </div>
-        <SelfBankingPanel
-          portal="loanOfficer"
-          apiBase={LO_API_BASE}
-          getAuthHeaders={getAuthHeaders}
-          checkResponse={checkLoanOfficerResponse}
-        />
-      </div>
+      <SelfBankingPanel
+        portal="loanOfficer"
+        apiBase={LO_API_BASE}
+        getAuthHeaders={getAuthHeaders}
+        checkResponse={checkLoanOfficerResponse}
+        title="Payout bank account"
+        description="Keep your US bank account current so the principal broker can send commission ACH to you (US bank-to-bank)."
+      />
     </>
   );
 }

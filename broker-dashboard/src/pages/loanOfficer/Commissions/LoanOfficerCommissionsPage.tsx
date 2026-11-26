@@ -9,10 +9,6 @@ export default function LoanOfficerCommissionsPage() {
       summaryPath="/loanofficer/commissions/summary"
       listPath="/loanofficer/commissions"
       getHeaders={() => loAuthHeaders(false)}
-      pageTitle="Commissions"
-      pageDescription="Track your earned commissions, generate invoices, and monitor payout status."
-      invoicesHref="/loan-officer/invoices"
-      dashboardHref="/loan-officer/dashboard"
     />
   );
 }

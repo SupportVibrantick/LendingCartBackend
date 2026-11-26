@@ -3,21 +3,64 @@ import GridShape from "../../components/common/GridShape";
 import ThemeTogglerTwo from "../../components/common/ThemeTogglerTwo";
 import "../../pages/ClientPortal/clientPortalTheme.css";
 
-const FEATURES = [
-  "Manage loan pipeline in one place",
-  "Match borrowers with lenders instantly",
-  "Track applications and documents",
-  "Collaborate with loan officers & co-brokers",
-];
+export type AuthPortal = "broker" | "sub-broker" | "loan-officer";
+
+const PORTAL_BRAND: Record<
+  AuthPortal,
+  {
+    title: string;
+    subtitle: string;
+    homePath: string;
+    features: string[];
+  }
+> = {
+  broker: {
+    title: "Broker Portal",
+    subtitle: "Smart Loans for Smarter Businesses.",
+    homePath: "/signin",
+    features: [
+      "Manage loan pipeline in one place",
+      "Match borrowers with lenders instantly",
+      "Track applications and documents",
+      "Collaborate with loan officers & co-brokers",
+    ],
+  },
+  "loan-officer": {
+    title: "Officer Portal",
+    subtitle: "Your assigned pipeline, clients, and documents — in one place.",
+    homePath: "/loan-officer/login",
+    features: [
+      "Create and manage assigned applications",
+      "Work with borrowers and co-brokers",
+      "Upload documents and track progress",
+      "Chat securely with your broker team",
+    ],
+  },
+  "sub-broker": {
+    title: "Co-Broker Portal",
+    subtitle: "Collaborate on assigned loans with your broker team.",
+    homePath: "/sub-broker/login",
+    features: [
+      "Work assigned loan applications",
+      "Upload and manage borrower documents",
+      "Stay in sync with the broker team",
+      "Track application progress in real time",
+    ],
+  },
+};
 
 export default function AuthLayout({
   children,
   wide = false,
+  portal = "broker",
 }: {
   children: React.ReactNode;
   /** Wider form column for multi-section flows (team join). */
   wide?: boolean;
+  portal?: AuthPortal;
 }) {
+  const brand = PORTAL_BRAND[portal] || PORTAL_BRAND.broker;
+
   return (
     <div className="relative h-dvh overflow-hidden bg-white font-[Inter,ui-sans-serif,system-ui,sans-serif] antialiased dark:bg-gray-950">
       <div className="flex h-full min-h-0 flex-col lg:flex-row">
@@ -45,7 +88,10 @@ export default function AuthLayout({
           <GridShape />
 
           <div className="relative z-10 flex h-full flex-col items-center justify-center px-12 text-center">
-            <Link to="/" className="mb-8 block transition hover:scale-[1.02]">
+            <Link
+              to={brand.homePath}
+              className="mb-8 block transition hover:scale-[1.02]"
+            >
               <div className="mx-auto h-24 w-24 overflow-hidden rounded-full shadow-2xl shadow-black/30 ring-4 ring-white/15">
                 <img
                   src="/loanAutomation.jpeg"
@@ -56,14 +102,14 @@ export default function AuthLayout({
             </Link>
 
             <h2 className="text-3xl font-semibold tracking-tight text-white xl:text-[34px]">
-              Broker Portal
+              {brand.title}
             </h2>
             <p className="mt-3 max-w-sm text-[15px] leading-relaxed text-white/65">
-              Smart Loans for Smarter Businesses.
+              {brand.subtitle}
             </p>
 
             <ul className="mt-10 space-y-3 text-left">
-              {FEATURES.map((feature) => (
+              {brand.features.map((feature) => (
                 <li
                   key={feature}
                   className="flex items-center gap-3 text-sm text-white/80"

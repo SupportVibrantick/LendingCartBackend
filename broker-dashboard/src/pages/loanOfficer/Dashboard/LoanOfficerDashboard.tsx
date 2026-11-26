@@ -1,19 +1,39 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+  type ReactNode,
+} from "react";
 import { Link, useNavigate } from "react-router-dom";
 import toast from "react-hot-toast";
 import {
   ArrowRight,
-  BriefcaseBusiness,
+  Building2,
   Contact,
+  ExternalLink,
   FilePlus,
-  FolderOpen,
-  Mail,
+  Plus,
   RefreshCw,
+  SearchX,
   Store,
+  TrendingUp,
   UserRound,
   Users,
   Wallet,
 } from "lucide-react";
+import EcommerceMetrics from "../../../components/ecommerce/EcommerceMetrics";
+import StatisticsChart from "../../../components/ecommerce/StatisticsChart";
+import StatusDistributionChart from "../../../components/ecommerce/StatusDistributionChart";
+import ProductVolumeChart from "../../../components/ecommerce/ProductVolumeChart";
+import ApplicationStatusChart from "../../../components/ecommerce/ApplicationStatusChart";
+import PipelineValueChart from "../../../components/ecommerce/PipelineValueChart";
+import ConversionFunnelChart from "../../../components/ecommerce/ConversionFunnelChart";
+import ConversionRatesChart from "../../../components/ecommerce/ConversionRatesChart";
+import NetworkAnalyticsCharts from "../../../components/ecommerce/NetworkAnalyticsCharts";
+import CommissionSummaryChart from "../../../components/commissions/CommissionSummaryChart";
+import CommissionStatusChart from "../../../components/commissions/CommissionStatusChart";
+import PageMeta from "../../../components/common/PageMeta";
 import {
   LO_API_BASE,
   LO_USER_KEY,
@@ -22,14 +42,10 @@ import {
 } from "../../../lib/loanOfficerApi";
 import { isSessionExpiredError } from "../../../lib/sessionExpiry";
 import { formatUsDate } from "../../../lib/usDateFormat";
-import StaffCommissionOverview from "../../../components/commissions/StaffCommissionOverview";
-import EcommerceMetrics from "../../../components/ecommerce/EcommerceMetrics";
-import StatisticsChart from "../../../components/ecommerce/StatisticsChart";
-import StatusDistributionChart from "../../../components/ecommerce/StatusDistributionChart";
-import ProductVolumeChart from "../../../components/ecommerce/ProductVolumeChart";
-import ApplicationPipeline from "../../../components/ecommerce/ApplicationPipeline";
-import ConversionFunnelChart from "../../../components/ecommerce/ConversionFunnelChart";
-import ConversionRatesChart from "../../../components/ecommerce/ConversionRatesChart";
+import {
+  formatCommissionCurrency,
+  type CommissionSummary,
+} from "../../../lib/commissionApi";
 import {
   hasAnyPermission,
   hasPermission,
@@ -37,10 +53,36 @@ import {
   type PermissionKey,
 } from "../../../lib/brokerPermissions";
 import {
-  formatCompactCurrency,
   type BrokerStats,
   type DashboardPeriod,
 } from "../../../lib/brokerDashboardStats";
+
+function SectionHeader({
+  eyebrow,
+  title,
+  description,
+  action,
+}: {
+  eyebrow: string;
+  title: string;
+  description: string;
+  action?: ReactNode;
+}) {
+  return (
+    <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+      <div className="min-w-0">
+        <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-brand-500">
+          {eyebrow}
+        </p>
+        <h2 className="mt-1 text-[18px] font-semibold tracking-tight text-text-primary dark:text-white">
+          {title}
+        </h2>
+        <p className="mt-1 text-[13px] text-text-secondary">{description}</p>
+      </div>
+      {action}
+    </div>
+  );
+}
 
 type RecentApp = {
   submissionId: string;
@@ -52,14 +94,16 @@ type RecentApp = {
   submittedOn: string;
   loanInfo?: string;
   lenderName?: string;
+  lenderCount: number;
 };
 
-const PERIOD_OPTIONS: { value: DashboardPeriod; label: string }[] = [
-  { value: "7d", label: "7D" },
-  { value: "30d", label: "30D" },
-  { value: "90d", label: "90D" },
-  { value: "12m", label: "12M" },
-];
+const PERIOD_OPTIONS: { value: DashboardPeriod; label: string; short: string }[] =
+  [
+    { value: "7d", label: "Last 7 days", short: "7D" },
+    { value: "30d", label: "Last 30 days", short: "30D" },
+    { value: "90d", label: "Last 90 days", short: "90D" },
+    { value: "12m", label: "Last 12 months", short: "12M" },
+  ];
 
 const STATUS_TO_PIPELINE: Record<string, string> = {
   DRAFT: "DRAFT",
@@ -86,6 +130,64 @@ const METRIC_TO_PIPELINE: Record<string, string | undefined> = {
   totalVolumeFunded: "FUNDED",
 };
 
+const QUICK_ACTIONS: {
+  label: string;
+  path: string;
+  icon: typeof FilePlus;
+  tone: string;
+  permission: PermissionKey | PermissionKey[];
+}[] = [
+  {
+    label: "New App",
+    path: "/loan-officer/loan-application",
+    icon: FilePlus,
+    tone: "bg-sky-50 text-sky-600",
+    permission: "CREATE_APPLICATION",
+  },
+  {
+    label: "Pipeline",
+    path: "/loan-officer/loan-pipeline",
+    icon: TrendingUp,
+    tone: "bg-indigo-50 text-indigo-600",
+    permission: "VIEW_APPLICATIONS",
+  },
+  {
+    label: "Lenders",
+    path: "/loan-officer/lender-marketplace",
+    icon: Store,
+    tone: "bg-teal-50 text-teal-700",
+    permission: "VIEW_MARKETPLACE",
+  },
+  {
+    label: "Co-Brokers",
+    path: "/loan-officer/co-brokers",
+    icon: Users,
+    tone: "bg-amber-50 text-amber-600",
+    permission: "VIEW_CO_BROKERS",
+  },
+  {
+    label: "Borrowers",
+    path: "/loan-officer/borrowers",
+    icon: UserRound,
+    tone: "bg-rose-50 text-rose-600",
+    permission: "VIEW_BORROWERS",
+  },
+  {
+    label: "Contacts",
+    path: "/loan-officer/contacts",
+    icon: Contact,
+    tone: "bg-cyan-50 text-cyan-700",
+    permission: "VIEW_CONTACTS",
+  },
+  {
+    label: "Commissions",
+    path: "/loan-officer/commissions",
+    icon: Wallet,
+    tone: "bg-emerald-50 text-emerald-600",
+    permission: "VIEW_COMMISSIONS",
+  },
+];
+
 function getOfficerFirstName() {
   try {
     const user = JSON.parse(sessionStorage.getItem(LO_USER_KEY) || "{}");
@@ -93,10 +195,10 @@ function getOfficerFirstName() {
       user.firstName ||
       user.name?.split(/\s+/)[0] ||
       user.email?.split("@")[0] ||
-      "Officer";
+      "there";
     return String(first);
   } catch {
-    return "Officer";
+    return "there";
   }
 }
 
@@ -116,29 +218,71 @@ function statusLabel(status: string) {
   return status.replace(/_/g, " ");
 }
 
-function statusBadgeClass(status: string) {
-  const key = status.toUpperCase();
-  if (key === "FUNDED") return "bg-teal-50 text-teal-700 ring-teal-100";
-  if (key === "APPROVED" || key === "LENDER_APPROVED") {
-    return "bg-emerald-50 text-emerald-700 ring-emerald-100";
+function statusBadgeClass(status?: string) {
+  const s = status?.toLowerCase();
+
+  switch (s) {
+    case "new":
+    case "sent":
+    case "selected":
+    case "lender_selected":
+    case "in_review":
+    case "submitted":
+      return "bg-sky-100 text-sky-700 ring-sky-200";
+    case "pending":
+    case "conditional":
+      return "bg-amber-100 text-amber-700 ring-amber-200";
+    case "client_pending":
+      return "bg-rose-100 text-rose-700 ring-rose-200";
+    case "updated":
+      return "bg-[#4C78F5]/10 text-[#3B66E0] ring-[#4C78F5]/25";
+    case "approved":
+    case "auto_approved":
+    case "lender_approved":
+      return "bg-emerald-100 text-emerald-700 ring-emerald-200";
+    case "declined":
+    case "rejected":
+    case "auto_declined":
+    case "withdrawn":
+    case "lender_declined":
+      return "bg-rose-100 text-rose-700 ring-rose-200";
+    case "draft":
+      return "bg-slate-100 text-slate-600 ring-slate-200";
+    case "incomplete":
+    case "superseded":
+    case "suspended":
+      return "bg-orange-100 text-orange-700 ring-orange-200";
+    case "completed":
+    case "funded":
+      return "bg-emerald-100 text-emerald-700 ring-emerald-200";
+    default:
+      return "bg-slate-100 text-slate-600 ring-slate-200";
   }
-  if (key === "DECLINED" || key === "LENDER_DECLINED") {
-    return "bg-rose-50 text-rose-700 ring-rose-100";
-  }
-  if (key === "IN_REVIEW" || key === "LENDER_SELECTED") {
-    return "bg-indigo-50 text-indigo-700 ring-indigo-100";
-  }
-  if (key === "SUBMITTED") return "bg-sky-50 text-sky-700 ring-sky-100";
-  if (key === "CLIENT_PENDING") {
-    return "bg-orange-50 text-orange-700 ring-orange-100";
-  }
-  if (key === "DRAFT") return "bg-slate-100 text-slate-600 ring-slate-200";
-  return "bg-[#4C78F5]/10 text-[#4C78F5] ring-[#4C78F5]/10";
 }
 
-function productLabel(code?: string) {
+function dealInitials(value?: string | null) {
+  const name = (value || "").trim() || "A";
+  const parts = name.split(/\s+/).filter(Boolean);
+  if (!parts.length) return "A";
+  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+  return `${parts[0][0]}${parts[parts.length - 1][0]}`.toUpperCase();
+}
+
+function formatProductLabel(code?: string) {
   if (!code) return "—";
-  return code.replace(/_/g, " ");
+  return code
+    .replace(/_/g, " ")
+    .toLowerCase()
+    .replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
+function formatRecentAmount(value: number) {
+  if (!value || !Number.isFinite(value)) return "$0";
+  const num = Number(value);
+  if (num >= 1e9) return `$${(num / 1e9).toFixed(1).replace(/\.0$/, "")}B`;
+  if (num >= 1e6) return `$${(num / 1e6).toFixed(1).replace(/\.0$/, "")}M`;
+  if (num >= 1e3) return `$${(num / 1e3).toFixed(1).replace(/\.0$/, "")}K`;
+  return `$${num.toLocaleString("en-US", { maximumFractionDigits: 0 })}`;
 }
 
 function pipelineHref(status?: string) {
@@ -146,70 +290,16 @@ function pipelineHref(status?: string) {
   return `/loan-officer/loan-pipeline?status=${encodeURIComponent(status)}`;
 }
 
-const QUICK_ACTIONS = [
-  {
-    label: "New App",
-    path: "/loan-officer/loan-application",
-    icon: FilePlus,
-    permission: "CREATE_APPLICATION" as PermissionKey,
-  },
-  {
-    label: "Pipeline",
-    path: "/loan-officer/loan-pipeline",
-    icon: BriefcaseBusiness,
-    permission: "VIEW_APPLICATIONS" as PermissionKey,
-  },
-  {
-    label: "Lenders",
-    path: "/loan-officer/lender-marketplace",
-    icon: Store,
-    permission: "VIEW_MARKETPLACE" as PermissionKey,
-  },
-  {
-    label: "Co-Brokers",
-    path: "/loan-officer/co-brokers",
-    icon: Users,
-    permission: "VIEW_CO_BROKERS" as PermissionKey,
-  },
-  {
-    label: "Borrowers",
-    path: "/loan-officer/borrowers",
-    icon: UserRound,
-    permission: "VIEW_BORROWERS" as PermissionKey,
-  },
-  {
-    label: "Contacts",
-    path: "/loan-officer/contacts",
-    icon: Contact,
-    permission: "VIEW_CONTACTS" as PermissionKey,
-  },
-  {
-    label: "Documents",
-    path: "/loan-officer/documents/custom",
-    icon: FolderOpen,
-    permission: ["MANAGE_CUSTOM_DOCUMENTS", "VIEW_CUSTOM_DOCUMENTS"] as PermissionKey[],
-  },
-  {
-    label: "Email",
-    path: "/loan-officer/email-marketing",
-    icon: Mail,
-    permission: "SEND_EMAILS" as PermissionKey,
-  },
-  {
-    label: "Commissions",
-    path: "/loan-officer/commissions",
-    icon: Wallet,
-    permission: "VIEW_COMMISSIONS" as PermissionKey,
-  },
-];
-
 export default function LoanOfficerDashboard() {
   const navigate = useNavigate();
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const [stats, setStats] = useState<BrokerStats | null>(null);
   const [recent, setRecent] = useState<RecentApp[]>([]);
+  const [commissionSummary, setCommissionSummary] =
+    useState<CommissionSummary | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [period, setPeriod] = useState<DashboardPeriod>("12m");
+  const [commissionLoading, setCommissionLoading] = useState(false);
   const [permTick, setPermTick] = useState(0);
 
   const firstName = useMemo(() => getOfficerFirstName(), []);
@@ -226,6 +316,7 @@ export default function LoanOfficerDashboard() {
   const canViewRecent = hasPermission("VIEW_DASHBOARD_RECENT", "loanOfficer");
   const canViewPipeline = hasPermission("VIEW_APPLICATIONS", "loanOfficer");
   const canViewCommissions = hasPermission("VIEW_COMMISSIONS", "loanOfficer");
+  const canCreateApp = hasPermission("CREATE_APPLICATION", "loanOfficer");
 
   const load = useCallback(async () => {
     try {
@@ -247,14 +338,23 @@ export default function LoanOfficerDashboard() {
           : Promise.resolve(null),
       ];
 
-      const [statsRes, listRes] = await Promise.all(requests);
+      if (canViewCommissions) {
+        setCommissionLoading(true);
+        requests.push(
+          fetch(`${LO_API_BASE}/loanofficer/commissions/summary?months=6`, {
+            headers: loAuthHeaders(false),
+          }),
+        );
+      }
+
+      const [statsRes, listRes, commissionRes] = await Promise.all(requests);
 
       if (listRes) {
         const listJson = await listRes.json();
         checkLoanOfficerResponse(listRes, listJson);
         if (listRes.ok && Array.isArray(listJson.data)) {
           setRecent(
-            listJson.data.map((item: Record<string, unknown>) => ({
+            listJson.data.slice(0, 8).map((item: Record<string, unknown>) => ({
               submissionId: String(item.submissionId || ""),
               applicationId: String(item.applicationId || ""),
               applicationNumber: item.applicationNumber
@@ -266,6 +366,7 @@ export default function LoanOfficerDashboard() {
               submittedOn: String(item.submittedOn || ""),
               loanInfo: item.loanInfo ? String(item.loanInfo) : undefined,
               lenderName: item.lenderName ? String(item.lenderName) : undefined,
+              lenderCount: Number(item.lenderCount || (item.lenderName ? 1 : 0)),
             })),
           );
         } else {
@@ -273,6 +374,17 @@ export default function LoanOfficerDashboard() {
         }
       } else {
         setRecent([]);
+      }
+
+      if (canViewCommissions && commissionRes) {
+        const commissionJson = await commissionRes.json().catch(() => null);
+        if (commissionRes.ok && commissionJson?.success) {
+          setCommissionSummary(commissionJson.data);
+        } else {
+          setCommissionSummary(null);
+        }
+      } else {
+        setCommissionSummary(null);
       }
 
       if (statsRes) {
@@ -289,14 +401,16 @@ export default function LoanOfficerDashboard() {
       }
     } catch (err) {
       if (isSessionExpiredError(err)) return;
+      console.error("Loan officer dashboard load error:", err);
       const message =
         err instanceof Error ? err.message : "Failed to load dashboard";
       setError(message);
       toast.error(message);
     } finally {
       setLoading(false);
+      setCommissionLoading(false);
     }
-  }, [canViewRecent, canViewStats, period]);
+  }, [canViewCommissions, canViewRecent, canViewStats, period]);
 
   useEffect(() => {
     load();
@@ -307,269 +421,547 @@ export default function LoanOfficerDashboard() {
     navigate(pipelineHref(status));
   };
 
-  const quickActions = QUICK_ACTIONS.filter((action) => {
+  const openRecent = (submissionId: string) => {
+    navigate("/loan-officer/loan-pipeline-preview", {
+      state: { submissionId },
+    });
+  };
+
+  const actions = useMemo(() => {
     void permTick;
-    const required = Array.isArray(action.permission)
-      ? action.permission
-      : [action.permission];
-    return hasAnyPermission(required, "loanOfficer");
-  });
+    return QUICK_ACTIONS.filter((action) => {
+      const required = Array.isArray(action.permission)
+        ? action.permission
+        : [action.permission];
+      return hasAnyPermission(required, "loanOfficer");
+    });
+  }, [permTick]);
 
   return (
-    <div className="space-y-4">
-      <section className="overflow-hidden rounded-xl border border-[#4C78F5]/20 bg-gradient-to-r from-[#4C78F5] via-[#1a6aad] to-[#4C78F5] px-4 py-4 shadow-sm sm:px-5 sm:py-5">
-        <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-          <div className="min-w-0">
-            <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-white/70">
-              Officer Dashboard
-            </p>
-            <h1 className="mt-1 truncate text-xl font-semibold text-white sm:text-2xl">
-              {greeting}, {firstName}
-            </h1>
-            <p className="mt-0.5 text-sm text-white/80">
-              Your assigned pipeline analytics ·{" "}
-              {PERIOD_OPTIONS.find((p) => p.value === period)?.label} window
-            </p>
-          </div>
+    <>
+      <PageMeta
+        title="Loan Officer Dashboard | Loan Automation"
+        description="Loan officer analytics dashboard"
+      />
 
-          <div className="flex flex-wrap items-center gap-2">
-            {canViewStats ? (
-              <div className="inline-flex rounded-lg border border-white/20 bg-white/10 p-0.5 backdrop-blur-sm">
-                {PERIOD_OPTIONS.map((option) => (
-                  <button
-                    key={option.value}
-                    type="button"
-                    onClick={() => setPeriod(option.value)}
-                    className={`rounded-md px-2.5 py-1.5 text-xs font-semibold transition ${
-                      period === option.value
-                        ? "bg-white text-[#4C78F5] shadow-sm"
-                        : "text-white/80 hover:bg-white/10 hover:text-white"
-                    }`}
-                  >
-                    {option.label}
-                  </button>
-                ))}
-              </div>
-            ) : null}
-            <button
-              type="button"
-              onClick={load}
-              disabled={loading}
-              className="inline-flex items-center gap-1.5 rounded-lg border border-white/25 bg-white/10 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-white/20 disabled:opacity-50"
-            >
-              <RefreshCw
-                className={`h-3.5 w-3.5 ${loading ? "animate-spin" : ""}`}
-              />
-              Refresh
-            </button>
-          </div>
-        </div>
-
-        {quickActions.length > 0 ? (
-          <div className="mt-3 flex gap-2 overflow-x-auto pb-0.5">
-            {quickActions.map((action) => (
-              <Link
-                key={action.path}
-                to={action.path}
-                className="inline-flex shrink-0 items-center gap-1.5 rounded-lg border border-white/20 bg-white/10 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-white/20"
-              >
-                <action.icon className="h-3.5 w-3.5" />
-                {action.label}
-              </Link>
-            ))}
-          </div>
-        ) : null}
-      </section>
-
-      {error && !loading ? (
-        <div className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700 dark:border-rose-900/50 dark:bg-rose-950/30 dark:text-rose-300">
-          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-            <p>Unable to load analytics. {error}</p>
-            <button
-              type="button"
-              onClick={load}
-              className="inline-flex items-center gap-1.5 self-start rounded-lg bg-white px-3 py-1.5 text-xs font-semibold text-rose-700 ring-1 ring-rose-200"
-            >
-              <RefreshCw className="h-3.5 w-3.5" />
-              Try again
-            </button>
-          </div>
-        </div>
-      ) : null}
-
-      {canViewStats ? (
-        <>
-          <EcommerceMetrics
-            stats={stats}
-            loading={loading}
-            onStatClick={(key) => openPipeline(METRIC_TO_PIPELINE[key])}
-          />
-
-          <ApplicationPipeline
-            stats={stats}
-            loading={loading}
-            onStageClick={(statusKey) =>
-              openPipeline(STATUS_TO_PIPELINE[statusKey])
-            }
-          />
-
-          <div className="grid grid-cols-12 gap-4">
-            <div className="col-span-12 xl:col-span-8">
-              <StatisticsChart stats={stats} loading={loading} />
-            </div>
-            <div className="col-span-12 xl:col-span-4">
-              <StatusDistributionChart
-                stats={stats}
-                loading={loading}
-                onStatusClick={(statusKey) =>
-                  openPipeline(STATUS_TO_PIPELINE[statusKey])
-                }
-              />
-            </div>
-
-            <div className="col-span-12 md:col-span-6 xl:col-span-4">
-              <ConversionFunnelChart
-                stats={stats}
-                loading={loading}
-                onStageClick={(statusKey) =>
-                  openPipeline(STATUS_TO_PIPELINE[statusKey])
-                }
-              />
-            </div>
-            <div className="col-span-12 md:col-span-6 xl:col-span-4">
-              <ConversionRatesChart stats={stats} loading={loading} />
-            </div>
-            <div className="col-span-12 xl:col-span-4">
-              <ProductVolumeChart stats={stats} loading={loading} />
-            </div>
-          </div>
-        </>
-      ) : null}
-
-      {canViewCommissions ? (
-        <StaffCommissionOverview
-          apiBase={LO_API_BASE}
-          summaryPath="/loanofficer/commissions/summary"
-          listPath="/loanofficer/commissions"
-          getHeaders={() => loAuthHeaders(false)}
-          portal="loanofficer"
-          title="My Commission Earnings"
-          invoicesHref="/loan-officer/invoices"
-          commissionsHref="/loan-officer/commissions"
-        />
-      ) : null}
-
-      {canViewRecent ? (
-        <section className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm dark:border-gray-800 dark:bg-gray-900">
-          <div className="flex items-center justify-between border-b border-gray-100 px-4 py-3 dark:border-gray-800 sm:px-5">
+      <div className="space-y-5">
+        <section className="rounded-2xl border border-border bg-white p-5 sm:p-6 dark:border-slate-800 dark:bg-slate-900">
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
             <div>
-              <h2 className="text-sm font-semibold text-gray-900 dark:text-white">
-                Recent Applications
-              </h2>
-              <p className="text-xs text-gray-500">
-                Latest files assigned to you
+              <p className="text-sm font-medium text-brand-500">
+                {greeting}, {firstName}
+              </p>
+              <h1 className="mt-1 text-[24px] font-semibold tracking-tight text-text-primary dark:text-white">
+                Pipeline overview
+              </h1>
+              <p className="mt-1 text-[13px] text-text-secondary">
+                Assigned application analytics for{" "}
+                {PERIOD_OPTIONS.find(
+                  (option) => option.value === period,
+                )?.label?.toLowerCase()}
+                .
               </p>
             </div>
-            {canViewPipeline ? (
-              <Link
-                to="/loan-officer/loan-pipeline"
-                className="text-xs font-semibold text-[#4C78F5] hover:underline"
-              >
-                View all
-              </Link>
-            ) : null}
-          </div>
 
-          {loading ? (
-            <div className="divide-y divide-gray-100 dark:divide-gray-800">
-              {Array.from({ length: 5 }).map((_, i) => (
-                <div
-                  key={i}
-                  className="h-12 animate-pulse bg-gray-50 dark:bg-gray-800/50"
+            <div className="flex flex-wrap items-center gap-2">
+              {canViewStats ? (
+                <div className="inline-flex rounded-full bg-surface p-1 ring-1 ring-border dark:bg-slate-800 dark:ring-slate-700">
+                  {PERIOD_OPTIONS.map((option) => (
+                    <button
+                      key={option.value}
+                      type="button"
+                      onClick={() => setPeriod(option.value)}
+                      className={`rounded-full px-3 py-1.5 text-xs font-semibold transition ${
+                        period === option.value
+                          ? "bg-brand-500 text-white"
+                          : "text-text-secondary hover:text-text-primary dark:text-slate-300"
+                      }`}
+                    >
+                      {option.short}
+                    </button>
+                  ))}
+                </div>
+              ) : null}
+              <button
+                type="button"
+                onClick={load}
+                disabled={loading}
+                title="Refresh"
+                className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-border bg-white text-text-secondary transition hover:bg-surface disabled:opacity-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300"
+              >
+                <RefreshCw
+                  className={`h-4 w-4 ${loading ? "animate-spin" : ""}`}
                 />
-              ))}
-            </div>
-          ) : recent.length === 0 ? (
-            <div className="px-6 py-10 text-center">
-              <BriefcaseBusiness className="mx-auto mb-2 h-9 w-9 text-gray-300" />
-              <p className="text-sm font-medium text-gray-700 dark:text-gray-200">
-                No applications yet
-              </p>
-              {hasPermission("CREATE_APPLICATION", "loanOfficer") ? (
-                <button
-                  type="button"
-                  onClick={() => navigate("/loan-officer/loan-application")}
-                  className="mt-2 text-sm font-semibold text-[#4C78F5] hover:underline"
+              </button>
+              {canCreateApp ? (
+                <Link
+                  to="/loan-officer/loan-application"
+                  className="inline-flex items-center gap-1.5 rounded-xl bg-brand-500 px-4 py-2 text-sm font-semibold text-white transition hover:bg-brand-600"
                 >
-                  Create your first application
-                </button>
+                  <Plus className="h-4 w-4" />
+                  New application
+                </Link>
               ) : null}
             </div>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full min-w-[780px] text-left text-sm">
-                <thead className="bg-gray-50 text-[11px] uppercase tracking-wider text-gray-500 dark:bg-gray-800">
-                  <tr>
-                    <th className="px-4 py-2.5 sm:px-5">Borrower</th>
-                    <th className="px-4 py-2.5 sm:px-5">Loan Type</th>
-                    <th className="px-4 py-2.5 sm:px-5">Amount</th>
-                    <th className="px-4 py-2.5 sm:px-5">Lender</th>
-                    <th className="px-4 py-2.5 sm:px-5">Status</th>
-                    <th className="px-4 py-2.5 sm:px-5">Submitted</th>
-                    <th className="px-4 py-2.5 sm:px-5" />
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
-                  {recent.map((row) => (
-                    <tr
-                      key={row.submissionId}
-                      className="cursor-pointer transition hover:bg-gray-50 dark:hover:bg-gray-800/50"
-                      onClick={() =>
-                        navigate("/loan-officer/loan-pipeline-preview", {
-                          state: { submissionId: row.submissionId },
-                        })
-                      }
-                    >
-                      <td className="px-4 py-2.5 sm:px-5">
-                        <p className="font-medium text-gray-900 dark:text-white">
-                          {row.borrower}
-                        </p>
-                        <p className="text-xs text-gray-500">
-                          {row.applicationNumber || "—"}
-                        </p>
-                      </td>
-                      <td className="px-4 py-2.5 capitalize text-gray-600 sm:px-5">
-                        {productLabel(row.loanInfo).toLowerCase()}
-                      </td>
-                      <td className="px-4 py-2.5 font-semibold text-gray-800 dark:text-gray-100 sm:px-5">
-                        {formatCompactCurrency(row.amount)}
-                      </td>
-                      <td className="px-4 py-2.5 text-gray-600 sm:px-5">
-                        {row.lenderName || "—"}
-                      </td>
-                      <td className="px-4 py-2.5 sm:px-5">
-                        <span
-                          className={`inline-flex rounded-full px-2 py-0.5 text-[11px] font-semibold ring-1 ring-inset ${statusBadgeClass(row.status)}`}
-                        >
-                          {statusLabel(row.status)}
-                        </span>
-                      </td>
-                      <td className="px-4 py-2.5 text-gray-500 sm:px-5">
-                        {row.submittedOn
-                          ? formatUsDate(row.submittedOn)
-                          : "—"}
-                      </td>
-                      <td className="px-4 py-2.5 text-right sm:px-5">
-                        <ArrowRight className="ml-auto h-4 w-4 text-gray-300" />
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+          </div>
+
+          {actions.length > 0 ? (
+            <div className="mt-5 grid grid-cols-2 gap-2 sm:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-7">
+              {actions.map((action) => (
+                <Link
+                  key={action.path}
+                  to={action.path}
+                  className="group flex items-center gap-2.5 rounded-xl border border-border bg-surface px-3 py-2.5 transition hover:border-brand-200 hover:bg-white dark:border-slate-700 dark:bg-slate-800/80"
+                >
+                  <span
+                    className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-xl ${action.tone}`}
+                  >
+                    <action.icon className="h-4 w-4" />
+                  </span>
+                  <span className="truncate text-[13px] font-semibold text-text-primary dark:text-slate-200">
+                    {action.label}
+                  </span>
+                </Link>
+              ))}
             </div>
-          )}
+          ) : null}
         </section>
-      ) : null}
-    </div>
+
+        {error && !loading ? (
+          <div className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700 dark:border-rose-900/50 dark:bg-rose-950/30 dark:text-rose-300">
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+              <p>Unable to load analytics. {error}</p>
+              <button
+                type="button"
+                onClick={load}
+                className="inline-flex items-center gap-1.5 self-start rounded-lg bg-white px-3 py-1.5 text-xs font-semibold text-rose-700 ring-1 ring-rose-200"
+              >
+                <RefreshCw className="h-3.5 w-3.5" />
+                Try again
+              </button>
+            </div>
+          </div>
+        ) : null}
+
+        {canViewStats ? (
+          <section className="space-y-4">
+            <SectionHeader
+              eyebrow="Pipeline"
+              title="Application performance"
+              description="Volume, conversion, and status movement across your assigned pipeline."
+              action={
+                canViewPipeline ? (
+                  <Link
+                    to="/loan-officer/loan-pipeline"
+                    className="inline-flex items-center gap-1 text-[13px] font-semibold text-brand-500 hover:underline"
+                  >
+                    Open pipeline
+                    <ArrowRight className="h-3.5 w-3.5" />
+                  </Link>
+                ) : undefined
+              }
+            />
+
+            <EcommerceMetrics
+              stats={stats}
+              loading={loading}
+              onStatClick={(key) => openPipeline(METRIC_TO_PIPELINE[key])}
+            />
+
+            <div className="grid grid-cols-12 gap-4">
+              <div className="col-span-12 lg:col-span-4">
+                <ApplicationStatusChart
+                  stats={stats}
+                  loading={loading}
+                  onSliceClick={(key) =>
+                    openPipeline(
+                      key === "OPEN"
+                        ? undefined
+                        : key === "FUNDED"
+                          ? "FUNDED"
+                          : "DECLINED",
+                    )
+                  }
+                />
+              </div>
+              <div className="col-span-12 lg:col-span-4">
+                <PipelineValueChart stats={stats} loading={loading} />
+              </div>
+              <div className="col-span-12 lg:col-span-4">
+                <ConversionRatesChart stats={stats} loading={loading} />
+              </div>
+
+              <div className="col-span-12 xl:col-span-7">
+                <ConversionFunnelChart
+                  stats={stats}
+                  loading={loading}
+                  onStageClick={(statusKey) =>
+                    openPipeline(STATUS_TO_PIPELINE[statusKey])
+                  }
+                />
+              </div>
+              <div className="col-span-12 xl:col-span-5">
+                <StatusDistributionChart
+                  stats={stats}
+                  loading={loading}
+                  onStatusClick={(statusKey) =>
+                    openPipeline(STATUS_TO_PIPELINE[statusKey])
+                  }
+                />
+              </div>
+
+              <div className="col-span-12 xl:col-span-8">
+                <StatisticsChart stats={stats} loading={loading} />
+              </div>
+              <div className="col-span-12 xl:col-span-4">
+                <ProductVolumeChart stats={stats} loading={loading} />
+              </div>
+            </div>
+          </section>
+        ) : null}
+
+        {canViewStats ? (
+          <section className="space-y-4">
+            <SectionHeader
+              eyebrow="Network"
+              title="Lenders, team & relationships"
+              description="Coverage across lenders, co-brokers, borrowers, and contacts."
+            />
+            <NetworkAnalyticsCharts
+              stats={stats}
+              loading={loading}
+              portal="loanOfficer"
+            />
+          </section>
+        ) : null}
+
+        {canViewCommissions ? (
+          <section className="space-y-4">
+            <SectionHeader
+              eyebrow="Commissions"
+              title="Earnings and payouts"
+              description="Track pending dollars, paid volume, and deal counts over the last six months."
+              action={
+                <Link
+                  to="/loan-officer/commissions"
+                  className="inline-flex items-center gap-1 text-[13px] font-semibold text-brand-500 hover:underline"
+                >
+                  View commissions
+                  <ArrowRight className="h-3.5 w-3.5" />
+                </Link>
+              }
+            />
+            <div className="grid grid-cols-12 gap-4">
+              <div className="col-span-12 md:col-span-4 xl:col-span-3">
+                <div className="flex h-full flex-col rounded-2xl border border-border bg-white p-5 dark:border-slate-800 dark:bg-slate-900">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <h3 className="truncate text-[16px] font-semibold leading-tight text-text-primary dark:text-white">
+                        Commission snapshot
+                      </h3>
+                      <p className="mt-1 text-[13px] text-text-secondary">
+                        This period
+                      </p>
+                    </div>
+                    <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-amber-50 text-amber-600">
+                      <Wallet className="h-4 w-4" />
+                    </span>
+                  </div>
+
+                  {commissionLoading ? (
+                    <div className="mt-5 flex flex-1 animate-pulse rounded-xl bg-surface dark:bg-slate-800" />
+                  ) : (
+                    <div className="mt-4 flex flex-1 flex-col">
+                      <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-text-secondary">
+                        Pending
+                      </p>
+                      <p className="mt-2 text-[28px] font-bold leading-none tracking-tight text-text-primary dark:text-white">
+                        {formatCommissionCurrency(
+                          commissionSummary?.totals.pending || 0,
+                        )}
+                      </p>
+                      <div className="mt-4 grid grid-cols-2 gap-2">
+                        <div className="rounded-xl border border-border bg-emerald-50/70 p-3 dark:border-slate-700 dark:bg-emerald-950/30">
+                          <p className="text-[10px] font-semibold uppercase tracking-wide text-emerald-700">
+                            Paid
+                          </p>
+                          <p className="mt-1 text-sm font-bold text-emerald-800 dark:text-emerald-300">
+                            {formatCommissionCurrency(
+                              commissionSummary?.totals.paid || 0,
+                            )}
+                          </p>
+                        </div>
+                        <div className="rounded-xl border border-border bg-surface p-3 dark:border-slate-700 dark:bg-slate-800">
+                          <p className="text-[10px] font-semibold uppercase tracking-wide text-text-secondary">
+                            Total
+                          </p>
+                          <p className="mt-1 text-sm font-bold text-text-primary dark:text-white">
+                            {formatCommissionCurrency(
+                              commissionSummary?.totals.all || 0,
+                            )}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="mt-3 grid grid-cols-3 gap-2 text-center text-xs">
+                        <div className="rounded-xl border border-border py-2 dark:border-slate-700">
+                          <p className="font-bold text-text-primary dark:text-white">
+                            {commissionSummary?.counts?.pending ?? 0}
+                          </p>
+                          <p className="text-text-secondary">Open</p>
+                        </div>
+                        <div className="rounded-xl border border-border py-2 dark:border-slate-700">
+                          <p className="font-bold text-text-primary dark:text-white">
+                            {commissionSummary?.counts?.paid ?? 0}
+                          </p>
+                          <p className="text-text-secondary">Paid</p>
+                        </div>
+                        <div className="rounded-xl border border-border py-2 dark:border-slate-700">
+                          <p className="font-bold text-text-primary dark:text-white">
+                            {commissionSummary?.counts?.total ?? 0}
+                          </p>
+                          <p className="text-text-secondary">Deals</p>
+                        </div>
+                      </div>
+                      <Link
+                        to="/loan-officer/commissions"
+                        className="mt-auto inline-flex items-center gap-1 pt-4 text-sm font-semibold text-brand-500 hover:underline"
+                      >
+                        View commissions
+                        <ArrowRight className="h-3.5 w-3.5" />
+                      </Link>
+                    </div>
+                  )}
+                </div>
+              </div>
+              <div className="col-span-12 md:col-span-8 xl:col-span-5">
+                <CommissionSummaryChart
+                  summary={commissionSummary}
+                  loading={commissionLoading}
+                  title="Commission over time"
+                />
+              </div>
+              <div className="col-span-12 xl:col-span-4">
+                <CommissionStatusChart
+                  summary={commissionSummary}
+                  loading={commissionLoading}
+                />
+              </div>
+            </div>
+          </section>
+        ) : null}
+
+        {canViewRecent ? (
+          <section className="space-y-4">
+            <SectionHeader
+              eyebrow="Pipeline"
+              title="Recent applications"
+              description="Latest files assigned to you."
+              action={
+                canViewPipeline ? (
+                  <Link
+                    to="/loan-officer/loan-pipeline"
+                    className="inline-flex items-center gap-1 text-[13px] font-semibold text-brand-500 hover:underline"
+                  >
+                    View all
+                    <ArrowRight className="h-3.5 w-3.5" />
+                  </Link>
+                ) : undefined
+              }
+            />
+            <div className="overflow-hidden rounded-2xl border border-border bg-white dark:border-slate-700 dark:bg-slate-900">
+              {loading ? (
+                <div className="overflow-x-auto">
+                  <table className="ds-table min-w-[900px] w-full">
+                    <thead>
+                      <tr>
+                        {[
+                          "Deal",
+                          "Program",
+                          "Amount",
+                          "Lender",
+                          "Stage",
+                          "Received",
+                          "Portal",
+                        ].map((label) => (
+                          <th
+                            key={label}
+                            className={
+                              label === "Portal" ? "!text-right" : undefined
+                            }
+                          >
+                            {label}
+                          </th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {Array.from({ length: 5 }).map((_, i) => (
+                        <tr key={i}>
+                          {Array.from({ length: 7 }).map((__, cell) => (
+                            <td key={cell}>
+                              <div className="h-4 animate-pulse rounded bg-surface" />
+                            </td>
+                          ))}
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              ) : recent.length === 0 ? (
+                <div className="px-6 py-14 text-center">
+                  <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-xl bg-[#4C78F5]/10 text-[#4C78F5]">
+                    <SearchX className="h-5 w-5" />
+                  </div>
+                  <p className="text-sm font-semibold text-text-primary">
+                    No applications yet
+                  </p>
+                  <p className="mt-1.5 text-xs text-text-secondary">
+                    Start a new loan file to see it here.
+                  </p>
+                  {canCreateApp ? (
+                    <button
+                      type="button"
+                      onClick={() =>
+                        navigate("/loan-officer/loan-application")
+                      }
+                      className="ds-btn-primary mt-4 h-9 px-4 text-xs"
+                    >
+                      Create application
+                      <ArrowRight className="h-3.5 w-3.5" />
+                    </button>
+                  ) : null}
+                </div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="ds-table min-w-[900px] w-full">
+                    <thead>
+                      <tr>
+                        {[
+                          "Deal",
+                          "Program",
+                          "Amount",
+                          "Lender",
+                          "Stage",
+                          "Received",
+                          "Portal",
+                        ].map((label) => (
+                          <th
+                            key={label}
+                            className={
+                              label === "Portal" ? "!text-right" : undefined
+                            }
+                          >
+                            {label}
+                          </th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {recent.map((row) => {
+                        const product = formatProductLabel(row.loanInfo);
+
+                        return (
+                          <tr
+                            key={row.submissionId}
+                            className="cursor-pointer"
+                            onClick={() => openRecent(row.submissionId)}
+                          >
+                            <td
+                              title={`${row.borrower || "Untitled"} · ${row.applicationNumber || ""}`}
+                            >
+                              <div className="flex items-center gap-3">
+                                <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#4C78F5] text-[11px] font-bold tracking-wide text-white">
+                                  {dealInitials(row.borrower)}
+                                </span>
+                                <div className="min-w-0">
+                                  <p className="ds-table-title">
+                                    {row.borrower || "Untitled"}
+                                  </p>
+                                  <p className="ds-table-meta">
+                                    {row.applicationNumber || (
+                                      <span className="italic text-text-secondary/70">
+                                        Not provided
+                                      </span>
+                                    )}
+                                  </p>
+                                </div>
+                              </div>
+                            </td>
+                            <td title={product}>
+                              {product === "—" ? (
+                                <span className="text-[12px] font-medium italic text-text-secondary/70">
+                                  Not set
+                                </span>
+                              ) : (
+                                <span className="inline-flex max-w-[180px] truncate rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-[11px] font-medium lowercase text-slate-600 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300">
+                                  {product}
+                                </span>
+                              )}
+                            </td>
+                            <td>
+                              <span className="ds-table-amount">
+                                {formatRecentAmount(row.amount)}
+                              </span>
+                            </td>
+                            <td>
+                              {row.lenderCount > 0 && row.lenderName ? (
+                                <div
+                                  className="flex min-w-0 items-center gap-1.5"
+                                  title={row.lenderName}
+                                >
+                                  <Building2 className="h-3.5 w-3.5 shrink-0 text-[#4C78F5]" />
+                                  <span className="truncate text-[13px] font-medium text-text-primary">
+                                    {row.lenderName}
+                                  </span>
+                                  {row.lenderCount > 1 ? (
+                                    <span className="inline-flex h-5 min-w-5 shrink-0 items-center justify-center rounded-full bg-[#4C78F5]/10 px-1.5 text-[10px] font-semibold text-[#4C78F5]">
+                                      +{row.lenderCount - 1}
+                                    </span>
+                                  ) : null}
+                                </div>
+                              ) : (
+                                <span className="text-[12px] font-medium italic text-text-secondary/70">
+                                  Not sent
+                                </span>
+                              )}
+                            </td>
+                            <td>
+                              <span
+                                className={`inline-flex max-w-full items-center truncate rounded-full px-2.5 py-1 text-[11px] font-semibold ring-1 ring-inset ${statusBadgeClass(row.status)}`}
+                              >
+                                {statusLabel(row.status)}
+                              </span>
+                            </td>
+                            <td className="ds-table-muted whitespace-nowrap">
+                              {row.submittedOn
+                                ? formatUsDate(row.submittedOn)
+                                : "—"}
+                            </td>
+                            <td
+                              className="!text-right"
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              <button
+                                type="button"
+                                title="Open application"
+                                onClick={() => openRecent(row.submissionId)}
+                                className="inline-flex items-center gap-1 text-[13px] font-semibold text-[#4C78F5] transition hover:text-[#3B66E0] hover:underline"
+                              >
+                                Open
+                                <ExternalLink size={13} />
+                              </button>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          </section>
+        ) : null}
+      </div>
+    </>
   );
 }

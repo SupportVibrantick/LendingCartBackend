@@ -20,7 +20,12 @@ interface Props {
   stats: BrokerStats | null;
   loading: boolean;
   onStatClick?: (key: string) => void;
+  /** Tailwind grid classes. Default matches broker home strip. */
+  gridClassName?: string;
 }
+
+const DEFAULT_GRID =
+  "grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7";
 
 const KPI_CONFIG = [
   {
@@ -123,10 +128,11 @@ export default function EcommerceMetrics({
   stats,
   loading,
   onStatClick,
+  gridClassName = DEFAULT_GRID,
 }: Props) {
   if (loading) {
     return (
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7">
+      <div className={gridClassName}>
         {Array.from({ length: 7 }).map((_, i) => (
           <SkeletonCard key={i} />
         ))}
@@ -137,7 +143,7 @@ export default function EcommerceMetrics({
   if (!stats) return null;
 
   return (
-    <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7">
+    <div className={gridClassName}>
       {KPI_CONFIG.map((item) => {
         const rawValue = Number(stats[item.key as BrokerMetricKey] ?? 0) || 0;
         const value =

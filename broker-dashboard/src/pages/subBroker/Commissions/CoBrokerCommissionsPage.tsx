@@ -12,10 +12,6 @@ export default function CoBrokerCommissionsPage() {
       summaryPath="/subbroker/commissions/summary"
       listPath="/subbroker/commissions"
       getHeaders={() => getCoBrokerAuthHeaders()}
-      pageTitle="Commissions"
-      pageDescription="Track your earned commissions, generate invoices, and monitor payout status."
-      invoicesHref="/sub-broker/invoices"
-      dashboardHref="/sub-broker/dashboard"
     />
   );
 }
