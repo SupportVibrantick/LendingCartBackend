@@ -15,7 +15,7 @@ export default function NotFound() {
 
       <div className="relative flex min-h-screen items-center justify-center overflow-hidden bg-gradient-to-br from-slate-50 via-white to-sky-50 px-6 py-16 dark:from-gray-950 dark:via-gray-950 dark:to-[#0b1f3a]">
         <div className="pointer-events-none absolute -left-24 top-0 h-72 w-72 rounded-full bg-cyan-300/30 blur-[100px] dark:bg-cyan-500/15" />
-        <div className="pointer-events-none absolute bottom-0 right-0 h-80 w-80 rounded-full bg-[#13538A]/20 blur-[110px] dark:bg-[#13538A]/30" />
+        <div className="pointer-events-none absolute bottom-0 right-0 h-80 w-80 rounded-full bg-[#4C78F5]/20 blur-[110px] dark:bg-[#4C78F5]/30" />
         <GridShape />
 
         <div className="relative z-10 w-full max-w-lg text-center">
@@ -23,10 +23,10 @@ export default function NotFound() {
             <img
               src="/loanAutomation.jpeg"
               alt="Loan Automation"
-              className="h-12 w-12 rounded-full object-cover ring-2 ring-[#13538A]/20 dark:ring-cyan-400/30"
+              className="h-12 w-12 rounded-full object-cover ring-2 ring-[#4C78F5]/20 dark:ring-cyan-400/30"
             />
             <div className="text-left">
-              <p className="text-base font-bold text-[#13538A] dark:text-cyan-300">
+              <p className="text-base font-bold text-[#4C78F5] dark:text-cyan-300">
                 Loan Automation
               </p>
               <p className="text-[10px] font-medium uppercase tracking-wider text-gray-400">
@@ -35,15 +35,15 @@ export default function NotFound() {
             </div>
           </div>
 
-          <div className="mx-auto mb-6 flex h-16 w-16 items-center justify-center rounded-2xl bg-[#13538A]/10 text-[#13538A] dark:bg-cyan-500/15 dark:text-cyan-300">
+          <div className="mx-auto mb-6 flex h-16 w-16 items-center justify-center rounded-2xl bg-[#4C78F5]/10 text-[#4C78F5] dark:bg-cyan-500/15 dark:text-cyan-300">
             <SearchX className="h-8 w-8" strokeWidth={1.75} />
           </div>
 
-          <p className="mb-3 text-xs font-semibold uppercase tracking-[0.2em] text-[#13538A]/80 dark:text-cyan-400/80">
+          <p className="mb-3 text-xs font-semibold uppercase tracking-[0.2em] text-[#4C78F5]/80 dark:text-cyan-400/80">
             Error 404
           </p>
 
-          <h1 className="bg-gradient-to-r from-[#0b1f3a] via-[#13538A] to-[#1a6aad] bg-clip-text text-7xl font-black tracking-tight text-transparent sm:text-8xl dark:from-cyan-200 dark:via-sky-300 dark:to-white">
+          <h1 className="bg-gradient-to-r from-[#0b1f3a] via-[#4C78F5] to-[#1a6aad] bg-clip-text text-7xl font-black tracking-tight text-transparent sm:text-8xl dark:from-cyan-200 dark:via-sky-300 dark:to-white">
             404
           </h1>
 
@@ -58,7 +58,7 @@ export default function NotFound() {
           <div className="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row">
             <Link
               to="/"
-              className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-[#4C78F5] to-[#36536c] px-5 py-3.5 text-sm font-semibold text-white shadow-lg shadow-[#4C78F5]/25 transition hover:brightness-110 sm:w-auto"
+              className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-[#4C78F5] to-[#3A5FD4] px-5 py-3.5 text-sm font-semibold text-white shadow-lg shadow-[#4C78F5]/25 transition hover:brightness-110 sm:w-auto"
             >
               <Home className="h-4 w-4" />
               Back to dashboard
