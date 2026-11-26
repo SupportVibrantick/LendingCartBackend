@@ -1,11 +1,17 @@
 import { useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import toast from "react-hot-toast";
-import { Eye, EyeOff } from "lucide-react";
+import { Eye, EyeOff, Loader2 } from "lucide-react";
 import AuthPageHeader from "./AuthPageHeader";
 import { useAuth } from "../context/AuthContext";
 import useGuestRedirect from "../hooks/useGuestRedirect";
 import { getAuthUserMessage } from "../lib/authErrors";
+
+const inputClass =
+  "w-full rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm text-slate-900 outline-none placeholder:text-slate-400 transition focus:border-blue-400 focus:ring-2 focus:ring-blue-500/20 dark:border-white/15 dark:bg-white/10 dark:text-white dark:placeholder:text-slate-400 dark:focus:border-blue-400/60";
+
+const labelClass =
+  "mb-1.5 block text-xs font-semibold uppercase tracking-[0.06em] text-slate-500 dark:text-slate-400";
 
 export default function LoginPage() {
   const location = useLocation();
@@ -45,9 +51,6 @@ export default function LoginPage() {
     }
   };
 
-  const inputClass =
-    "w-full rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm text-slate-900 outline-none placeholder:text-slate-400 focus:ring-2 focus:ring-blue-500 dark:border-white/20 dark:bg-white/10 dark:text-white dark:placeholder:text-slate-400";
-
   const hasPlan = Boolean(planState.planName);
 
   if (authLoading || isAuthenticated) {
@@ -56,32 +59,50 @@ export default function LoginPage() {
 
   return (
     <div className="relative min-h-screen overflow-hidden bg-slate-50 text-slate-900 transition-colors dark:bg-[#0b1020] dark:text-white">
-      <div className="absolute inset-0 bg-[linear-gradient(rgba(255,255,255,0.05)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.05)_1px,transparent_1px)] bg-[size:40px_40px]" />
-      <div className="absolute -top-25 left-1/2 -translate-x-1/2 w-150 h-150 bg-blue-500/20 blur-[120px] rounded-full" />
+      <div className="absolute inset-0 bg-[linear-gradient(rgba(148,163,184,0.12)_1px,transparent_1px),linear-gradient(90deg,rgba(148,163,184,0.12)_1px,transparent_1px)] bg-[size:40px_40px] dark:bg-[linear-gradient(rgba(255,255,255,0.05)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.05)_1px,transparent_1px)]" />
+      <div className="absolute -top-25 left-1/2 h-150 w-150 -translate-x-1/2 rounded-full bg-blue-500/15 blur-[120px] dark:bg-blue-500/20" />
 
       <AuthPageHeader />
 
-      <div className="relative z-10 max-w-md mx-auto px-6 py-16">
-        <h1 className="text-3xl font-bold mb-2">Sign in to Loan AI</h1>
-        <p className="mb-6 text-sm leading-relaxed text-slate-600 dark:text-slate-400">
-          Use your Loan AI website account. This is separate from your broker dashboard login —
-          {planState.mode === "trial"
-            ? " broker credentials are emailed when your free trial starts."
-            : " broker credentials are emailed only after you subscribe."}
-        </p>
+      <div className="relative z-10 mx-auto max-w-md px-6 py-12 md:py-16">
+        <div className="mb-8 text-center sm:text-left">
+          <p className="mb-2 text-xs font-semibold uppercase tracking-[0.16em] text-[#4B83FF]">
+            Welcome back
+          </p>
+          <h1 className="text-3xl font-bold tracking-tight">Sign in to Loan AI</h1>
+          <p className="mt-3 text-sm leading-relaxed text-slate-600 dark:text-slate-400">
+            Use your Loan AI website account. This is separate from your broker
+            dashboard login —
+            {planState.mode === "trial"
+              ? " broker credentials are emailed when your free trial starts."
+              : " broker credentials are emailed only after you subscribe."}
+          </p>
+        </div>
 
         {hasPlan && (
-          <div className={`mb-6 rounded-xl px-4 py-3 text-sm ${
-            planState.mode === "trial"
-              ? "bg-sky-500/10 border border-sky-500/30"
-              : "bg-indigo-500/10 border border-indigo-500/30"
-          }`}>
-            <p className={planState.mode === "trial" ? "font-semibold text-sky-700 dark:text-sky-200" : "font-semibold text-indigo-700 dark:text-indigo-200"}>
+          <div
+            className={`mb-5 rounded-xl border px-4 py-3 text-sm ${
+              planState.mode === "trial"
+                ? "border-sky-200 bg-sky-50 dark:border-sky-500/30 dark:bg-sky-500/10"
+                : "border-indigo-200 bg-indigo-50 dark:border-indigo-500/30 dark:bg-indigo-500/10"
+            }`}
+          >
+            <p
+              className={
+                planState.mode === "trial"
+                  ? "font-semibold text-sky-800 dark:text-sky-200"
+                  : "font-semibold text-indigo-800 dark:text-indigo-200"
+              }
+            >
               {planState.mode === "trial"
                 ? `${planState.planName} — free trial`
-                : `${planState.planName} plan${planState.planPrice ? ` — ${planState.planPrice}/${planState.billingLabel || "month"}` : ""}`}
+                : `${planState.planName} plan${
+                    planState.planPrice
+                      ? ` — ${planState.planPrice}/${planState.billingLabel || "month"}`
+                      : ""
+                  }`}
             </p>
-            <p className="mt-2 text-xs text-slate-600 dark:text-slate-400">
+            <p className="mt-1.5 text-xs text-slate-600 dark:text-slate-400">
               {planState.mode === "trial"
                 ? "Sign in to start your free trial — card required, $0 due today."
                 : "Sign in to continue to secure checkout for this plan."}
@@ -91,40 +112,61 @@ export default function LoginPage() {
 
         <form
           onSubmit={handleSubmit}
-          className="space-y-4 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm backdrop-blur-xl dark:border-white/10 dark:bg-white/5"
+          className="space-y-4 rounded-2xl border border-slate-200 bg-white p-6 shadow-xl shadow-slate-200/50 sm:p-7 dark:border-white/10 dark:bg-white/5 dark:shadow-none"
         >
-          <input
-            className={inputClass}
-            placeholder="Email *"
-            type="email"
-            autoComplete="email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-          />
-          <div className="relative">
+          <div>
+            <label className={labelClass} htmlFor="login-email">
+              Email <span className="text-rose-500">*</span>
+            </label>
             <input
+              id="login-email"
               className={inputClass}
-              placeholder="Password *"
-              type={showPassword ? "text" : "password"}
-              autoComplete="current-password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
+              placeholder="you@company.com"
+              type="email"
+              autoComplete="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
             />
-            <button
-              type="button"
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400"
-              onClick={() => setShowPassword((v) => !v)}
-            >
-              {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
-            </button>
+          </div>
+
+          <div>
+            <label className={labelClass} htmlFor="login-password">
+              Password <span className="text-rose-500">*</span>
+            </label>
+            <div className="relative">
+              <input
+                id="login-password"
+                className={`${inputClass} pr-11`}
+                placeholder="Your password"
+                type={showPassword ? "text" : "password"}
+                autoComplete="current-password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+              />
+              <button
+                type="button"
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 transition hover:text-slate-600 dark:hover:text-slate-200"
+                onClick={() => setShowPassword((v) => !v)}
+                aria-label={showPassword ? "Hide password" : "Show password"}
+              >
+                {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+              </button>
+            </div>
           </div>
 
           <button
             type="submit"
             disabled={loading}
-            className="w-full py-3 rounded-xl font-semibold bg-linear-to-r from-blue-500 to-indigo-500 disabled:opacity-60"
+            className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-linear-to-r from-blue-500 to-indigo-500 py-3 text-sm font-semibold text-white shadow-lg shadow-blue-500/25 transition hover:from-blue-600 hover:to-indigo-600 disabled:cursor-not-allowed disabled:opacity-60"
           >
-            {loading ? "Signing in..." : "Sign in"}
+            {loading ? (
+              <>
+                <Loader2 className="h-4 w-4 animate-spin" />
+                Signing in…
+              </>
+            ) : (
+              "Sign in"
+            )}
           </button>
 
           <p className="text-center text-sm text-slate-600 dark:text-slate-400">
@@ -132,7 +174,7 @@ export default function LoginPage() {
             <Link
               to="/signup"
               state={hasPlan ? planState : undefined}
-              className="text-blue-400 hover:underline"
+              className="font-semibold text-blue-600 hover:underline dark:text-blue-400"
             >
               Create account
             </Link>
