@@ -94,7 +94,7 @@ const navItems: NavItem[] = [
   },
   {
     icon: <FaUserGroup />,
-    name: "User Management",
+    name: "Users",
     subItems: [
       {
         name: "Co-Brokers",

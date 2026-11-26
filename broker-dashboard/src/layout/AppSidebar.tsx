@@ -201,7 +201,7 @@ const AppSidebar: React.FC = () => {
         ? [
           {
             icon: <FaUserGroup />,
-            name: "User Management",
+            name: "Users",
             adminOnly: true,
             subItems: [
               {
