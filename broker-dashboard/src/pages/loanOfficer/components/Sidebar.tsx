@@ -2,19 +2,18 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useLocation } from "react-router";
 import {
   ChevronDown,
-  FilePlus,
   FolderOpen,
   LogOut,
   PanelLeftOpen,
   // MessageSquare,
   PlugZap,
-  Store,
   TrendingUp,
   Wallet,
 } from "lucide-react";
-import { MdSettings } from "react-icons/md";
+import { MdOutlineDocumentScanner, MdSettings } from "react-icons/md";
+// import { MdEmail } from "react-icons/md";
 import { CgProfile } from "react-icons/cg";
-import { FaUserGroup } from "react-icons/fa6";
+import { FaUsersBetweenLines, FaUserGroup } from "react-icons/fa6";
 import { PiSecurityCameraFill } from "react-icons/pi";
 import { ChevronDownIcon, GridIcon, HorizontaLDots } from "../../../icons";
 import { useSidebar } from "../../../context/SidebarContext";
@@ -76,13 +75,13 @@ const navItems: NavItem[] = [
     always: true,
   },
   {
-    icon: <TrendingUp size={18} />,
+    icon: <TrendingUp />,
     name: "Loan Pipeline",
     path: "/loan-officer/loan-pipeline",
     permission: "VIEW_APPLICATIONS",
   },
   {
-    icon: <FilePlus size={18} />,
+    icon: <MdOutlineDocumentScanner />,
     name: "New Loan Application",
     path: "/loan-officer/loan-application",
     permission: "CREATE_APPLICATION",
@@ -115,7 +114,7 @@ const navItems: NavItem[] = [
     ],
   },
   {
-    icon: <Store size={18} />,
+    icon: <FaUsersBetweenLines />,
     name: "Lender Marketplace",
     path: "/loan-officer/lender-marketplace",
     permission: "VIEW_MARKETPLACE",
@@ -138,7 +137,7 @@ const navItems: NavItem[] = [
   //   permission: "SEND_EMAILS",
   // },
   {
-    icon: <Wallet size={18} />,
+    icon: <Wallet />,
     name: "Payments",
     subItems: [
       {
