@@ -601,10 +601,23 @@ function normalizeFeatureKeys(keys = []) {
   return [...unique];
 }
 
+/**
+ * Features that purchased add-ons grant beyond the bare package tier.
+ * Used so admin/custom `enabledFeatures` snapshots still unlock paid add-ons
+ * (e.g. BUSINESS_LENDING_PACK → SBA_USDA + ABL).
+ */
+function featuresGrantedByPurchasedAddOns(packageCode, purchasedAddOns = []) {
+  const withAddOns = defaultFeaturesForPackage(packageCode, purchasedAddOns);
+  const withoutAddOns = new Set(defaultFeaturesForPackage(packageCode, []));
+  return withAddOns.filter((key) => !withoutAddOns.has(key));
+}
+
 function resolveEnabledFeatures(subscription) {
+  const packageCode = subscription?.package?.code || "BASIC";
+  const purchasedAddOns = subscription?.purchasedAddOns || [];
   const packageDefaults = defaultFeaturesForPackage(
-    subscription?.package?.code || "BASIC",
-    subscription?.purchasedAddOns || [],
+    packageCode,
+    purchasedAddOns,
   );
 
   if (!subscription) {
@@ -619,9 +632,14 @@ function resolveEnabledFeatures(subscription) {
     customKeys = raw.keys;
   }
 
-  // Admin/custom snapshot is authoritative — full control including loan matrix.
+  // Admin/custom snapshot is the base entitlement set, but always union
+  // features unlocked by purchased add-ons so paid upgrades take effect.
   if (customKeys !== null) {
-    return normalizeFeatureKeys(customKeys);
+    const addOnExtras = featuresGrantedByPurchasedAddOns(
+      packageCode,
+      purchasedAddOns,
+    );
+    return normalizeFeatureKeys([...customKeys, ...addOnExtras]);
   }
 
   return normalizeFeatureKeys(packageDefaults);
@@ -744,6 +762,7 @@ module.exports = {
   resolveLoanCategoryForAccess,
   loanTypeEntitlementCandidates,
   defaultFeaturesForPackage,
+  featuresGrantedByPurchasedAddOns,
   normalizeFeatureKeys,
   resolveEnabledFeatures,
   isCustomEnabledFeatures,
