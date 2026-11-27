@@ -723,9 +723,57 @@ function assertLoanAccessAllowed(orgFeatures, { loanCategory, loanType } = {}) {
   return { ok: true };
 }
 
+/**
+ * If a custom enabledFeatures snapshot is missing keys granted by purchased
+ * add-ons, persist the union once so loan categories stay unlocked.
+ */
+async function syncPurchasedAddOnFeaturesIntoSnapshot(prisma, subscription) {
+  if (!subscription?.id || !isCustomEnabledFeatures(subscription.enabledFeatures)) {
+    return subscription;
+  }
+
+  const extras = featuresGrantedByPurchasedAddOns(
+    subscription.package?.code,
+    subscription.purchasedAddOns || [],
+  );
+  if (!extras.length) return subscription;
+
+  const raw = subscription.enabledFeatures;
+  const existingKeys = Array.isArray(raw)
+    ? raw
+    : Array.isArray(raw?.keys)
+      ? raw.keys
+      : [];
+  const existingSet = new Set(
+    existingKeys.map((k) => String(k || "").trim()).filter(Boolean),
+  );
+  const missing = extras.filter((key) => !existingSet.has(key));
+  if (!missing.length) return subscription;
+
+  const mergedKeys = normalizeFeatureKeys([...existingKeys, ...missing]);
+  const nextPayload = Array.isArray(raw)
+    ? mergedKeys
+    : {
+        ...(typeof raw === "object" && raw ? raw : {}),
+        keys: mergedKeys,
+      };
+
+  try {
+    return await prisma.organizationSubscription.update({
+      where: { id: subscription.id },
+      data: { enabledFeatures: nextPayload },
+      include: {
+        package: { select: { id: true, code: true, name: true } },
+      },
+    });
+  } catch {
+    return subscription;
+  }
+}
+
 async function getOrgEnabledFeatures(prisma, organizationId) {
   const { ACTIVE_SUB_STATUSES } = require("./subscriptionBilling");
-  const subscription = await prisma.organizationSubscription.findFirst({
+  let subscription = await prisma.organizationSubscription.findFirst({
     where: {
       organizationId,
       status: { in: ACTIVE_SUB_STATUSES },
@@ -735,6 +783,13 @@ async function getOrgEnabledFeatures(prisma, organizationId) {
       package: { select: { id: true, code: true, name: true } },
     },
   });
+
+  if (subscription) {
+    subscription = await syncPurchasedAddOnFeaturesIntoSnapshot(
+      prisma,
+      subscription,
+    );
+  }
 
   const features = resolveEnabledFeatures(subscription);
   return {
@@ -766,6 +821,7 @@ module.exports = {
   normalizeFeatureKeys,
   resolveEnabledFeatures,
   isCustomEnabledFeatures,
+  syncPurchasedAddOnFeaturesIntoSnapshot,
   splitFeatures,
   filterPermissionsToOrg,
   getOrgEnabledFeatures,

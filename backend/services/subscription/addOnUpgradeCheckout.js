@@ -19,6 +19,9 @@ const { resolveStripeAddOnPriceId } = require("../stripe/stripePriceMap");
 const {
   resolveTeamSeatCount,
 } = require("./subscriptionBilling");
+const {
+  ensureLoanAiBillingUser,
+} = require("./ensureLoanAiBillingUser");
 
 function assertGhlPriceActive(priceDetails) {
   if (!priceDetails?.priceId && !priceDetails?.amount) {
@@ -343,14 +346,11 @@ async function startAddOnUpgradeCheckout(prisma, input = {}) {
   }
 
   const org = sub.organization;
-  const loanAiUser =
-    sub.loanAiUser ||
-    (await prisma.loanAiUser.findFirst({
-      where: { brokerOrganizationId: organizationId },
-    }));
-
   const email =
-    actorUser?.email || loanAiUser?.email || org?.email || null;
+    actorUser?.email ||
+    sub.loanAiUser?.email ||
+    org?.email ||
+    null;
   if (!email) {
     throw Object.assign(new Error("No billing email on file"), {
       statusCode: 400,
@@ -362,15 +362,36 @@ async function startAddOnUpgradeCheckout(prisma, input = {}) {
     .trim()
     .split(/\s+/);
   const firstName =
-    loanAiUser?.firstName ||
+    sub.loanAiUser?.firstName ||
     actorUser?.firstName ||
     nameParts[0] ||
     "Broker";
   const lastName =
-    loanAiUser?.lastName ||
+    sub.loanAiUser?.lastName ||
     actorUser?.lastName ||
     nameParts.slice(1).join(" ") ||
     "Admin";
+
+  // Checkout rows require loanAiUserId — create/link billing profile if missing
+  // so Stripe webhooks can fulfill ADDON_UPGRADE and unlock categories.
+  const loanAiUser =
+    sub.loanAiUser ||
+    (await ensureLoanAiBillingUser(prisma, {
+      organizationId,
+      subscriptionId: sub.id,
+      email,
+      firstName,
+      lastName,
+    }));
+
+  if (!loanAiUser?.id) {
+    throw Object.assign(
+      new Error(
+        "Could not create a billing profile for this brokerage. Contact support.",
+      ),
+      { statusCode: 409, code: "MISSING_LOAN_AI_USER" },
+    );
+  }
 
   // Reuse open ADDON_UPGRADE checkout with same delta within 2h
   if (loanAiUser?.id) {
@@ -447,36 +468,34 @@ async function startAddOnUpgradeCheckout(prisma, input = {}) {
   }
 
   const trialDaysLeftForMeta = remainingTrialDays(sub);
-  const checkoutRow = loanAiUser?.id
-    ? await prisma.loanAiGhlCheckout.create({
-        data: {
-          loanAiUserId: loanAiUser.id,
-          packageId: sub.packageId,
-          billingCycle,
-          status: "PENDING",
-          paymentStatus: "PENDING",
-          amount: estimatedAmount,
-          currency: "USD",
-          ghlProductId: provider === "ghl" ? getGhlProductId() : null,
-          ghlPriceId: firstPriceId,
-          successUrl: successUrl || null,
-          cancelUrl: cancelUrl || null,
-          expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000),
-          metadata: {
-            type: "ADDON_UPGRADE",
-            provider,
-            organizationSubscriptionId: sub.id,
-            organizationId,
-            packageCode,
-            billingCycle,
-            addOnCodes: delta.deltaCodes,
-            mergedAddOnCodes: delta.mergedCodes,
-            withFreeTrial: trialDaysLeftForMeta > 0,
-            trialPeriodDays: trialDaysLeftForMeta,
-          },
-        },
-      })
-    : null;
+  const checkoutRow = await prisma.loanAiGhlCheckout.create({
+    data: {
+      loanAiUserId: loanAiUser.id,
+      packageId: sub.packageId,
+      billingCycle,
+      status: "PENDING",
+      paymentStatus: "PENDING",
+      amount: estimatedAmount,
+      currency: "USD",
+      ghlProductId: provider === "ghl" ? getGhlProductId() : null,
+      ghlPriceId: firstPriceId,
+      successUrl: successUrl || null,
+      cancelUrl: cancelUrl || null,
+      expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000),
+      metadata: {
+        type: "ADDON_UPGRADE",
+        provider,
+        organizationSubscriptionId: sub.id,
+        organizationId,
+        packageCode,
+        billingCycle,
+        addOnCodes: delta.deltaCodes,
+        mergedAddOnCodes: delta.mergedCodes,
+        withFreeTrial: trialDaysLeftForMeta > 0,
+        trialPeriodDays: trialDaysLeftForMeta,
+      },
+    },
+  });
 
   let paymentResult;
   try {
@@ -490,7 +509,7 @@ async function startAddOnUpgradeCheckout(prisma, input = {}) {
         purchasedAddOns: buildStripePurchasedAddOns(delta.deltaPurchased),
         successUrl,
         cancelUrl,
-        checkoutId: checkoutRow?.id || `addon-upgrade:${sub.id}:${Date.now()}`,
+        checkoutId: checkoutRow.id,
         trialPeriodDays: trialDaysLeft,
         metadata: {
           type: "ADDON_UPGRADE",
@@ -519,8 +538,8 @@ async function startAddOnUpgradeCheckout(prisma, input = {}) {
         successUrl,
         cancelUrl,
         metadata: {
-          lendingCartCheckoutId: checkoutRow?.id || `addon-upgrade:${sub.id}`,
-          checkoutId: checkoutRow?.id || null,
+          lendingCartCheckoutId: checkoutRow.id,
+          checkoutId: checkoutRow.id,
           type: "ADDON_UPGRADE",
           organizationSubscriptionId: sub.id,
         },
@@ -528,58 +547,47 @@ async function startAddOnUpgradeCheckout(prisma, input = {}) {
       });
     }
   } catch (err) {
-    if (checkoutRow?.id) {
-      await prisma.loanAiGhlCheckout.update({
-        where: { id: checkoutRow.id },
-        data: {
-          status: "FAILED",
-          lastError: String(err.message || "checkout_failed").slice(0, 500),
-        },
-      });
-    }
-    throw err;
-  }
-
-  if (checkoutRow?.id) {
     await prisma.loanAiGhlCheckout.update({
       where: { id: checkoutRow.id },
       data: {
-        status: "CHECKOUT_CREATED",
-        checkoutUrl: paymentResult.checkoutUrl,
-        ghlContactId: paymentResult.ghlContactId || null,
-        ghlInvoiceId:
-          paymentResult.sessionId || paymentResult.invoiceId || null,
-        ghlProductId: paymentResult.productId || null,
-        ghlPriceId: paymentResult.priceId || firstPriceId,
-        amount:
-          paymentResult.amount != null ? paymentResult.amount : estimatedAmount,
-        currency: paymentResult.currency || "USD",
-        metadata: {
-          type: "ADDON_UPGRADE",
-          provider,
-          organizationSubscriptionId: sub.id,
-          organizationId,
-          packageCode,
-          billingCycle,
-          addOnCodes: delta.deltaCodes,
-          mergedAddOnCodes: delta.mergedCodes,
-          stripeSessionId: paymentResult.sessionId || null,
-        },
+        status: "FAILED",
+        lastError: String(err.message || "checkout_failed").slice(0, 500),
       },
     });
-  } else if (provider === "ghl") {
-    await createPendingSubscriptionInvoice(prisma, {
-      sub,
-      organizationId,
-      ghlResult: paymentResult,
-      delta,
-    });
+    throw err;
   }
+
+  await prisma.loanAiGhlCheckout.update({
+    where: { id: checkoutRow.id },
+    data: {
+      status: "CHECKOUT_CREATED",
+      checkoutUrl: paymentResult.checkoutUrl,
+      ghlContactId: paymentResult.ghlContactId || null,
+      ghlInvoiceId:
+        paymentResult.sessionId || paymentResult.invoiceId || null,
+      ghlProductId: paymentResult.productId || null,
+      ghlPriceId: paymentResult.priceId || firstPriceId,
+      amount:
+        paymentResult.amount != null ? paymentResult.amount : estimatedAmount,
+      currency: paymentResult.currency || "USD",
+      metadata: {
+        type: "ADDON_UPGRADE",
+        provider,
+        organizationSubscriptionId: sub.id,
+        organizationId,
+        packageCode,
+        billingCycle,
+        addOnCodes: delta.deltaCodes,
+        mergedAddOnCodes: delta.mergedCodes,
+        stripeSessionId: paymentResult.sessionId || null,
+      },
+    },
+  });
 
   return {
     reused: false,
     provider,
-    checkoutId: checkoutRow?.id || null,
+    checkoutId: checkoutRow.id,
     checkoutUrl: paymentResult.checkoutUrl,
     amount:
       paymentResult.amount != null ? paymentResult.amount : estimatedAmount,

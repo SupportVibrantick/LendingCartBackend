@@ -918,12 +918,41 @@ async function applyAddOnUpgrade(prisma, payload) {
   );
   const amount = addOnsCycleTotal(deltaResolved, sub.billingCycle);
 
+  // Persist loan-category unlocks into custom enabledFeatures snapshots so
+  // SBA/ABL (etc.) stay unlocked even if older resolve paths ignored add-ons.
+  let enabledFeaturesUpdate;
+  try {
+    const {
+      featuresGrantedByPurchasedAddOns,
+      normalizeFeatureKeys,
+      isCustomEnabledFeatures,
+    } = require("./brokerOrgFeatures");
+    if (isCustomEnabledFeatures(sub.enabledFeatures)) {
+      const { keys, usageLimits } = parseEnabledFeaturesPayload(
+        sub.enabledFeatures,
+      );
+      const extras = featuresGrantedByPurchasedAddOns(
+        sub.package?.code,
+        normalized,
+      );
+      enabledFeaturesUpdate = buildEnabledFeaturesPayload(
+        normalizeFeatureKeys([...(keys || []), ...extras]),
+        usageLimits,
+      );
+    }
+  } catch {
+    enabledFeaturesUpdate = undefined;
+  }
+
   const now = new Date();
   const result = await prisma.$transaction(async (tx) => {
     const updated = await tx.organizationSubscription.update({
       where: { id: sub.id },
       data: {
         purchasedAddOns: normalized.length > 0 ? normalized : null,
+        ...(enabledFeaturesUpdate !== undefined
+          ? { enabledFeatures: enabledFeaturesUpdate }
+          : {}),
         notes: notes
           ? appendSubscriptionNote(sub.notes, notes)
           : sub.notes,
