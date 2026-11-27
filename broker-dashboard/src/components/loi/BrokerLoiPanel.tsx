@@ -812,7 +812,7 @@ export default function BrokerLoiPanel({
         if (softRefresh) {
           setListRefreshing(true);
         } else {
-          setLoading(true);
+        setLoading(true);
         }
         const params = new URLSearchParams({
           page: String(pageNo),
@@ -1748,17 +1748,17 @@ export default function BrokerLoiPanel({
               Lender offers
             </p>
             <h2 className="mt-1 text-lg font-semibold tracking-tight text-slate-900 dark:text-white">
-              LOI / Term Sheets
-            </h2>
+                LOI / Term Sheets
+              </h2>
             <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
-              Review and manage lender LOIs for this application.
-            </p>
-            {data?.applicationNumber && (
-              <p className="mt-1.5 text-xs font-medium text-slate-400">
-                Application #{data.applicationNumber}
-                {` • ${loiReceivedCount} LOI${loiReceivedCount === 1 ? "" : "s"} received`}
+                Review and manage lender LOIs for this application.
               </p>
-            )}
+              {data?.applicationNumber && (
+                <p className="mt-1.5 text-xs font-medium text-slate-400">
+                  Application #{data.applicationNumber}
+                  {` • ${loiReceivedCount} LOI${loiReceivedCount === 1 ? "" : "s"} received`}
+                </p>
+              )}
           </div>
 
           {canManageBrokerLoi && (

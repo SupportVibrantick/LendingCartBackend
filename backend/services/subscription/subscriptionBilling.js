@@ -908,6 +908,7 @@ async function applyAddOnUpgrade(prisma, payload) {
     flatCodes,
     sub.package?.code,
     sub.billingCycle,
+    { allowIncludedOwned: true },
   );
 
   const deltaResolved = resolvePurchasedAddOns(

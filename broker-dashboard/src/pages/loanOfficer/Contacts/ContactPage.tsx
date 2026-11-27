@@ -497,17 +497,17 @@ export default function ContactPage({
                 ))}
               </select>
 
-              <button
-                type="button"
+                <button
+                  type="button"
                 onClick={() => fetchContacts(page, debouncedSearch, limit)}
-                disabled={loading || isSearching}
+                  disabled={loading || isSearching}
                 className="inline-flex h-10 items-center justify-center gap-2 rounded-xl border border-border bg-white px-3 text-sm font-medium text-text-secondary transition hover:bg-surface disabled:opacity-60 dark:border-slate-700 dark:bg-slate-950"
-              >
-                <RefreshCw
-                  className={`h-4 w-4 ${loading ? "animate-spin" : ""}`}
-                />
-                Refresh
-              </button>
+                >
+                  <RefreshCw
+                    className={`h-4 w-4 ${loading ? "animate-spin" : ""}`}
+                  />
+                  Refresh
+                </button>
             </div>
 
             <select
@@ -565,9 +565,9 @@ export default function ContactPage({
                       <div className="inline-flex items-center gap-2 text-sm text-text-secondary">
                         <Users className="h-4 w-4 animate-pulse text-[#4C78F5]" />
                         Loading contacts…
-                      </div>
-                    </td>
-                  </tr>
+                        </div>
+                      </td>
+                    </tr>
                 ) : !loading && displayedContacts.length === 0 ? (
                   <tr>
                     <td colSpan={5} className="!px-5 !py-14 text-center">
@@ -662,7 +662,7 @@ export default function ContactPage({
                           {company ? (
                             <span className="inline-flex max-w-[180px] truncate rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-[11px] font-medium lowercase text-slate-600 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300">
                               {company}
-                            </span>
+                                </span>
                           ) : (
                             <span className="text-[12px] font-medium italic text-text-secondary/70">
                               Not set
@@ -698,8 +698,8 @@ export default function ContactPage({
                                 Edit
                               </button>
                             ) : null}
-                            <button
-                              type="button"
+                              <button
+                                type="button"
                               data-menu-id={contact.id}
                               onClick={(event) =>
                                 openRowMenu(contact.id, event)
@@ -713,7 +713,7 @@ export default function ContactPage({
                               aria-label="Open actions menu"
                             >
                               <MoreVertical className="h-4 w-4" />
-                            </button>
+                              </button>
                           </div>
                         </td>
                       </tr>
@@ -743,8 +743,8 @@ export default function ContactPage({
 
               {!typeFilter && totalPages > 1 ? (
                 <div className="flex items-center gap-1.5">
-                  <button
-                    type="button"
+                <button
+                  type="button"
                     disabled={page <= 1 || loading}
                     onClick={() => setPage((p) => Math.max(p - 1, 1))}
                     className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-border bg-white transition hover:bg-surface disabled:opacity-40 dark:border-slate-700 dark:bg-slate-900"
@@ -778,7 +778,7 @@ export default function ContactPage({
                           }`}
                         >
                           {pageNum}
-                        </button>
+                </button>
                       );
                     },
                   )}
@@ -856,31 +856,31 @@ export default function ContactPage({
             ) : null}
           </div>,
           document.body,
+          )}
+
+        {(open || editContact) && (
+          <CreateContactModal
+            portal={portal}
+            contact={editContact}
+          onClose={closeModal}
+          />
         )}
 
-      {(open || editContact) && (
-        <CreateContactModal
-          portal={portal}
-          contact={editContact}
-          onClose={closeModal}
-        />
-      )}
-
-      {viewContact && (
-        <ViewContactModal
-          contact={viewContact}
-          onClose={() => setViewContact(null)}
-          onEdit={
-            canEditContacts
-              ? () => {
-                  const contact = viewContact;
-                  setViewContact(null);
-                  openEditModal(contact);
-                }
-              : undefined
-          }
-        />
-      )}
+        {viewContact && (
+          <ViewContactModal
+            contact={viewContact}
+            onClose={() => setViewContact(null)}
+            onEdit={
+              canEditContacts
+                ? () => {
+                    const contact = viewContact;
+                    setViewContact(null);
+                    openEditModal(contact);
+                  }
+                : undefined
+            }
+          />
+        )}
     </>
   );
 }

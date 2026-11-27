@@ -16,6 +16,9 @@ const {
   createStripeAddOnOnlyCheckout,
 } = require("../stripe/stripeCheckout.service");
 const { resolveStripeAddOnPriceId } = require("../stripe/stripePriceMap");
+const {
+  resolveTeamSeatCount,
+} = require("./subscriptionBilling");
 
 function assertGhlPriceActive(priceDetails) {
   if (!priceDetails?.priceId && !priceDetails?.amount) {
@@ -112,6 +115,8 @@ async function getAddOnUpgradeOptions(prisma, organizationId) {
   const billingCycle = sub.billingCycle || "MONTHLY";
   const owned = getOwnedCodeSet(sub.purchasedAddOns);
   const extraUserQty = getExtraUserQty(sub.purchasedAddOns);
+  const teamSeats = resolveTeamSeatCount(sub);
+  const includedUsers = Math.max(1, teamSeats - extraUserQty);
 
   const available = filterAddOnsForPackage(packageCode, billingCycle)
     .filter((a) => {
@@ -119,18 +124,36 @@ async function getAddOnUpgradeOptions(prisma, organizationId) {
       if (code === "EXTRA_USER" || a.quantityBased) return false;
       return !owned.has(code);
     })
-    .map((a) => ({
-      code: a.code,
-      name: a.name,
-      priceMonthly: a.priceMonthly,
-      note: a.note || null,
-      description: ADDON_DESCRIPTIONS[a.code] || a.note || null,
-    }));
+    .map((a) => {
+      const catalog = getAddOnByCode(a.code);
+      return {
+        code: a.code,
+        name: a.name,
+        // Charge rate for the subscription's current billing cycle
+        priceMonthly: a.priceMonthly,
+        priceMonthlyCycle: catalog
+          ? resolveAddOnPriceForPackage(catalog, packageCode, "MONTHLY")
+          : a.priceMonthly,
+        priceYearlyMonthly: catalog
+          ? resolveAddOnPriceForPackage(catalog, packageCode, "YEARLY")
+          : a.priceMonthly,
+        note: a.note || null,
+        description: ADDON_DESCRIPTIONS[a.code] || a.note || null,
+      };
+    });
 
   const extraUser = getAddOnByCode("EXTRA_USER");
   const extraUserUnit =
     extraUser && packageCode
       ? resolveAddOnPriceForPackage(extraUser, packageCode, billingCycle)
+      : null;
+  const extraUserMonthly =
+    extraUser && packageCode
+      ? resolveAddOnPriceForPackage(extraUser, packageCode, "MONTHLY")
+      : null;
+  const extraUserYearlyMonthly =
+    extraUser && packageCode
+      ? resolveAddOnPriceForPackage(extraUser, packageCode, "YEARLY")
       : null;
 
   const trialDaysLeft = remainingTrialDays(sub);
@@ -152,9 +175,13 @@ async function getAddOnUpgradeOptions(prisma, organizationId) {
     ownedAddOnCodes: [...owned],
     availableAddOns: available,
     paymentProvider: getPaymentProvider(),
+    includedUsers,
+    teamSeats,
     extraUser: {
       currentQuantity: extraUserQty,
       unitPriceMonthly: extraUserUnit,
+      unitPriceMonthlyCycle: extraUserMonthly,
+      unitPriceYearlyMonthly: extraUserYearlyMonthly,
       code: "EXTRA_USER",
       name: extraUser?.name || "Additional Users",
       description: ADDON_DESCRIPTIONS.EXTRA_USER,
