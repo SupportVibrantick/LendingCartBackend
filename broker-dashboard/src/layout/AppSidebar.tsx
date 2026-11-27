@@ -15,6 +15,7 @@ import {
   LogOut,
   PanelLeftOpen,
   PlugZap,
+  Sparkles,
   TrendingUp,
   //  MessageSquare
   Wallet,
@@ -29,6 +30,13 @@ import {
 } from "../lib/brokerPermissions";
 import { hydrateOrgEntitlements } from "../lib/brokerEntitlements";
 import { clearBrokerSession } from "../lib/brokerSession";
+import {
+  BROKER_BRANDING_UPDATED_EVENT,
+  fetchBrokerPortalBranding,
+  readStoredBrokerBranding,
+  resolveBrokerLogoUrl,
+  type BrokerPortalBranding,
+} from "../lib/brokerBranding";
 
 function getUserInitials(
   firstName?: string,
@@ -117,6 +125,12 @@ const AppSidebar: React.FC = () => {
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const userMenuRef = useRef<HTMLDivElement | null>(null);
   const [userTick, setUserTick] = useState(0);
+  const [branding, setBranding] = useState<BrokerPortalBranding>(
+    readStoredBrokerBranding("broker"),
+  );
+
+  const brandTitle = branding.brandName || "Loan Automation";
+  const portalLabel = branding.portalLabel || "Broker Suite";
 
   useEffect(() => {
     void hydrateOrgEntitlements().then(() => {
@@ -124,12 +138,32 @@ const AppSidebar: React.FC = () => {
     });
     const onEntitlements = () => setEntitlementsTick((n) => n + 1);
     const onProfileUpdated = () => setUserTick((n) => n + 1);
+    const onBrandingUpdated = (event: Event) => {
+      const detail = (event as CustomEvent).detail as
+        | { branding?: BrokerPortalBranding; portal?: string }
+        | undefined;
+      if (detail?.portal && detail.portal !== "broker") return;
+      if (detail?.branding) {
+        setBranding(detail.branding);
+        return;
+      }
+      setBranding(readStoredBrokerBranding("broker"));
+    };
     window.addEventListener(ORG_ENTITLEMENTS_UPDATED_EVENT, onEntitlements);
     window.addEventListener("broker-profile-updated", onProfileUpdated);
+    window.addEventListener(BROKER_BRANDING_UPDATED_EVENT, onBrandingUpdated);
     return () => {
       window.removeEventListener(ORG_ENTITLEMENTS_UPDATED_EVENT, onEntitlements);
       window.removeEventListener("broker-profile-updated", onProfileUpdated);
+      window.removeEventListener(
+        BROKER_BRANDING_UPDATED_EVENT,
+        onBrandingUpdated,
+      );
     };
+  }, []);
+
+  useEffect(() => {
+    void fetchBrokerPortalBranding("broker").then(setBranding);
   }, []);
 
   useEffect(() => {
@@ -296,13 +330,9 @@ const AppSidebar: React.FC = () => {
             name: "Settings",
             subItems: [
               {
-                name: "Branding",
+                name: "Branding & Domain",
                 path: "/settings/branding",
                 permission: "MANAGE_BRANDING" as PermissionKey,
-              },
-              {
-                name: "Plan & Add-ons",
-                path: "/settings/plan",
               },
               // {
               //   icon: <FaAppStore />,
@@ -499,6 +529,10 @@ const AppSidebar: React.FC = () => {
   );
 
   const showLabels = isExpanded || isHovered || isMobileOpen;
+  const showUpgrade =
+    !isSubBroker &&
+    hasAnyPermission(["VIEW_COMPANY_SETTINGS"], "broker");
+  const upgradeActive = location.pathname.startsWith("/settings/plan");
 
   const sidebarUser = useMemo(() => {
     let stored: any = {};
@@ -593,25 +627,25 @@ const AppSidebar: React.FC = () => {
             <div className="flex items-center gap-2.5">
               <div className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-full bg-brand-500 ring-2 ring-brand-100">
                 <img
-                  src="/loanAutomation.jpeg"
-                  alt="Logo"
+                  src={resolveBrokerLogoUrl(branding.logoUrl)}
+                  alt={brandTitle}
                   className="h-full w-full object-cover"
                 />
               </div>
               <div className="min-w-0">
                 <p className="truncate text-[14px] font-semibold tracking-tight text-text-primary dark:text-white">
-                  LoanAutomation
+                  {brandTitle}
                 </p>
                 <p className="truncate text-[10px] font-semibold uppercase tracking-[0.14em] text-text-secondary">
-                  Broker Suite
+                  {portalLabel}
                 </p>
               </div>
             </div>
           ) : (
             <div className="mx-auto flex h-9 w-9 items-center justify-center overflow-hidden rounded-full bg-brand-500 ring-2 ring-brand-100">
               <img
-                src="/loanAutomation.jpeg"
-                alt="Logo"
+                src={resolveBrokerLogoUrl(branding.logoUrl)}
+                alt={brandTitle}
                 className="h-full w-full object-cover"
               />
             </div>
@@ -640,7 +674,7 @@ const AppSidebar: React.FC = () => {
       <div
         ref={userMenuRef}
         className={`relative shrink-0 border-t border-border dark:border-gray-800 ${
-          showLabels ? "p-3" : "px-2 py-3"
+          showLabels ? "space-y-2 p-3" : "space-y-2 px-2 py-3"
         }`}
       >
         {userMenuOpen ? (
@@ -660,6 +694,29 @@ const AppSidebar: React.FC = () => {
               Sign out
             </button>
           </div>
+        ) : null}
+
+        {showUpgrade ? (
+          <Link
+            to="/settings/plan"
+            title="Upgrade"
+            className={`flex items-center rounded-xl transition ${
+              showLabels
+                ? "gap-2.5 px-2.5 py-2.5"
+                : "mx-auto h-9 w-9 justify-center"
+            } ${
+              upgradeActive
+                ? "bg-brand-500 text-white shadow-sm shadow-brand-500/25"
+                : "border border-brand-500/20 bg-brand-500/10 text-brand-600 hover:bg-brand-500/15 dark:text-brand-300"
+            }`}
+          >
+            <Sparkles size={16} strokeWidth={1.75} className="shrink-0" />
+            {showLabels ? (
+              <span className="min-w-0 flex-1 truncate text-[13px] font-semibold">
+                Upgrade
+              </span>
+            ) : null}
+          </Link>
         ) : null}
 
         {showLabels ? (

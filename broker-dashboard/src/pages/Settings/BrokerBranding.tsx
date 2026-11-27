@@ -28,6 +28,10 @@ import {
   getBrandingCatchMessage,
   readBrandingApiResponse,
 } from "../../lib/brandingApiErrors";
+import {
+  DEFAULT_BROKER_LOGO,
+  emitBrokerBrandingUpdated,
+} from "../../lib/brokerBranding";
 
 const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:4000";
 
@@ -409,6 +413,14 @@ export default function BrokerBranding() {
           }),
         );
       }
+      emitBrokerBrandingUpdated(
+        {
+          logoUrl: next.logoUrl || DEFAULT_BROKER_LOGO,
+          brandName: next.brandName || null,
+          portalLabel: isLoanOfficerPortal ? "Loan Officer" : "Broker Suite",
+        },
+        isLoanOfficerPortal ? "loan-officer" : "broker",
+      );
       toast.success(
         next.customDomain && !json?.data?.domainVerified
           ? "Branding saved. Add the DNS records below, then verify your domain."

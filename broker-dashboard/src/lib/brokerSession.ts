@@ -32,6 +32,9 @@ export function clearBrokerSession() {
   sessionStorage.removeItem("broker_user_email");
   sessionStorage.removeItem("roles");
   sessionStorage.removeItem("permissions");
+  void import("./brokerBranding").then(({ clearStoredBrokerBranding }) =>
+    clearStoredBrokerBranding("broker"),
+  );
   void import("./chatSocketManager").then(({ disconnectChatSocket }) =>
     disconnectChatSocket(),
   );

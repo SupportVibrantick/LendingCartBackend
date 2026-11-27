@@ -27,7 +27,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "react-router";
 import { createPortal } from "react-dom";
 import toast from "react-hot-toast";
-// import Swal from "sweetalert2";
+import Swal from "sweetalert2";
 import PageMeta from "../../components/common/PageMeta";
 import StatPill from "../../components/common/StatPill";
 import CoBrokerFormModal from "../../components/coBroker/CoBrokerFormModal";
@@ -489,14 +489,70 @@ export default function SubBroker() {
     }
   };
 
-  const toggleStatus = async (id: string, currentStatus: string) => {
+  const confirmSuspendCoBroker = async (displayName: string) => {
+    const safeName = displayName
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;");
+
+    const result = await Swal.fire({
+      icon: "warning",
+      title: "Suspend co-broker?",
+      html: `<div style="text-align:left;font-size:14px;line-height:1.45;color:#334155">
+        <p style="margin:0 0 10px">You are about to suspend <strong>${safeName}</strong>.</p>
+        <p style="margin:0 0 10px">They will lose portal access until reactivated.</p>
+        <p style="margin:0;font-weight:600">Type <span style="font-family:ui-monospace,monospace;color:#b91c1c">SUSPEND</span> to confirm.</p>
+      </div>`,
+      input: "text",
+      inputPlaceholder: "Type SUSPEND",
+      inputAttributes: {
+        autocapitalize: "characters",
+        autocomplete: "off",
+        spellcheck: "false",
+      },
+      showCancelButton: true,
+      focusCancel: true,
+      confirmButtonText: "Suspend",
+      cancelButtonText: "Cancel",
+      confirmButtonColor: "#dc2626",
+      reverseButtons: true,
+      inputValidator: (value) => {
+        if ((value || "").trim() !== "SUSPEND") {
+          return "Type SUSPEND to confirm";
+        }
+        return null;
+      },
+    });
+
+    return result.isConfirmed;
+  };
+
+  const toggleStatus = async (
+    id: string,
+    currentStatus: string,
+    displayName?: string,
+  ) => {
     if (!canDisableCoBrokers) {
       toast.error("You don't have permission to disable co-brokers");
       return;
     }
+
+    const newStatus = currentStatus === "ACTIVE" ? "DISABLED" : "ACTIVE";
+    const broker = officers.find((o) => o.id === id);
+    const name =
+      displayName?.trim() ||
+      `${broker?.firstName || ""} ${broker?.lastName || ""}`.trim() ||
+      broker?.email ||
+      "this co-broker";
+
+    if (newStatus === "DISABLED") {
+      const confirmed = await confirmSuspendCoBroker(name);
+      if (!confirmed) return;
+    }
+
     try {
       setTogglingId(id);
-      const newStatus = currentStatus === "ACTIVE" ? "DISABLED" : "ACTIVE";
 
       const res = await fetch(`${API_BASE}/broker/sub-broker/${id}/status`, {
         method: "PATCH",
@@ -972,7 +1028,9 @@ export default function SubBroker() {
                               <button
                                 type="button"
                                 disabled={busy}
-                                onClick={() => toggleStatus(o.id, o.status)}
+                                onClick={() =>
+                                  toggleStatus(o.id, o.status, fullName)
+                                }
                                 className={`inline-flex h-8 items-center gap-1.5 rounded-lg px-3 text-xs font-semibold transition disabled:opacity-50 ${
                                   isActive
                                     ? "border border-border bg-white text-text-secondary hover:bg-surface dark:border-slate-700 dark:bg-slate-950"
@@ -1147,7 +1205,11 @@ export default function SubBroker() {
                   type="button"
                   disabled={togglingId === activeMenuUser.id}
                   onClick={() =>
-                    toggleStatus(activeMenuUser.id, activeMenuUser.status)
+                    toggleStatus(
+                      activeMenuUser.id,
+                      activeMenuUser.status,
+                      `${activeMenuUser.firstName} ${activeMenuUser.lastName}`.trim(),
+                    )
                   }
                   className="flex w-full items-center gap-2 px-3 py-2 text-xs text-text-primary transition hover:bg-[#4C78F5]/[0.06] disabled:opacity-50 dark:text-slate-200 dark:hover:bg-slate-900"
                 >

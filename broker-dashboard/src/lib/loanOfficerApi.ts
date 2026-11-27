@@ -36,6 +36,9 @@ export function clearLoanOfficerSession() {
   sessionStorage.removeItem(LO_USER_KEY);
   sessionStorage.removeItem("roles");
   sessionStorage.removeItem("permissions");
+  void import("./brokerBranding").then(({ clearStoredBrokerBranding }) =>
+    clearStoredBrokerBranding("loan-officer"),
+  );
   void import("./chatSocketManager").then(({ disconnectChatSocket }) =>
     disconnectChatSocket(),
   );

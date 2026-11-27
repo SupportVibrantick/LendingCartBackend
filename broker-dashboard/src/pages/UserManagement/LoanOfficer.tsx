@@ -28,7 +28,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useLocation, useNavigate, useSearchParams } from "react-router";
 import { createPortal } from "react-dom";
 import toast from "react-hot-toast";
-// import Swal from "sweetalert2";
+import Swal from "sweetalert2";
 // import Select from "react-select";
 import PageMeta from "../../components/common/PageMeta";
 import StatPill from "../../components/common/StatPill";
@@ -377,11 +377,65 @@ export default function LoanOfficersPage() {
   };
 
   /* ================= STATUS ================= */
-  const toggleStatus = async (id: string, status: string) => {
+  const confirmSuspendLoanOfficer = async (displayName: string) => {
+    const safeName = displayName
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;");
+
+    const result = await Swal.fire({
+      icon: "warning",
+      title: "Suspend loan officer?",
+      html: `<div style="text-align:left;font-size:14px;line-height:1.45;color:#334155">
+        <p style="margin:0 0 10px">You are about to suspend <strong>${safeName}</strong>.</p>
+        <p style="margin:0 0 10px">They will lose portal access until reactivated.</p>
+        <p style="margin:0;font-weight:600">Type <span style="font-family:ui-monospace,monospace;color:#b91c1c">SUSPEND</span> to confirm.</p>
+      </div>`,
+      input: "text",
+      inputPlaceholder: "Type SUSPEND",
+      inputAttributes: {
+        autocapitalize: "characters",
+        autocomplete: "off",
+        spellcheck: "false",
+      },
+      showCancelButton: true,
+      focusCancel: true,
+      confirmButtonText: "Suspend",
+      cancelButtonText: "Cancel",
+      confirmButtonColor: "#dc2626",
+      reverseButtons: true,
+      inputValidator: (value) => {
+        if ((value || "").trim() !== "SUSPEND") {
+          return "Type SUSPEND to confirm";
+        }
+        return null;
+      },
+    });
+
+    return result.isConfirmed;
+  };
+
+  const toggleStatus = async (
+    id: string,
+    status: string,
+    displayName?: string,
+  ) => {
+    const newStatus = status === "ACTIVE" ? "DISABLED" : "ACTIVE";
+    const officer = officers.find((o) => o.id === id);
+    const name =
+      displayName?.trim() ||
+      `${officer?.firstName || ""} ${officer?.lastName || ""}`.trim() ||
+      officer?.email ||
+      "this loan officer";
+
+    if (newStatus === "DISABLED") {
+      const confirmed = await confirmSuspendLoanOfficer(name);
+      if (!confirmed) return;
+    }
+
     try {
       setTogglingId(id);
-
-      const newStatus = status === "ACTIVE" ? "DISABLED" : "ACTIVE";
 
       const res = await fetch(`${API_BASE}/broker/users/${id}/status`, {
         method: "PATCH",
@@ -396,7 +450,11 @@ export default function LoanOfficersPage() {
         return;
       }
 
-      toast.success("Status updated");
+      toast.success(
+        newStatus === "DISABLED"
+          ? "Loan officer suspended"
+          : "Loan officer activated",
+      );
       closeRowMenu();
       fetchOfficers();
     } catch (err) {
@@ -1098,7 +1156,9 @@ export default function LoanOfficersPage() {
                             <button
                               type="button"
                               disabled={busy}
-                              onClick={() => toggleStatus(o.id, o.status)}
+                              onClick={() =>
+                                toggleStatus(o.id, o.status, fullName)
+                              }
                               className={`inline-flex h-8 items-center gap-1.5 rounded-lg px-3 text-xs font-semibold transition disabled:opacity-50 ${
                                 isActive
                                   ? "border border-border bg-white text-text-secondary hover:bg-surface dark:border-slate-700 dark:bg-slate-950"
@@ -1275,7 +1335,13 @@ export default function LoanOfficersPage() {
               <button
                 type="button"
                 disabled={togglingId === activeMenuUser.id}
-                onClick={() => toggleStatus(activeMenuUser.id, activeMenuUser.status)}
+                onClick={() =>
+                  toggleStatus(
+                    activeMenuUser.id,
+                    activeMenuUser.status,
+                    `${activeMenuUser.firstName} ${activeMenuUser.lastName}`.trim(),
+                  )
+                }
                 className="flex w-full items-center gap-2 px-3 py-2 text-xs text-text-primary transition hover:bg-[#4C78F5]/[0.06] disabled:opacity-50 dark:text-slate-200 dark:hover:bg-slate-900"
               >
                 <Power

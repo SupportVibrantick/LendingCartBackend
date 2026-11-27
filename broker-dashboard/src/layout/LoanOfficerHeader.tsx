@@ -86,7 +86,7 @@ function resolvePageTitle(pathname: string) {
   if (pathname.startsWith("/loan-officer/email-marketing")) {
     return "Email Marketing";
   }
-  if (pathname.startsWith("/loan-officer/settings/branding")) return "Branding";
+  if (pathname.startsWith("/loan-officer/settings/branding")) return "Branding & Domain";
   if (pathname.startsWith("/loan-officer/settings/integrations")) {
     return "Integrations";
   }

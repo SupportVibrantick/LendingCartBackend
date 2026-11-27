@@ -38,13 +38,14 @@ const PORTAL_BRAND: Record<
   },
   "sub-broker": {
     title: "Co-Broker Portal",
-    subtitle: "Collaborate on assigned loans with your broker team.",
+    subtitle:
+      "Your assigned pipeline, documents, and broker updates — in one place.",
     homePath: "/sub-broker/login",
     features: [
-      "Work assigned loan applications",
-      "Upload and manage borrower documents",
-      "Stay in sync with the broker team",
-      "Track application progress in real time",
+      "Work your assigned loan pipeline",
+      "Collaborate with your broker team",
+      "Upload documents and track progress",
+      "Chat securely with your broker team",
     ],
   },
 };

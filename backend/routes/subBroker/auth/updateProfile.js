@@ -64,6 +64,7 @@ async function updateSubBrokerProfileRoutes(fastify) {
               );
             } else if (
               [
+                "company",
                 "address",
                 "website",
                 "linkedinUrl",
