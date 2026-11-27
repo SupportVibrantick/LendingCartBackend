@@ -232,12 +232,59 @@ async function fulfillStripeCheckoutSession(prisma, io, session) {
     };
   }
 
-  const checkout = await prisma.loanAiGhlCheckout.findUnique({
-    where: { id: checkoutId },
-    include: { package: true },
-  });
+  let checkout = null;
+  const looksLikeUuid =
+    typeof checkoutId === "string" &&
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
+      checkoutId,
+    );
+  if (looksLikeUuid) {
+    checkout = await prisma.loanAiGhlCheckout.findUnique({
+      where: { id: checkoutId },
+      include: { package: true },
+    });
+  }
 
   if (!checkout) {
+    // Fallback: ADDON_UPGRADE paid without a LoanAiGhlCheckout row
+    // (legacy broker orgs that had no LoanAiUser / checkout record).
+    const meta = session?.metadata || {};
+    const isAddOnUpgrade =
+      String(meta.type || "").toUpperCase() === "ADDON_UPGRADE";
+    const organizationSubscriptionId =
+      meta.organizationSubscriptionId || null;
+    let addOnCodes = String(meta.addOnCodes || "")
+      .split(",")
+      .map((c) => c.trim().toUpperCase())
+      .filter(Boolean);
+    if (!addOnCodes.length && session?.id) {
+      try {
+        addOnCodes = await extractAddOnCodesFromStripeSession(session.id);
+      } catch {
+        addOnCodes = [];
+      }
+    }
+    if (isAddOnUpgrade && organizationSubscriptionId && addOnCodes.length) {
+      const { applyAddOnUpgrade } = require("../subscription/subscriptionBilling");
+      const upgrade = await applyAddOnUpgrade(prisma, {
+        organizationSubscriptionId,
+        deltaCodes: addOnCodes,
+        notes: "Add-ons unlocked via Stripe (checkout-row fallback)",
+        ghlInvoiceId: session?.id || null,
+        ghlSubscriptionId:
+          typeof session?.subscription === "string"
+            ? session.subscription
+            : session?.subscription?.id || null,
+        markPaid: true,
+      });
+      return {
+        action: "stripe_addon_upgrade_fulfilled_without_checkout_row",
+        checkoutId,
+        sessionId: session?.id,
+        organizationSubscriptionId: upgrade.subscription.id,
+      };
+    }
+
     return {
       action: "stripe_checkout_not_found",
       checkoutId,
