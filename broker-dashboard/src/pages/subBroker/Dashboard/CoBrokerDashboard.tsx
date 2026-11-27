@@ -101,7 +101,7 @@ const PERIOD_OPTIONS: { value: DashboardPeriod; label: string; short: string }[]
     { value: "30d", label: "Last 30 days", short: "30D" },
     { value: "90d", label: "Last 90 days", short: "90D" },
     { value: "12m", label: "Last 12 months", short: "12M" },
-  ];
+];
 
 const STATUS_TO_PIPELINE: Record<string, string> = {
   DRAFT: "DRAFT",
@@ -509,22 +509,22 @@ export default function CoBrokerDashboard() {
           {actions.length > 0 ? (
             <div className="mt-5 grid grid-cols-2 gap-2 sm:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-6">
               {actions.map((action) => (
-                <Link
-                  key={action.path}
-                  to={action.path}
+              <Link
+                key={action.path}
+                to={action.path}
                   className="group flex items-center gap-2.5 rounded-xl border border-border bg-surface px-3 py-2.5 transition hover:border-brand-200 hover:bg-white dark:border-slate-700 dark:bg-slate-800/80"
                 >
                   <span
                     className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-xl ${action.tone}`}
-                  >
+              >
                     <action.icon className="h-4 w-4" />
                   </span>
                   <span className="truncate text-[13px] font-semibold text-text-primary dark:text-slate-200">
-                    {action.label}
+                {action.label}
                   </span>
-                </Link>
-              ))}
-            </div>
+              </Link>
+            ))}
+          </div>
           ) : null}
         </section>
 
@@ -562,11 +562,11 @@ export default function CoBrokerDashboard() {
             }
           />
 
-          <EcommerceMetrics
-            stats={stats}
-            loading={loading}
-            onStatClick={(key) => openPipeline(METRIC_TO_PIPELINE[key])}
-          />
+        <EcommerceMetrics
+          stats={stats}
+          loading={loading}
+          onStatClick={(key) => openPipeline(METRIC_TO_PIPELINE[key])}
+        />
 
           <div className="grid grid-cols-12 gap-4">
             <div className="col-span-12 lg:col-span-4">
@@ -593,30 +593,30 @@ export default function CoBrokerDashboard() {
 
             <div className="col-span-12 xl:col-span-7">
               <ConversionFunnelChart
-                stats={stats}
-                loading={loading}
-                onStageClick={(statusKey) =>
-                  openPipeline(STATUS_TO_PIPELINE[statusKey])
-                }
-              />
-            </div>
+          stats={stats}
+          loading={loading}
+          onStageClick={(statusKey) =>
+            openPipeline(STATUS_TO_PIPELINE[statusKey])
+          }
+        />
+          </div>
             <div className="col-span-12 xl:col-span-5">
-              <StatusDistributionChart
-                stats={stats}
-                loading={loading}
-                onStatusClick={(statusKey) =>
-                  openPipeline(STATUS_TO_PIPELINE[statusKey])
-                }
-              />
-            </div>
+            <StatusDistributionChart
+              stats={stats}
+              loading={loading}
+              onStatusClick={(statusKey) =>
+                openPipeline(STATUS_TO_PIPELINE[statusKey])
+              }
+            />
+          </div>
 
             <div className="col-span-12 xl:col-span-8">
               <StatisticsChart stats={stats} loading={loading} />
-            </div>
-            <div className="col-span-12 xl:col-span-4">
-              <ProductVolumeChart stats={stats} loading={loading} />
-            </div>
           </div>
+          <div className="col-span-12 xl:col-span-4">
+            <ProductVolumeChart stats={stats} loading={loading} />
+          </div>
+        </div>
         </section>
 
         {canViewCommissions ? (
@@ -741,18 +741,18 @@ export default function CoBrokerDashboard() {
             description="Latest files assigned to you."
             action={
               canViewPipeline ? (
-                <Link
-                  to="/sub-broker/loan-pipeline"
+            <Link
+              to="/sub-broker/loan-pipeline"
                   className="inline-flex items-center gap-1 text-[13px] font-semibold text-brand-500 hover:underline"
-                >
-                  View all
+            >
+              View all
                   <ArrowRight className="h-3.5 w-3.5" />
-                </Link>
+            </Link>
               ) : undefined
             }
           />
           <div className="overflow-hidden rounded-2xl border border-border bg-white dark:border-slate-700 dark:bg-slate-900">
-            {loading ? (
+          {loading ? (
               <div className="overflow-x-auto">
                 <table className="ds-table min-w-[900px] w-full">
                   <thead>
@@ -778,7 +778,7 @@ export default function CoBrokerDashboard() {
                     </tr>
                   </thead>
                   <tbody>
-                    {Array.from({ length: 5 }).map((_, i) => (
+              {Array.from({ length: 5 }).map((_, i) => (
                       <tr key={i}>
                         {Array.from({ length: 7 }).map((__, cell) => (
                           <td key={cell}>
@@ -789,31 +789,31 @@ export default function CoBrokerDashboard() {
                     ))}
                   </tbody>
                 </table>
-              </div>
-            ) : recent.length === 0 ? (
+            </div>
+          ) : recent.length === 0 ? (
               <div className="px-6 py-14 text-center">
                 <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-xl bg-[#4C78F5]/10 text-[#4C78F5]">
                   <SearchX className="h-5 w-5" />
                 </div>
                 <p className="text-sm font-semibold text-text-primary">
-                  No applications yet
-                </p>
+                No applications yet
+              </p>
                 <p className="mt-1.5 text-xs text-text-secondary">
                   Start a new loan file to see it here.
                 </p>
                 {canCreateApp ? (
-                  <button
-                    type="button"
-                    onClick={() => navigate("/sub-broker/loan-application")}
+              <button
+                type="button"
+                onClick={() => navigate("/sub-broker/loan-application")}
                     className="ds-btn-primary mt-4 h-9 px-4 text-xs"
-                  >
+              >
                     Create application
                     <ArrowRight className="h-3.5 w-3.5" />
-                  </button>
+              </button>
                 ) : null}
-              </div>
-            ) : (
-              <div className="overflow-x-auto">
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
                 <table className="ds-table min-w-[900px] w-full">
                   <thead>
                     <tr>
@@ -835,15 +835,15 @@ export default function CoBrokerDashboard() {
                           {label}
                         </th>
                       ))}
-                    </tr>
-                  </thead>
+                  </tr>
+                </thead>
                   <tbody>
                     {recent.map((row) => {
                       const product = formatProductLabel(row.loanInfo);
 
                       return (
-                        <tr
-                          key={row.submissionId}
+                    <tr
+                      key={row.submissionId}
                           className="cursor-pointer"
                           onClick={() => openRecent(row)}
                         >
@@ -867,7 +867,7 @@ export default function CoBrokerDashboard() {
                                 </p>
                               </div>
                             </div>
-                          </td>
+                      </td>
                           <td title={product}>
                             {product === "—" ? (
                               <span className="text-[12px] font-medium italic text-text-secondary/70">
@@ -878,12 +878,12 @@ export default function CoBrokerDashboard() {
                                 {product}
                               </span>
                             )}
-                          </td>
+                      </td>
                           <td>
                             <span className="ds-table-amount">
                               {formatRecentAmount(row.amount)}
                             </span>
-                          </td>
+                      </td>
                           <td>
                             {row.lenderCount > 0 && row.lenderName ? (
                               <div
@@ -905,19 +905,19 @@ export default function CoBrokerDashboard() {
                                 Not sent
                               </span>
                             )}
-                          </td>
+                      </td>
                           <td>
-                            <span
+                        <span
                               className={`inline-flex max-w-full items-center truncate rounded-full px-2.5 py-1 text-[11px] font-semibold ring-1 ring-inset ${statusBadgeClass(row.status)}`}
-                            >
-                              {statusLabel(row.status)}
-                            </span>
-                          </td>
+                        >
+                          {statusLabel(row.status)}
+                        </span>
+                      </td>
                           <td className="ds-table-muted whitespace-nowrap">
-                            {row.submittedOn
-                              ? formatUsDate(row.submittedOn)
-                              : "—"}
-                          </td>
+                        {row.submittedOn
+                          ? formatUsDate(row.submittedOn)
+                          : "—"}
+                      </td>
                           <td
                             className="!text-right"
                             onClick={(e) => e.stopPropagation()}
@@ -931,14 +931,14 @@ export default function CoBrokerDashboard() {
                               Open
                               <ExternalLink size={13} />
                             </button>
-                          </td>
-                        </tr>
+                      </td>
+                    </tr>
                       );
                     })}
-                  </tbody>
-                </table>
-              </div>
-            )}
+                </tbody>
+              </table>
+            </div>
+          )}
           </div>
         </section>
       </div>

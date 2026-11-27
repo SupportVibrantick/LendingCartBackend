@@ -793,7 +793,7 @@ export default function Profile() {
                   <Trash2 size={12} />
                 </button>
               )}
-            </div>
+        </div>
 
             <div className="min-w-0 flex-1 overflow-hidden">
               <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[#4C78F5]">
@@ -803,7 +803,7 @@ export default function Profile() {
                 className="mt-1 max-w-full overflow-hidden text-ellipsis whitespace-nowrap text-lg font-semibold tracking-tight text-slate-900 dark:text-white sm:text-xl"
                 title={displayName}
               >
-                {displayName}
+              {displayName}
               </h1>
               <div className="mt-2 space-y-1 text-sm text-slate-500">
                 <p className="flex min-w-0 items-center gap-1.5 overflow-hidden">
@@ -840,13 +840,13 @@ export default function Profile() {
                       <p className="flex items-center gap-2 text-sm text-[#4C78F5]">
                         <span className="h-2 w-2 animate-pulse rounded-full bg-[#4C78F5]" />
                         Processing image…
-                      </p>
-                    )}
+              </p>
+            )}
                     {!imageProcessing &&
                       removeProfileImage &&
                       !profileImage && (
                         <p className="text-sm font-medium text-amber-700 dark:text-amber-300">
-                          Photo will be removed when you save.
+                Photo will be removed when you save.
                         </p>
                       )}
                     {!imageProcessing && profileImage && (
@@ -860,8 +860,8 @@ export default function Profile() {
                     {!imageProcessing && imageError && (
                       <p className="text-sm font-medium text-amber-700 dark:text-amber-300">
                         {imageError}
-                      </p>
-                    )}
+              </p>
+            )}
                   </div>
                 )}
             </div>
@@ -898,10 +898,10 @@ export default function Profile() {
             description="Your name and phone as shown across the loan officer portal."
           >
             <div className="grid min-w-0 gap-4 md:grid-cols-2">
-              <ProfileField
-                label="First Name"
-                value={firstName}
-                editing={editing}
+                <ProfileField
+                  label="First Name"
+                  value={firstName}
+                  editing={editing}
                 onChange={(v) => {
                   const next = sanitizeName(v);
                   setFirstName(next);
@@ -912,7 +912,7 @@ export default function Profile() {
                   setTouched((t) => ({ ...t, firstName: true }));
                   setFieldError("firstName", firstName);
                 }}
-                icon={<User size={14} />}
+                  icon={<User size={14} />}
                 error={
                   touched.firstName || formErrors.firstName
                     ? formErrors.firstName ||
@@ -922,11 +922,11 @@ export default function Profile() {
                 }
                 maxLength={50}
                 fieldKey="firstName"
-              />
-              <ProfileField
-                label="Last Name"
-                value={lastName}
-                editing={editing}
+                />
+                <ProfileField
+                  label="Last Name"
+                  value={lastName}
+                  editing={editing}
                 onChange={(v) => {
                   const next = sanitizeName(v);
                   setLastName(next);
@@ -937,7 +937,7 @@ export default function Profile() {
                   setTouched((t) => ({ ...t, lastName: true }));
                   setFieldError("lastName", lastName);
                 }}
-                icon={<User size={14} />}
+                  icon={<User size={14} />}
                 error={
                   touched.lastName || formErrors.lastName
                     ? formErrors.lastName ||
@@ -947,11 +947,11 @@ export default function Profile() {
                 }
                 maxLength={50}
                 fieldKey="lastName"
-              />
-              <ProfileField
-                label="Phone"
-                value={phone}
-                editing={editing}
+                />
+                <ProfileField
+                  label="Phone"
+                  value={phone}
+                  editing={editing}
                 onChange={(v) => {
                   const next = formatPhone(v);
                   setPhone(next);
@@ -962,7 +962,7 @@ export default function Profile() {
                   setTouched((t) => ({ ...t, phone: true }));
                   setFieldError("phone", phone);
                 }}
-                icon={<Phone size={14} />}
+                  icon={<Phone size={14} />}
                 error={
                   touched.phone || formErrors.phone
                     ? formErrors.phone ||
@@ -970,9 +970,9 @@ export default function Profile() {
                       undefined
                     : undefined
                 }
-                maxLength={12}
+                  maxLength={12}
                 type="tel"
-                placeholder="888-888-8888"
+                  placeholder="888-888-8888"
                 fieldKey="phone"
               />
               <div className="md:col-span-2">
@@ -1018,10 +1018,10 @@ export default function Profile() {
                   fieldKey="company"
                 />
               </div>
-              <ProfileField
-                label="License Number"
-                value={licenseNumber}
-                editing={editing}
+                <ProfileField
+                  label="License Number"
+                  value={licenseNumber}
+                  editing={editing}
                 onChange={(v) => {
                   const next = sanitizeLicenseNumber(v);
                   setLicenseNumber(next);
@@ -1032,7 +1032,7 @@ export default function Profile() {
                   setTouched((t) => ({ ...t, licenseNumber: true }));
                   setFieldError("licenseNumber", licenseNumber);
                 }}
-                icon={<Briefcase size={14} />}
+                  icon={<Briefcase size={14} />}
                 error={
                   touched.licenseNumber || formErrors.licenseNumber
                     ? formErrors.licenseNumber ||
@@ -1043,11 +1043,11 @@ export default function Profile() {
                 maxLength={30}
                 fieldKey="licenseNumber"
                 placeholder="e.g. CA-123456"
-              />
-              <ProfileField
-                label="Address"
-                value={address}
-                editing={editing}
+                />
+                <ProfileField
+                  label="Address"
+                  value={address}
+                  editing={editing}
                 onChange={(v) => {
                   const next = v.slice(0, 200);
                   setAddress(next);
@@ -1068,11 +1068,11 @@ export default function Profile() {
                 }
                 maxLength={200}
                 fieldKey="address"
-              />
-              <ProfileField
-                label="City"
-                value={city}
-                editing={editing}
+                />
+                <ProfileField
+                  label="City"
+                  value={city}
+                  editing={editing}
                 onChange={(v) => {
                   const next = sanitizeCity(v);
                   setCity(next);
@@ -1091,11 +1091,11 @@ export default function Profile() {
                 }
                 maxLength={50}
                 fieldKey="city"
-              />
-              <ProfileField
-                label="State"
-                value={state}
-                editing={editing}
+                />
+                <ProfileField
+                  label="State"
+                  value={state}
+                  editing={editing}
                 onChange={(v) => {
                   const next = normalizeStateCode(v);
                   setState(next);
@@ -1118,11 +1118,11 @@ export default function Profile() {
                 placeholder="Select state"
                 options={STATE_OPTIONS}
                 displayValue={stateDisplay}
-              />
-              <ProfileField
-                label="ZIP Code"
-                value={zipCode}
-                editing={editing}
+                />
+                <ProfileField
+                  label="ZIP Code"
+                  value={zipCode}
+                  editing={editing}
                 onChange={(v) => {
                   const next = sanitizeZipCode(v);
                   setZipCode(next);
@@ -1145,11 +1145,11 @@ export default function Profile() {
                 fieldKey="zipCode"
                 type="tel"
                 placeholder="12345"
-              />
-              <ProfileField
-                label="Website"
-                value={website}
-                editing={editing}
+                />
+                <ProfileField
+                  label="Website"
+                  value={website}
+                  editing={editing}
                 onChange={(v) => {
                   const next = sanitizeWebsiteHost(v);
                   setWebsite(next);
@@ -1173,20 +1173,20 @@ export default function Profile() {
                 placeholder="example.com"
                 prefix={WEBSITE_PREFIX}
                 displayValue={website ? toWebsiteUrl(website) : ""}
-              />
-            </div>
+                />
+              </div>
           </SectionCard>
 
-          <SelfBankingPanel
-            portal="loanOfficer"
-            apiBase={LO_API_BASE}
-            getAuthHeaders={() => ({
-              "Content-Type": "application/json",
-              ...(getLoanOfficerToken()
-                ? { Authorization: `Bearer ${getLoanOfficerToken()}` }
-                : {}),
-            })}
-            checkResponse={checkLoanOfficerResponse}
+            <SelfBankingPanel
+              portal="loanOfficer"
+              apiBase={LO_API_BASE}
+              getAuthHeaders={() => ({
+                "Content-Type": "application/json",
+                ...(getLoanOfficerToken()
+                  ? { Authorization: `Bearer ${getLoanOfficerToken()}` }
+                  : {}),
+              })}
+              checkResponse={checkLoanOfficerResponse}
             title="Payout bank account"
             description="US bank account used to receive commission ACH from your principal broker."
           />
@@ -1224,11 +1224,11 @@ export default function Profile() {
 
               {showPasswordSection && (
                 <div className="mt-4 grid gap-3 border-t border-slate-200 pt-4 dark:border-slate-700 md:grid-cols-2">
-                  <PasswordField
-                    label="Current password"
-                    value={currentPassword}
-                    show={showCurrentPassword}
-                    onToggle={() => setShowCurrentPassword((prev) => !prev)}
+                    <PasswordField
+                      label="Current password"
+                      value={currentPassword}
+                      show={showCurrentPassword}
+                      onToggle={() => setShowCurrentPassword((prev) => !prev)}
                     onChange={(v) => {
                       setCurrentPassword(v);
                       setPasswordErrors((prev) => {
@@ -1237,12 +1237,12 @@ export default function Profile() {
                       });
                     }}
                     error={passwordErrors.currentPassword}
-                  />
-                  <PasswordField
-                    label="New password"
-                    value={newPassword}
-                    show={showNewPassword}
-                    onToggle={() => setShowNewPassword((prev) => !prev)}
+                    />
+                    <PasswordField
+                      label="New password"
+                      value={newPassword}
+                      show={showNewPassword}
+                      onToggle={() => setShowNewPassword((prev) => !prev)}
                     onChange={(v) => {
                       setNewPassword(v);
                       const message = validateNewPassword(v);
@@ -1259,12 +1259,12 @@ export default function Profile() {
                       });
                     }}
                     error={passwordErrors.newPassword}
-                  />
-                  <PasswordField
-                    label="Confirm new password"
-                    value={confirmPassword}
-                    show={showNewPassword}
-                    onToggle={() => setShowNewPassword((prev) => !prev)}
+                    />
+                    <PasswordField
+                      label="Confirm new password"
+                      value={confirmPassword}
+                      show={showNewPassword}
+                      onToggle={() => setShowNewPassword((prev) => !prev)}
                     onChange={(v) => {
                       setConfirmPassword(v);
                       setPasswordErrors((prev) => {
@@ -1296,7 +1296,7 @@ export default function Profile() {
               )}
             </div>
           </SectionCard>
-        </div>
+          </div>
 
         <aside className="space-y-4 lg:sticky lg:top-6 lg:self-start">
           <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-none dark:border-slate-800 dark:bg-slate-950">
@@ -1318,7 +1318,7 @@ export default function Profile() {
               >
                 <span className="relative flex h-2 w-2">
                   {user.status !== "DISABLED" && (
-                    <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-40" />
+                  <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-40" />
                   )}
                   <span
                     className={`relative inline-flex h-2 w-2 rounded-full ${
@@ -1354,7 +1354,7 @@ export default function Profile() {
                 >
                   {user.email}
                 </p>
-              </div>
+            </div>
 
               {user.organizationName ? (
                 <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-3 dark:border-slate-700 dark:bg-slate-900">
@@ -1375,17 +1375,17 @@ export default function Profile() {
 
           <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-none dark:border-slate-800 dark:bg-slate-950">
             <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[#4C78F5]">
-              Tip
-            </p>
+                Tip
+              </p>
             <p className="mt-2 text-sm leading-relaxed text-slate-600 dark:text-slate-300">
               Keep your photo, license, and contact details updated so brokers
               and clients recognize you across the pipeline.
-            </p>
-          </div>
-        </aside>
-      </div>
+              </p>
+            </div>
+          </aside>
+        </div>
 
-      {editing && (
+        {editing && (
         <div className="sticky bottom-4 z-20 mt-1 rounded-xl border border-slate-200 bg-white p-3.5 shadow-none dark:border-slate-800 dark:bg-slate-950">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div className="min-w-0">
@@ -1399,33 +1399,33 @@ export default function Profile() {
               </p>
             </div>
             <div className="flex shrink-0 items-center gap-2">
-              <button
-                type="button"
-                onClick={cancelEdit}
+            <button
+              type="button"
+              onClick={cancelEdit}
                 className="inline-flex h-10 items-center rounded-lg border border-slate-200 px-4 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800"
-              >
-                Discard
-              </button>
-              <button
-                type="button"
+            >
+              Discard
+            </button>
+            <button
+              type="button"
                 onClick={() => void handleSave()}
-                disabled={saving || !isChanged}
+              disabled={saving || !isChanged}
                 className="inline-flex h-10 items-center gap-2 rounded-lg bg-[#4C78F5] px-4 text-sm font-semibold text-white transition hover:bg-[#3B66E0] disabled:cursor-not-allowed disabled:bg-slate-300 disabled:text-slate-500 dark:disabled:bg-slate-800 dark:disabled:text-slate-500"
-              >
-                {saving ? (
+            >
+              {saving ? (
                   "Saving…"
-                ) : (
-                  <>
-                    <Check size={16} />
-                    Save Changes
-                  </>
-                )}
-              </button>
+              ) : (
+                <>
+                  <Check size={16} />
+                  Save Changes
+                </>
+              )}
+            </button>
             </div>
           </div>
-        </div>
-      )}
-    </div>
+          </div>
+        )}
+      </div>
   );
 }
 
@@ -1447,7 +1447,7 @@ function SectionCard({
         {description ? (
           <p className="mt-0.5 text-sm text-slate-500">{description}</p>
         ) : null}
-      </div>
+    </div>
       <div className="p-4">{children}</div>
     </section>
   );
@@ -1541,14 +1541,14 @@ function ProfileField({
               />
             </div>
           ) : (
-            <input
-              type={type}
-              value={value}
-              maxLength={maxLength}
-              placeholder={placeholder}
+        <input
+          type={type}
+          value={value}
+          maxLength={maxLength}
+          placeholder={placeholder}
               title={value || undefined}
-              inputMode={type === "tel" ? "numeric" : undefined}
-              onChange={(e) => onChange(e.target.value)}
+          inputMode={type === "tel" ? "numeric" : undefined}
+          onChange={(e) => onChange(e.target.value)}
               onBlur={onBlur}
               aria-invalid={hasError}
               className={`${inputClass} ${errorBorderClass}`}

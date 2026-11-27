@@ -193,7 +193,7 @@ export default function LoiRequiredDocumentsPicker({
         <div className="min-w-0">
           <div className="flex items-center gap-2 text-sm font-semibold text-slate-900 dark:text-white">
             <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#4C78F5]/10 text-[#4C78F5]">
-              <FileText size={15} />
+            <FileText size={15} />
             </span>
             Required Documents
           </div>
@@ -203,7 +203,7 @@ export default function LoiRequiredDocumentsPicker({
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          {loading ? (
+        {loading ? (
             <span className="inline-flex items-center gap-1.5 text-sm text-slate-400">
               <Loader2 className="h-4 w-4 animate-spin" />
               Loading…
@@ -211,7 +211,7 @@ export default function LoiRequiredDocumentsPicker({
           ) : (
             <span className="inline-flex items-center rounded-full border border-slate-200 bg-white px-2.5 py-1 text-xs font-semibold text-slate-600 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-300">
               {selectedDocuments.length} selected
-            </span>
+          </span>
           )}
           {selectedDocuments.length > 0 ? (
             <button
@@ -222,24 +222,24 @@ export default function LoiRequiredDocumentsPicker({
             >
               Clear all
             </button>
-          ) : null}
-        </div>
+        ) : null}
+      </div>
       </div>
 
       <div className="space-y-4 p-4">
-        {selectedDocuments.length > 0 ? (
+      {selectedDocuments.length > 0 ? (
           <div>
             <p className="mb-2 text-xs font-semibold uppercase tracking-[0.08em] text-slate-500">
               Selected
-            </p>
-            <div className="flex flex-wrap gap-2">
-              {selectedDocuments.map((documentName) => (
-                <button
-                  key={`selected-${documentName}`}
-                  type="button"
-                  disabled={disabled}
-                  onClick={() => toggleDocument(documentName)}
-                  title="Click to remove"
+          </p>
+          <div className="flex flex-wrap gap-2">
+            {selectedDocuments.map((documentName) => (
+              <button
+                key={`selected-${documentName}`}
+                type="button"
+                disabled={disabled}
+                onClick={() => toggleDocument(documentName)}
+                title="Click to remove"
                   className="inline-flex items-center gap-1.5 rounded-lg border border-[#4C78F5]/30 bg-[#4C78F5]/10 px-2.5 py-1.5 text-sm font-medium text-[#3B66E0] transition hover:bg-[#4C78F5]/15 disabled:cursor-not-allowed disabled:opacity-60 dark:text-sky-300"
                 >
                   <Check size={14} className="shrink-0" />
@@ -250,13 +250,13 @@ export default function LoiRequiredDocumentsPicker({
                     </span>
                   ) : null}
                   <X size={13} className="shrink-0 opacity-70" />
-                </button>
-              ))}
-            </div>
+              </button>
+            ))}
           </div>
-        ) : null}
+        </div>
+      ) : null}
 
-        <div>
+          <div>
           <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
             <p className="text-xs font-semibold uppercase tracking-[0.08em] text-slate-500">
               Catalog
@@ -322,16 +322,16 @@ export default function LoiRequiredDocumentsPicker({
                     documentName.trim().toLowerCase(),
                   );
                   const custom = isCustomDocument(documentName);
-                  return (
-                    <button
-                      key={documentName}
-                      type="button"
-                      disabled={disabled}
-                      onClick={() => toggleDocument(documentName)}
+                return (
+                  <button
+                    key={documentName}
+                    type="button"
+                    disabled={disabled}
+                    onClick={() => toggleDocument(documentName)}
                       className={`inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-sm font-medium transition disabled:cursor-not-allowed disabled:opacity-60 ${
-                        active ? activeChipClassName : inactiveChipClassName
-                      }`}
-                    >
+                      active ? activeChipClassName : inactiveChipClassName
+                    }`}
+                  >
                       {active ? <Check size={14} className="shrink-0" /> : null}
                       <span className="max-w-[220px] truncate">
                         {documentName}
@@ -347,11 +347,11 @@ export default function LoiRequiredDocumentsPicker({
                           Custom
                         </span>
                       ) : null}
-                    </button>
-                  );
-                })}
-              </div>
+                  </button>
+                );
+              })}
             </div>
+          </div>
           )}
         </div>
 
@@ -360,28 +360,28 @@ export default function LoiRequiredDocumentsPicker({
             Add custom document
           </p>
           <div className="flex flex-col gap-2 sm:flex-row">
-            <input
-              value={customDocument}
+        <input
+          value={customDocument}
               disabled={disabled || addingCustom || !loanProductCode}
-              onChange={(e) => onCustomDocumentChange(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") {
-                  e.preventDefault();
-                  void addCustomDocument();
-                }
-              }}
+          onChange={(e) => onCustomDocumentChange(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") {
+              e.preventDefault();
+              void addCustomDocument();
+            }
+          }}
               placeholder="e.g. Rent Roll, Operating Agreement…"
               className="h-10 flex-1 rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-700 outline-none transition placeholder:text-slate-400 focus:border-[#4C78F5]/50 focus:ring-2 focus:ring-[#4C78F5]/15 disabled:cursor-not-allowed disabled:opacity-60 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
-            />
-            <button
-              type="button"
+        />
+        <button
+          type="button"
               disabled={
                 disabled ||
                 addingCustom ||
                 !loanProductCode ||
                 !customDocument.trim()
               }
-              onClick={() => void addCustomDocument()}
+          onClick={() => void addCustomDocument()}
               className="inline-flex h-10 items-center justify-center gap-1.5 rounded-lg bg-[#4C78F5] px-3.5 text-sm font-semibold text-white transition hover:bg-[#3B66E0] disabled:cursor-not-allowed disabled:opacity-50"
             >
               {addingCustom ? (
@@ -390,15 +390,15 @@ export default function LoiRequiredDocumentsPicker({
                 <Plus size={15} />
               )}
               {addingCustom ? "Adding…" : "Add"}
-            </button>
+        </button>
           </div>
           <p className="mt-2 text-xs text-slate-500 dark:text-slate-400">
             Custom documents stay private to your brokerage and are saved for
             this loan product.
           </p>
-        </div>
+      </div>
 
-        {error ? (
+      {error ? (
           <p className="text-sm text-rose-600">{error}</p>
         ) : null}
       </div>

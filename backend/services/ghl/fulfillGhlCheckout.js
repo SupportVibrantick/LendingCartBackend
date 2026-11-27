@@ -260,6 +260,139 @@ async function fulfillPaidGhlCheckout(prisma, io, checkout, paymentMeta = {}) {
           ? fresh.metadata
           : {};
       const isAddOnUpgrade = checkoutMeta.type === "ADDON_UPGRADE";
+      const isPlanUpgrade = checkoutMeta.type === "PLAN_UPGRADE";
+
+      if (isPlanUpgrade) {
+        const targetSubId =
+          checkoutMeta.organizationSubscriptionId || existingSub.id;
+        const extraUserTotal = Math.max(
+          0,
+          Math.floor(Number(checkoutMeta.extraUserTotal) || 0),
+        );
+        const featureAddOnCodes = Array.isArray(checkoutMeta.featureAddOnCodes)
+          ? checkoutMeta.featureAddOnCodes.map((c) => String(c).toUpperCase())
+          : String(checkoutMeta.featureAddOnCodes || "")
+              .split(",")
+              .map((c) => c.trim().toUpperCase())
+              .filter(Boolean);
+        const metaAddOnCodes = Array.isArray(checkoutMeta.addOnCodes)
+          ? checkoutMeta.addOnCodes.map((c) => String(c).toUpperCase())
+          : [];
+        const selectedFeatureCodes = [
+          ...new Set(
+            [
+              ...featureAddOnCodes,
+              ...metaAddOnCodes.filter((c) => c && c !== "EXTRA_USER"),
+            ].filter(Boolean),
+          ),
+        ];
+
+        await changePlan(prisma, {
+          organizationId: user.brokerOrganizationId,
+          packageId: fresh.packageId,
+          billingCycle: fresh.billingCycle,
+          notes: `Plan upgraded via payment (${checkoutMeta.fromPackageCode || "prior"} → ${checkoutMeta.toPackageCode || fresh.package?.code || "new"})`,
+          generateInvoice: true,
+        });
+
+        if (extraUserTotal > 0 || selectedFeatureCodes.length > 0) {
+          const {
+            flattenPurchasedAddOnCodes,
+            resolvePurchasedAddOns,
+          } = require("../../utils/subscription/addOnCatalog");
+          const currentSub = await prisma.organizationSubscription.findUnique({
+            where: { id: targetSubId },
+            include: { package: true },
+          });
+          const existingCodes = flattenPurchasedAddOnCodes(
+            currentSub?.purchasedAddOns,
+          ).filter((c) => String(c).toUpperCase() !== "EXTRA_USER");
+          const existingSet = new Set(
+            existingCodes.map((c) => String(c).toUpperCase()),
+          );
+          const newFeatureCodes = selectedFeatureCodes.filter(
+            (code) => !existingSet.has(code),
+          );
+          const mergedCodes = [
+            ...existingCodes,
+            ...newFeatureCodes,
+            ...Array.from({ length: extraUserTotal }, () => "EXTRA_USER"),
+          ];
+          const mergedPurchased = resolvePurchasedAddOns(
+            mergedCodes,
+            currentSub?.package?.code || fresh.package?.code,
+            fresh.billingCycle || currentSub?.billingCycle || "MONTHLY",
+            { allowIncludedOwned: true },
+          );
+          const deltaCodes = [
+            ...newFeatureCodes,
+            ...Array.from({ length: extraUserTotal }, () => "EXTRA_USER"),
+          ];
+          await applyAddOnUpgrade(prisma, {
+            organizationSubscriptionId: targetSubId,
+            mergedPurchased,
+            deltaCodes,
+            notes: "Add-ons / seats unlocked with plan upgrade",
+            ghlContactId,
+            ghlInvoiceId,
+            ghlSubscriptionId,
+            ghlTransactionId,
+            markPaid: true,
+          });
+        }
+
+        organizationSubscriptionId = targetSubId;
+        organizationId = user.brokerOrganizationId;
+
+        const updatedCheckoutEarly = await prisma.loanAiGhlCheckout.update({
+          where: { id: fresh.id },
+          data: {
+            status: "PAID",
+            paymentStatus: "PAID",
+            completedAt: new Date(),
+            ghlContactId: ghlContactId || fresh.ghlContactId,
+            ghlInvoiceId: ghlInvoiceId || fresh.ghlInvoiceId,
+            ghlSubscriptionId: ghlSubscriptionId || fresh.ghlSubscriptionId,
+            ghlPriceId: ghlPriceId || fresh.ghlPriceId,
+            ghlProductId: ghlProductId || fresh.ghlProductId,
+            currentPeriodStart: periodStart,
+            ...(periodEnd ? { currentPeriodEnd: periodEnd } : {}),
+          },
+        });
+
+        logPaymentStatusChanged({
+          checkoutId: updatedCheckoutEarly.id,
+          loanAiUserId: user.id,
+          packageId: fresh.packageId,
+          billingPeriod: fresh.billingCycle,
+          ghlContactId: updatedCheckoutEarly.ghlContactId,
+          ghlPriceId: updatedCheckoutEarly.ghlPriceId,
+          ghlInvoiceId: updatedCheckoutEarly.ghlInvoiceId,
+          ghlSubscriptionId: updatedCheckoutEarly.ghlSubscriptionId,
+          organizationSubscriptionId,
+          previousStatus: fresh.paymentStatus,
+          paymentStatus: "PAID",
+          status: "PAID",
+          amount: fresh.amount,
+          currency: fresh.currency,
+          reason: "plan_upgrade_fulfilled",
+        });
+
+        await sendPurchaseConfirmationEmail(prisma, fresh, {
+          ...orgDetails,
+          isPlanUpgrade: true,
+        });
+
+        return {
+          alreadyProcessed: false,
+          planUpgrade: true,
+          checkoutId: fresh.id,
+          organizationSubscriptionId,
+          loanAiUserId: user.id,
+          organizationId,
+          provisioned: false,
+        };
+      }
 
       if (isAddOnUpgrade) {
         const deltaCodes = Array.isArray(checkoutMeta.addOnCodes)
@@ -342,7 +475,9 @@ async function fulfillPaidGhlCheckout(prisma, io, checkout, paymentMeta = {}) {
           organizationId: user.brokerOrganizationId,
           packageId: fresh.packageId,
           billingCycle: fresh.billingCycle,
-          notes: "Updated via GHL payment webhook",
+          notes: isPlanUpgrade
+            ? `Plan upgraded via payment (${checkoutMeta.fromPackageCode || "prior"} → ${checkoutMeta.toPackageCode || fresh.package?.code || "new"})`
+            : "Updated via GHL payment webhook",
           generateInvoice: true,
         });
       }

@@ -129,13 +129,28 @@ function filterAddOnsForPackage(packageCode, billingCycle = "MONTHLY") {
     }));
 }
 
+function isAddOnIncludedInPackage(addOn, packageCode) {
+  const pkgCode = String(packageCode || "").toUpperCase();
+  return (addOn?.includedInPackageCodes || []).some(
+    (code) => String(code).toUpperCase() === pkgCode,
+  );
+}
+
 /**
  * @param {string[]} addOnCodes
  * @param {string} packageCode
  * @param {string} [billingCycle]
+ * @param {{ allowIncludedOwned?: boolean }} [options]
+ *   When true, keep codes that are included in the target plan (e.g. Starter
+ *   add-on already owned that becomes included after upgrading to Pro).
  * @returns {{ code: string, name: string, priceMonthly: number, quantity: number, usageBoost: object | null }[]}
  */
-function resolvePurchasedAddOns(addOnCodes, packageCode, billingCycle = "MONTHLY") {
+function resolvePurchasedAddOns(
+  addOnCodes,
+  packageCode,
+  billingCycle = "MONTHLY",
+  options = {},
+) {
   if (!Array.isArray(addOnCodes) || addOnCodes.length === 0) return [];
 
   const counts = new Map();
@@ -146,13 +161,15 @@ function resolvePurchasedAddOns(addOnCodes, packageCode, billingCycle = "MONTHLY
   }
 
   const resolved = [];
+  const allowIncludedOwned = Boolean(options.allowIncludedOwned);
 
   for (const [code, quantity] of counts.entries()) {
     const addOn = getAddOnByCode(code);
     if (!addOn) {
       throw Object.assign(new Error(`Unknown add-on: ${code}`), { statusCode: 400 });
     }
-    if (!isAddOnAvailableForPackage(addOn, packageCode)) {
+    const included = isAddOnIncludedInPackage(addOn, packageCode);
+    if (!isAddOnAvailableForPackage(addOn, packageCode) && !(allowIncludedOwned && included)) {
       throw Object.assign(
         new Error(`Add-on "${addOn.name}" is not available for this plan`),
         { statusCode: 400 },
@@ -161,7 +178,9 @@ function resolvePurchasedAddOns(addOnCodes, packageCode, billingCycle = "MONTHLY
     resolved.push({
       code: addOn.code,
       name: addOn.name,
-      priceMonthly: resolveAddOnPriceForPackage(addOn, packageCode, billingCycle),
+      priceMonthly: included
+        ? 0
+        : resolveAddOnPriceForPackage(addOn, packageCode, billingCycle),
       quantity: Math.max(1, quantity),
       usageBoost: addOn.usageBoost,
     });
@@ -378,6 +397,7 @@ module.exports = {
   getCatalogAddOns,
   getAddOnByCode,
   resolveAddOnPriceForPackage,
+  isAddOnAvailableForPackage,
   filterAddOnsForPackage,
   resolvePurchasedAddOns,
   getAddOnsMonthlyTotal,

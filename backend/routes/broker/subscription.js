@@ -3,6 +3,9 @@ const {
   startAddOnUpgradeCheckout,
 } = require("../../services/subscription/addOnUpgradeCheckout");
 const {
+  startPlanUpgradeCheckout,
+} = require("../../services/subscription/planUpgradeCheckout");
+const {
   getClmSubscriptionStatus,
   discontinueClmSoftTrial,
 } = require("../../services/subscription/clmDiscontinue");
@@ -144,6 +147,91 @@ async function brokerSubscriptionRoutes(fastify) {
           success: false,
           code: err.code || "ADDON_CHECKOUT_FAILED",
           message: err.message || "Failed to start add-on checkout",
+        });
+      }
+    },
+  );
+
+  fastify.post(
+    "/plan/upgrade",
+    {
+      schema: {
+        tags: ["Broker -> Subscription"],
+        summary:
+          "Start Stripe/GHL checkout to upgrade to a higher plan (Starter→Pro/Elite, Pro→Elite)",
+        body: {
+          type: "object",
+          properties: {
+            packageId: { type: "string" },
+            packageCode: { type: "string" },
+            billingCycle: { type: "string", enum: ["MONTHLY", "YEARLY"] },
+            extraUserTotal: { type: "number" },
+            addOnCodes: {
+              type: "array",
+              items: { type: "string" },
+            },
+            successUrl: { type: "string" },
+            cancelUrl: { type: "string" },
+          },
+        },
+      },
+    },
+    async (req, reply) => {
+      try {
+        const organizationId = req.user?.organizationId;
+        if (!organizationId) {
+          return reply.code(400).send({
+            success: false,
+            message: "Organization missing",
+          });
+        }
+
+        const roles = Array.isArray(req.user?.roles) ? req.user.roles : [];
+        if (!roles.includes("BROKER_ADMIN")) {
+          return reply.code(403).send({
+            success: false,
+            code: "FORBIDDEN",
+            message: "Only the broker admin can upgrade the plan.",
+          });
+        }
+
+        const body = req.body || {};
+        if (!body.packageId && !body.packageCode) {
+          return reply.code(400).send({
+            success: false,
+            message: "packageId or packageCode is required",
+          });
+        }
+
+        const result = await startPlanUpgradeCheckout(fastify.prisma, {
+          organizationId,
+          actorUser: {
+            email: req.user?.email,
+            firstName: req.user?.firstName,
+            lastName: req.user?.lastName,
+            name: req.user?.name,
+          },
+          packageId: body.packageId || undefined,
+          packageCode: body.packageCode || undefined,
+          billingCycle: body.billingCycle || undefined,
+          extraUserTotal:
+            body.extraUserTotal != null ? Number(body.extraUserTotal) : 0,
+          addOnCodes: Array.isArray(body.addOnCodes) ? body.addOnCodes : [],
+          successUrl: body.successUrl || undefined,
+          cancelUrl: body.cancelUrl || undefined,
+        });
+
+        return reply.send({
+          success: true,
+          data: result,
+        });
+      } catch (err) {
+        const status = err.statusCode || 500;
+        req.log.error(err);
+        return reply.code(status).send({
+          success: false,
+          code: err.code || "PLAN_UPGRADE_FAILED",
+          message: err.message || "Failed to start plan upgrade checkout",
         });
       }
     },
