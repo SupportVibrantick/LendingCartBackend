@@ -444,6 +444,7 @@ function formatCoBrokerAuthResponse(user, branding, assignedApplicationsCount) {
 }
 
 const CO_BROKER_SELF_EDITABLE_PROFILE_FIELDS = [
+  "company",
   "address",
   "website",
   "linkedinUrl",

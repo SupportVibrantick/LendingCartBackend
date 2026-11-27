@@ -31,6 +31,13 @@ import {
   LO_USER_KEY,
 } from "../../../lib/loanOfficerApi";
 import { hydrateOrgEntitlements } from "../../../lib/brokerEntitlements";
+import {
+  BROKER_BRANDING_UPDATED_EVENT,
+  fetchBrokerPortalBranding,
+  readStoredBrokerBranding,
+  resolveBrokerLogoUrl,
+  type BrokerPortalBranding,
+} from "../../../lib/brokerBranding";
 
 type NavItem = LoanOfficerNavItem & {
   icon?: React.ReactNode;
@@ -162,7 +169,7 @@ const navItems: NavItem[] = [
     name: "Settings",
     subItems: [
       {
-        name: "Branding",
+        name: "Branding & Domain",
         path: "/loan-officer/settings/branding",
         permission: "MANAGE_BRANDING",
       },
@@ -196,21 +203,46 @@ export default function Sidebar() {
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const userMenuRef = useRef<HTMLDivElement | null>(null);
   const [userTick, setUserTick] = useState(0);
-
   const [permTick, setPermTick] = useState(0);
+  const [branding, setBranding] = useState<BrokerPortalBranding>(
+    readStoredBrokerBranding("loan-officer"),
+  );
+
+  const brandTitle = branding.brandName || "Loan Automation";
+  const portalLabel = branding.portalLabel || "Loan Officer";
 
   useEffect(() => {
     void hydrateOrgEntitlements();
     const refresh = () => setPermTick((value) => value + 1);
     const onProfileUpdated = () => setUserTick((value) => value + 1);
+    const onBrandingUpdated = (event: Event) => {
+      const detail = (event as CustomEvent).detail as
+        | { branding?: BrokerPortalBranding; portal?: string }
+        | undefined;
+      if (detail?.portal && detail.portal !== "loan-officer") return;
+      if (detail?.branding) {
+        setBranding(detail.branding);
+        return;
+      }
+      setBranding(readStoredBrokerBranding("loan-officer"));
+    };
     window.addEventListener(LO_PERMISSIONS_UPDATED_EVENT, refresh);
     window.addEventListener(ORG_ENTITLEMENTS_UPDATED_EVENT, refresh);
     window.addEventListener(LO_PROFILE_UPDATED_EVENT, onProfileUpdated);
+    window.addEventListener(BROKER_BRANDING_UPDATED_EVENT, onBrandingUpdated);
     return () => {
       window.removeEventListener(LO_PERMISSIONS_UPDATED_EVENT, refresh);
       window.removeEventListener(ORG_ENTITLEMENTS_UPDATED_EVENT, refresh);
       window.removeEventListener(LO_PROFILE_UPDATED_EVENT, onProfileUpdated);
+      window.removeEventListener(
+        BROKER_BRANDING_UPDATED_EVENT,
+        onBrandingUpdated,
+      );
     };
+  }, []);
+
+  useEffect(() => {
+    void fetchBrokerPortalBranding("loan-officer").then(setBranding);
   }, []);
 
   const visibleNavItems = useMemo(
@@ -469,25 +501,25 @@ export default function Sidebar() {
             <div className="flex items-center gap-2.5">
               <div className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-full bg-brand-500 ring-2 ring-brand-100">
                 <img
-                  src="/loanAutomation.jpeg"
-                  alt="Loan Automation"
+                  src={resolveBrokerLogoUrl(branding.logoUrl)}
+                  alt={brandTitle}
                   className="h-full w-full object-cover"
                 />
               </div>
               <div className="min-w-0">
                 <p className="truncate text-[14px] font-semibold tracking-tight text-text-primary dark:text-white">
-                  LoanAutomation
+                  {brandTitle}
                 </p>
                 <p className="truncate text-[10px] font-semibold uppercase tracking-[0.14em] text-text-secondary">
-                  Loan Officer
+                  {portalLabel}
                 </p>
               </div>
             </div>
           ) : (
             <div className="mx-auto flex h-9 w-9 items-center justify-center overflow-hidden rounded-full bg-brand-500 ring-2 ring-brand-100">
               <img
-                src="/loanAutomation.jpeg"
-                alt="Loan Automation"
+                src={resolveBrokerLogoUrl(branding.logoUrl)}
+                alt={brandTitle}
                 className="h-full w-full object-cover"
               />
             </div>

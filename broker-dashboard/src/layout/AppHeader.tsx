@@ -61,8 +61,8 @@ function resolvePageTitle(pathname: string) {
     pathname.startsWith("/templates")
   )
     return "Applications";
-  if (pathname.startsWith("/settings/branding")) return "Branding";
-  if (pathname.startsWith("/settings/plan")) return "Plan & Add-ons";
+  if (pathname.startsWith("/settings/branding")) return "Branding & Domain";
+  if (pathname.startsWith("/settings/plan")) return "Upgrade";
   if (pathname.startsWith("/settings") || pathname.startsWith("/integrations"))
     return "Settings";
   if (pathname.startsWith("/profile") || pathname.startsWith("/account"))

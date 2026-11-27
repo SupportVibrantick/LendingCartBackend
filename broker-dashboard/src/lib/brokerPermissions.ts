@@ -325,7 +325,7 @@ export const LOAN_OFFICER_NAV_ITEMS: LoanOfficerNavItem[] = [
     name: "Settings",
     subItems: [
       {
-        name: "Branding",
+        name: "Branding & Domain",
         path: "/loan-officer/settings/branding",
         permission: LO_BRANDING_ACCESS_PERMISSIONS,
       },
